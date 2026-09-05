@@ -1,0 +1,2425 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>SWACHHITRA | Smart Waste Command Center</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:FILL@0..1"
+        rel="stylesheet">
+
+    <link rel="stylesheet" href="/dashboard/dashboard.css">
+</head>
+
+<body>
+
+<div class="app">
+
+    <!-- MOBILE OVERLAY -->
+    <div class="mobile-overlay" id="mobileOverlay"></div>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+
+        <div class="brand">
+
+            <div class="brand-mark">
+                <span class="material-symbols-outlined">eco</span>
+            </div>
+
+            <div>
+                <div class="brand-name">SWACHHITRA</div>
+                <div class="brand-subtitle">Smart Waste System</div>
+            </div>
+
+        </div>
+
+        <nav class="sidebar-nav">
+
+            <button class="nav-item active" data-page="overview">
+                <span class="material-symbols-outlined">dashboard</span>
+                <span>Overview</span>
+            </button>
+
+            <button class="nav-item" data-page="tracking">
+                <span class="material-symbols-outlined">location_on</span>
+                <span>Live Tracking</span>
+            </button>
+
+            <button class="nav-item" data-page="analytics">
+                <span class="material-symbols-outlined">bar_chart</span>
+                <span>Waste Analytics</span>
+            </button>
+
+            <button class="nav-item" data-page="bins">
+                <span class="material-symbols-outlined">delete</span>
+                <span>Bin Health</span>
+            </button>
+
+            <button class="nav-item" data-page="routes">
+                <span class="material-symbols-outlined">route</span>
+                <span>Routes</span>
+            </button>
+
+            <button class="nav-item" data-page="operations">
+                <span class="material-symbols-outlined">sync_alt</span>
+                <span>Collection Operations</span>
+            </button>
+
+            <button class="nav-item" data-page="reports">
+                <span class="material-symbols-outlined">report</span>
+                <span>Citizen Reports</span>
+            </button>
+
+            <button class="nav-item" data-page="staff">
+                <span class="material-symbols-outlined">group</span>
+                <span>Staff Management</span>
+            </button>
+
+            <button class="nav-item" data-page="notifications">
+                <span class="material-symbols-outlined">notifications</span>
+                <span>Notifications</span>
+            </button>
+
+        </nav>
+
+        <div class="sidebar-bottom">
+
+            <button class="nav-item">
+                <span class="material-symbols-outlined">settings</span>
+                <span>Settings</span>
+            </button>
+
+            <button class="nav-item">
+                <span class="material-symbols-outlined">help</span>
+                <span>Help</span>
+            </button>
+
+            <a href="/login" class="login-side-btn">
+                <span class="material-symbols-outlined">login</span>
+                Login / Sign Up
+            </a>
+
+        </div>
+
+    </aside>
+
+
+    <!-- MAIN -->
+    <main class="main">
+
+        <!-- TOP BAR -->
+        <header class="topbar">
+
+            <button class="mobile-menu" id="mobileMenu">
+                <span class="material-symbols-outlined">menu</span>
+            </button>
+
+            <div class="search-box">
+
+                <span class="material-symbols-outlined">
+                    search
+                </span>
+
+                <input
+                    id="globalSearch"
+                    type="text"
+                    placeholder="Search routes, bins, trucks..."
+                >
+
+            </div>
+
+            <div class="top-actions">
+
+                <button class="top-icon" id="notificationBtn">
+                    <span class="material-symbols-outlined">
+                        notifications
+                    </span>
+
+                    <span class="notification-dot"></span>
+                </button>
+
+                <button class="top-icon">
+                    <span class="material-symbols-outlined">
+                        help
+                    </span>
+                </button>
+
+                <div class="top-divider"></div>
+
+                <div class="network-status">
+
+                    <span class="status-pulse"></span>
+
+                    <span>Network Status</span>
+
+                    <strong>Operational</strong>
+
+                </div>
+
+                <a href="/login" class="top-login">
+                    Login
+                </a>
+
+            </div>
+
+        </header>
+
+
+        <!-- PAGE CONTENT -->
+        <section class="content">
+
+            <!-- ================================= -->
+            <!-- OVERVIEW -->
+            <!-- ================================= -->
+
+            <div class="page active" id="overview">
+
+                <div class="page-header">
+
+                    <div>
+                        <div class="eyebrow">
+                            MUNICIPAL OPERATIONS
+                        </div>
+
+                        <h1>City Command Center</h1>
+
+                        <p>
+                            Real-time visibility across waste collection,
+                            fleet movement, routes and citizen reports.
+                        </p>
+                    </div>
+
+                    <div class="header-actions">
+
+                        <button class="soft-btn">
+                            <span class="material-symbols-outlined">
+                                calendar_today
+                            </span>
+                            Today
+                        </button>
+
+                        <button class="soft-btn">
+                            <span class="material-symbols-outlined">
+                                filter_alt
+                            </span>
+                            Filter Zones
+                        </button>
+
+                        <a href="/login" class="primary-btn">
+                            Login / Sign Up
+                        </a>
+
+                    </div>
+
+                </div>
+
+
+                <!-- KPI -->
+                <div class="kpi-grid">
+
+                    <div class="kpi-card efficiency-card">
+
+                        <div class="card-title">
+                            Collection Efficiency
+                        </div>
+
+                        <div class="efficiency-ring">
+
+                            <svg viewBox="0 0 120 120">
+
+                                <circle
+                                    class="ring-bg"
+                                    cx="60"
+                                    cy="60"
+                                    r="48">
+                                </circle>
+
+                                <circle
+                                    class="ring-progress"
+                                    cx="60"
+                                    cy="60"
+                                    r="48">
+                                </circle>
+
+                            </svg>
+
+                            <div class="ring-value">
+
+                                <strong>85</strong>
+                                <span>%</span>
+
+                                <small>OPTIMAL</small>
+
+                            </div>
+
+                        </div>
+
+                        <div class="kpi-footer">
+
+                            <div>
+                                <span>VS LAST WEEK</span>
+                                <strong class="positive">
+                                    ↑ 4.2%
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>TARGET</span>
+                                <strong>90%</strong>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="kpi-card">
+
+                        <div class="kpi-icon green">
+                            <span class="material-symbols-outlined">
+                                delete_sweep
+                            </span>
+                        </div>
+
+                        <span class="kpi-status">
+                            LIVE
+                        </span>
+
+                        <div class="kpi-bottom">
+
+                            <span>TOTAL COLLECTIONS</span>
+
+                            <strong>
+                                12,450
+                            </strong>
+
+                            <small>
+                                +12%
+                            </small>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="kpi-card">
+
+                        <div class="kpi-icon neutral">
+                            <span class="material-symbols-outlined">
+                                local_shipping
+                            </span>
+                        </div>
+
+                        <span class="alert-badge">
+                            2 DELAYED
+                        </span>
+
+                        <div class="kpi-bottom">
+
+                            <span>ACTIVE FLEET</span>
+
+                            <strong>
+                                48/50
+                            </strong>
+
+                            <small>
+                                Vehicles
+                            </small>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="kpi-card">
+
+                        <div class="kpi-icon green">
+                            <span class="material-symbols-outlined">
+                                eco
+                            </span>
+                        </div>
+
+                        <div class="kpi-bottom">
+
+                            <span>WASTE DIVERTED</span>
+
+                            <strong>
+                                8.2k
+                            </strong>
+
+                            <small>
+                                Tons
+                            </small>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- LIVE OPERATIONS -->
+                <div class="section-title-row">
+
+                    <div>
+                        <div class="eyebrow">
+                            LIVE TELEMETRY
+                        </div>
+
+                        <h2>Live Operations</h2>
+                    </div>
+
+                    <div class="live-indicator">
+                        <span></span>
+                        Live Updates
+                    </div>
+
+                </div>
+
+
+                <div class="operations-grid">
+
+                    <div class="panel fleet-panel">
+
+                        <div class="panel-header">
+
+                            <div>
+                                <h3>Fleet Movement</h3>
+                                <p>
+                                    Active collection vehicles
+                                </p>
+                            </div>
+
+                            <button
+                                class="view-btn"
+                                data-page-link="tracking">
+                                View Map
+                            </button>
+
+                        </div>
+
+                        <div class="mini-map">
+
+                            <div class="map-grid"></div>
+
+                            <div class="road road-a"></div>
+                            <div class="road road-b"></div>
+                            <div class="road road-c"></div>
+
+                            <div
+                                class="truck-marker marker-1"
+                                data-truck="TRK-024">
+                                <span class="material-symbols-outlined">
+                                    local_shipping
+                                </span>
+                            </div>
+
+                            <div
+                                class="truck-marker marker-2"
+                                data-truck="TRK-012">
+                                <span class="material-symbols-outlined">
+                                    local_shipping
+                                </span>
+                            </div>
+
+                            <div
+                                class="truck-marker marker-3"
+                                data-truck="TRK-045">
+                                <span class="material-symbols-outlined">
+                                    local_shipping
+                                </span>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="panel action-panel">
+
+                        <div class="panel-header">
+
+                            <div>
+                                <h3>Action Center</h3>
+                                <p>
+                                    Items requiring attention
+                                </p>
+                            </div>
+
+                            <span class="critical-count">
+                                05
+                            </span>
+
+                        </div>
+
+
+                        <div class="action-list">
+
+                            <button class="action-item critical">
+
+                                <span class="action-icon">
+                                    <span class="material-symbols-outlined">
+                                        warning
+                                    </span>
+                                </span>
+
+                                <div>
+                                    <strong>
+                                        Route 4 Overload
+                                    </strong>
+
+                                    <small>
+                                        Requires dispatch
+                                    </small>
+                                </div>
+
+                                <span class="action-arrow">
+                                    →
+                                </span>
+
+                            </button>
+
+
+                            <button class="action-item warning">
+
+                                <span class="action-icon">
+                                    <span class="material-symbols-outlined">
+                                        local_gas_station
+                                    </span>
+                                </span>
+
+                                <div>
+                                    <strong>
+                                        Truck TRK-012 Low Fuel
+                                    </strong>
+
+                                    <small>
+                                        Dispatch required
+                                    </small>
+                                </div>
+
+                                <span class="action-arrow">
+                                    →
+                                </span>
+
+                            </button>
+
+
+                            <button class="action-item">
+
+                                <span class="action-icon">
+                                    <span class="material-symbols-outlined">
+                                        delete
+                                    </span>
+                                </span>
+
+                                <div>
+                                    <strong>
+                                        Bin BIN-104 Critical
+                                    </strong>
+
+                                    <small>
+                                        94% full
+                                    </small>
+                                </div>
+
+                                <span class="action-arrow">
+                                    →
+                                </span>
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- COLLECTION FLOW -->
+                <div class="panel collection-flow">
+
+                    <div class="panel-header">
+
+                        <div>
+                            <h3>
+                                SWACHHITRA Collection Ecosystem
+                            </h3>
+
+                            <p>
+                                From household generation to final processing
+                            </p>
+                        </div>
+
+                        <span class="demo-label">
+                            DEMO SYSTEM
+                        </span>
+
+                    </div>
+
+
+                    <div class="flow">
+
+                        <div class="flow-step active">
+
+                            <div class="flow-icon">
+                                <span class="material-symbols-outlined">
+                                    home
+                                </span>
+                            </div>
+
+                            <strong>Citizen</strong>
+                            <small>Waste Generated</small>
+
+                        </div>
+
+                        <div class="flow-line"></div>
+
+                        <div class="flow-step">
+
+                            <div class="flow-icon">
+                                <span class="material-symbols-outlined">
+                                    delete_sweep
+                                </span>
+                            </div>
+
+                            <strong>Collection</strong>
+                            <small>Door-to-door</small>
+
+                        </div>
+
+                        <div class="flow-line"></div>
+
+                        <div class="flow-step">
+
+                            <div class="flow-icon">
+                                <span class="material-symbols-outlined">
+                                    local_shipping
+                                </span>
+                            </div>
+
+                            <strong>Vehicle</strong>
+                            <small>GPS tracked</small>
+
+                        </div>
+
+                        <div class="flow-line"></div>
+
+                        <div class="flow-step">
+
+                            <div class="flow-icon">
+                                <span class="material-symbols-outlined">
+                                    warehouse
+                                </span>
+                            </div>
+
+                            <strong>Transfer</strong>
+                            <small>Ward station</small>
+
+                        </div>
+
+                        <div class="flow-line"></div>
+
+                        <div class="flow-step">
+
+                            <div class="flow-icon">
+                                <span class="material-symbols-outlined">
+                                    recycling
+                                </span>
+                            </div>
+
+                            <strong>Processing</strong>
+                            <small>Recovery</small>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- REPORTS -->
+                <div class="panel reports-preview">
+
+                    <div class="panel-header">
+
+                        <div>
+                            <h3>Citizen Sentiment & Reports</h3>
+                            <p>
+                                Recent activity from residents
+                            </p>
+                        </div>
+
+                        <button
+                            class="view-btn"
+                            data-page-link="reports">
+                            View All Reports
+                        </button>
+
+                    </div>
+
+
+                    <div class="report-preview-grid">
+
+                        <div class="report-mini positive-report">
+
+                            <span class="report-dot"></span>
+
+                            <div>
+                                <strong>
+                                    Zone A - Pickup Complete
+                                </strong>
+
+                                <p>
+                                    Automated collection completed successfully.
+                                </p>
+                            </div>
+
+                            <small>
+                                10m ago
+                            </small>
+
+                        </div>
+
+
+                        <div class="report-mini critical-report">
+
+                            <span class="report-dot"></span>
+
+                            <div>
+                                <strong>
+                                    Citizen Report: Overflow
+                                </strong>
+
+                                <p>
+                                    Multiple reports near Central Plaza.
+                                </p>
+                            </div>
+
+                            <small>
+                                1h ago
+                            </small>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================================= -->
+            <!-- LIVE TRACKING -->
+            <!-- ================================= -->
+
+            <div class="page" id="tracking">
+
+                <div class="page-header">
+
+                    <div>
+                        <div class="eyebrow">FLEET INTELLIGENCE</div>
+                        <h1>Live Fleet Tracking</h1>
+
+                        <p>
+                            Demonstration view of municipal collection vehicles.
+                        </p>
+                    </div>
+
+                    <div class="header-actions">
+
+                        <button class="soft-btn">
+                            <span class="status-pulse"></span>
+                            Live Tracking
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <div class="tracking-layout">
+
+                    <div class="panel vehicle-list">
+
+                        <div class="panel-header">
+
+                            <div>
+                                <h3>Active Fleet</h3>
+                                <p>50 registered vehicles</p>
+                            </div>
+
+                            <span class="count-chip">
+                                48 Active
+                            </span>
+
+                        </div>
+
+
+                        <div class="vehicle-items">
+
+                            <button class="vehicle-item selected">
+
+                                <div class="vehicle-icon">
+                                    <span class="material-symbols-outlined">
+                                        local_shipping
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <strong>TRK-024</strong>
+                                    <span>Central Zone</span>
+                                </div>
+
+                                <div class="vehicle-fill">
+                                    68%
+                                </div>
+
+                            </button>
+
+
+                            <button class="vehicle-item">
+
+                                <div class="vehicle-icon">
+                                    <span class="material-symbols-outlined">
+                                        local_shipping
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <strong>TRK-012</strong>
+                                    <span>North Zone</span>
+                                </div>
+
+                                <div class="vehicle-fill warning-text">
+                                    82%
+                                </div>
+
+                            </button>
+
+
+                            <button class="vehicle-item">
+
+                                <div class="vehicle-icon">
+                                    <span class="material-symbols-outlined">
+                                        local_shipping
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <strong>TRK-045</strong>
+                                    <span>East Zone</span>
+                                </div>
+
+                                <div class="vehicle-fill">
+                                    41%
+                                </div>
+
+                            </button>
+
+
+                            <button class="vehicle-item">
+
+                                <div class="vehicle-icon">
+                                    <span class="material-symbols-outlined">
+                                        local_shipping
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <strong>TRK-102</strong>
+                                    <span>South Zone</span>
+                                </div>
+
+                                <div class="vehicle-fill">
+                                    57%
+                                </div>
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="panel large-map">
+
+                        <div class="map-toolbar">
+
+                            <span>
+                                CITY FLEET MAP
+                            </span>
+
+                            <div>
+                                <button>+</button>
+                                <button>−</button>
+                            </div>
+
+                        </div>
+
+
+                        <div class="map-background">
+
+                            <div class="map-water"></div>
+
+                            <div class="city-road r1"></div>
+                            <div class="city-road r2"></div>
+                            <div class="city-road r3"></div>
+                            <div class="city-road r4"></div>
+                            <div class="city-road r5"></div>
+
+                            <div class="zone-label z1">
+                                CENTRAL ZONE
+                            </div>
+
+                            <div class="zone-label z2">
+                                NORTH
+                            </div>
+
+                            <div class="zone-label z3">
+                                EAST
+                            </div>
+
+
+                            <button
+                                class="map-truck mt1"
+                                data-truck="TRK-024">
+                                <span class="material-symbols-outlined">
+                                    local_shipping
+                                </span>
+                            </button>
+
+                            <button
+                                class="map-truck mt2"
+                                data-truck="TRK-012">
+                                <span class="material-symbols-outlined">
+                                    local_shipping
+                                </span>
+                            </button>
+
+                            <button
+                                class="map-truck mt3"
+                                data-truck="TRK-045">
+                                <span class="material-symbols-outlined">
+                                    local_shipping
+                                </span>
+                            </button>
+
+
+                            <div class="route-line route-one"></div>
+                            <div class="route-line route-two"></div>
+
+                        </div>
+
+
+                        <div class="map-info">
+
+                            <div>
+
+                                <span class="status-pulse"></span>
+
+                                <strong>
+                                    TRK-024
+                                </strong>
+
+                                <small>
+                                    Collecting
+                                </small>
+
+                            </div>
+
+                            <div>
+                                <span>Route</span>
+                                <strong>R-017</strong>
+                            </div>
+
+                            <div>
+                                <span>ETA</span>
+                                <strong>14 min</strong>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================================= -->
+            <!-- ANALYTICS -->
+            <!-- ================================= -->
+
+            <div class="page" id="analytics">
+
+                <div class="page-header">
+
+                    <div>
+                        <div class="eyebrow">DATA INTELLIGENCE</div>
+                        <h1>Waste Analytics</h1>
+
+                        <p>
+                            Demonstration analytics for collection and environmental impact.
+                        </p>
+                    </div>
+
+                    <button class="primary-btn">
+                        Export Report
+                    </button>
+
+                </div>
+
+
+                <div class="analytics-grid">
+
+                    <div class="analytic-card">
+                        <span>Total Waste</span>
+                        <strong>8.2k</strong>
+                        <small>Tons</small>
+                    </div>
+
+                    <div class="analytic-card">
+                        <span>Daily Average</span>
+                        <strong>240</strong>
+                        <small>Tons</small>
+                    </div>
+
+                    <div class="analytic-card">
+                        <span>Recycling Rate</span>
+                        <strong>48%</strong>
+                        <small>Recovered</small>
+                    </div>
+
+                    <div class="analytic-card green-card">
+                        <span>CO₂ Saved</span>
+                        <strong>1.2t</strong>
+                        <small>Estimated</small>
+                    </div>
+
+                </div>
+
+
+                <div class="analytics-layout">
+
+                    <div class="panel chart-panel">
+
+                        <div class="panel-header">
+
+                            <div>
+                                <h3>Daily Waste Collection</h3>
+                                <p>Last 7 days</p>
+                            </div>
+
+                            <button class="soft-btn">
+                                Last 7 Days
+                            </button>
+
+                        </div>
+
+                        <div class="bar-chart">
+
+                            <div class="bar-col">
+                                <div class="bar" style="--height:48%"></div>
+                                <span>Mon</span>
+                            </div>
+
+                            <div class="bar-col">
+                                <div class="bar" style="--height:66%"></div>
+                                <span>Tue</span>
+                            </div>
+
+                            <div class="bar-col">
+                                <div class="bar" style="--height:42%"></div>
+                                <span>Wed</span>
+                            </div>
+
+                            <div class="bar-col">
+                                <div class="bar" style="--height:78%"></div>
+                                <span>Thu</span>
+                            </div>
+
+                            <div class="bar-col">
+                                <div class="bar highlight" style="--height:94%"></div>
+                                <span>Fri</span>
+                            </div>
+
+                            <div class="bar-col">
+                                <div class="bar" style="--height:56%"></div>
+                                <span>Sat</span>
+                            </div>
+
+                            <div class="bar-col">
+                                <div class="bar" style="--height:72%"></div>
+                                <span>Sun</span>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="panel distribution-panel">
+
+                        <div class="panel-header">
+
+                            <div>
+                                <h3>Waste Distribution</h3>
+                                <p>By category</p>
+                            </div>
+
+                        </div>
+
+                        <div class="donut-wrap">
+
+                            <div class="donut">
+                                <div>
+                                    <strong>8.2k</strong>
+                                    <span>tons</span>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div class="legend">
+
+                            <span>
+                                <i class="wet"></i>
+                                Wet
+                                <b>42%</b>
+                            </span>
+
+                            <span>
+                                <i class="dry"></i>
+                                Dry
+                                <b>31%</b>
+                            </span>
+
+                            <span>
+                                <i class="recycle"></i>
+                                Recyclable
+                                <b>18%</b>
+                            </span>
+
+                            <span>
+                                <i class="other"></i>
+                                Other
+                                <b>9%</b>
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================================= -->
+            <!-- BIN HEALTH -->
+            <!-- ================================= -->
+
+            <div class="page" id="bins">
+
+                <div class="page-header">
+
+                    <div>
+                        <div class="eyebrow">SMART BIN MONITORING</div>
+                        <h1>Bin Health</h1>
+
+                        <p>
+                            Monitor collection points and overflow risk.
+                        </p>
+                    </div>
+
+                    <button class="soft-btn">
+                        Filter Zones
+                    </button>
+
+                </div>
+
+
+                <div class="bin-summary">
+
+                    <div>
+                        <span>Total Bins</span>
+                        <strong>1,240</strong>
+                    </div>
+
+                    <div>
+                        <span>Normal</span>
+                        <strong>964</strong>
+                    </div>
+
+                    <div>
+                        <span>Filling Soon</span>
+                        <strong>198</strong>
+                    </div>
+
+                    <div class="critical-summary">
+                        <span>Critical</span>
+                        <strong>78</strong>
+                    </div>
+
+                </div>
+
+
+                <div class="bin-layout">
+
+                    <div class="panel bin-map">
+
+                        <div class="map-background">
+
+                            <div class="city-road r1"></div>
+                            <div class="city-road r2"></div>
+                            <div class="city-road r3"></div>
+
+                            <div class="bin-marker normal bm1">
+                                <span class="material-symbols-outlined">
+                                    delete
+                                </span>
+                            </div>
+
+                            <div class="bin-marker warning bm2">
+                                <span class="material-symbols-outlined">
+                                    delete
+                                </span>
+                            </div>
+
+                            <div class="bin-marker critical bm3">
+                                <span class="material-symbols-outlined">
+                                    delete
+                                </span>
+                            </div>
+
+                            <div class="bin-marker normal bm4">
+                                <span class="material-symbols-outlined">
+                                    delete
+                                </span>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="panel critical-bins">
+
+                        <div class="panel-header">
+
+                            <div>
+                                <h3>Critical Bins</h3>
+                                <p>Requires attention</p>
+                            </div>
+
+                            <span class="critical-count">
+                                78
+                            </span>
+
+                        </div>
+
+
+                        <div class="critical-list">
+
+                            <button class="critical-bin">
+                                <div>
+                                    <strong>BIN-104</strong>
+                                    <span>Central Market</span>
+                                </div>
+
+                                <b>94%</b>
+                            </button>
+
+                            <button class="critical-bin">
+                                <div>
+                                    <strong>BIN-228</strong>
+                                    <span>Ward 7</span>
+                                </div>
+
+                                <b>91%</b>
+                            </button>
+
+                            <button class="critical-bin">
+                                <div>
+                                    <strong>BIN-317</strong>
+                                    <span>Station Road</span>
+                                </div>
+
+                                <b>88%</b>
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================================= -->
+            <!-- ROUTES -->
+            <!-- ================================= -->
+
+            <div class="page" id="routes">
+
+                <div class="page-header">
+
+                    <div>
+                        <div class="eyebrow">ROUTE INTELLIGENCE</div>
+                        <h1>Route Management</h1>
+
+                        <p>
+                            Monitor route completion and operational status.
+                        </p>
+                    </div>
+
+                    <div class="header-actions">
+
+                        <button class="soft-btn">
+                            Today
+                        </button>
+
+                        <button class="primary-btn">
+                            + New Route
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <div class="route-summary">
+
+                    <div>
+                        <span>Active Routes</span>
+                        <strong>24/30</strong>
+                    </div>
+
+                    <div>
+                        <span>Completion Rate</span>
+                        <strong>76%</strong>
+                    </div>
+
+                    <div>
+                        <span>Delayed Routes</span>
+                        <strong class="red">2</strong>
+                    </div>
+
+                    <div>
+                        <span>Stops</span>
+                        <strong>1,428</strong>
+                    </div>
+
+                </div>
+
+
+                <div class="panel table-panel">
+
+                    <div class="table-toolbar">
+
+                        <input
+                            class="table-search"
+                            placeholder="Search route..."
+                            id="routeSearch"
+                        >
+
+                        <select id="routeStatus">
+
+                            <option value="all">
+                                All Status
+                            </option>
+
+                            <option value="active">
+                                Active
+                            </option>
+
+                            <option value="completed">
+                                Completed
+                            </option>
+
+                            <option value="delayed">
+                                Delayed
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="table-wrapper">
+
+                        <table>
+
+                            <thead>
+
+                                <tr>
+                                    <th>Route</th>
+                                    <th>Zone</th>
+                                    <th>Vehicle</th>
+                                    <th>Stops</th>
+                                    <th>Progress</th>
+                                    <th>Status</th>
+                                </tr>
+
+                            </thead>
+
+                            <tbody id="routeTable">
+
+                                <tr data-status="active">
+                                    <td>R-001</td>
+                                    <td>Central</td>
+                                    <td>TRK-012</td>
+                                    <td>76 / 84</td>
+                                    <td>
+                                        <div class="table-progress">
+                                            <span style="width:90%"></span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="status active">
+                                            Active
+                                        </span>
+                                    </td>
+                                </tr>
+
+                                <tr data-status="completed">
+                                    <td>R-002</td>
+                                    <td>North</td>
+                                    <td>TRK-045</td>
+                                    <td>62 / 62</td>
+                                    <td>
+                                        <div class="table-progress">
+                                            <span style="width:100%"></span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="status completed">
+                                            Completed
+                                        </span>
+                                    </td>
+                                </tr>
+
+                                <tr data-status="delayed">
+                                    <td>R-003</td>
+                                    <td>East</td>
+                                    <td>TRK-112</td>
+                                    <td>34 / 90</td>
+                                    <td>
+                                        <div class="table-progress warning-progress">
+                                            <span style="width:38%"></span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="status delayed">
+                                            Delayed
+                                        </span>
+                                    </td>
+                                </tr>
+
+                                <tr data-status="active">
+                                    <td>R-004</td>
+                                    <td>East</td>
+                                    <td>TRK-088</td>
+                                    <td>49 / 65</td>
+                                    <td>
+                                        <div class="table-progress">
+                                            <span style="width:75%"></span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="status active">
+                                            Active
+                                        </span>
+                                    </td>
+                                </tr>
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================================= -->
+            <!-- COLLECTION OPERATIONS -->
+            <!-- ================================= -->
+
+            <div class="page" id="operations">
+
+                <div class="page-header">
+
+                    <div>
+                        <div class="eyebrow">FIELD OPERATIONS</div>
+                        <h1>Collection Operations</h1>
+
+                        <p>
+                            Demonstration view of today's collection workflow.
+                        </p>
+                    </div>
+
+                    <button class="primary-btn">
+                        Export Report
+                    </button>
+
+                </div>
+
+
+                <div class="operations-kpis">
+
+                    <div>
+                        <span>Households Scheduled</span>
+                        <strong>18,420</strong>
+                    </div>
+
+                    <div class="success-box">
+                        <span>Collected</span>
+                        <strong>15,920</strong>
+                    </div>
+
+                    <div>
+                        <span>Pending</span>
+                        <strong>1,840</strong>
+                    </div>
+
+                    <div class="danger-box">
+                        <span>Missed</span>
+                        <strong>660</strong>
+                    </div>
+
+                    <div class="dark-box">
+                        <span>Completion</span>
+                        <strong>86.4%</strong>
+                    </div>
+
+                </div>
+
+
+                <div class="panel collection-diagram">
+
+                    <div class="panel-header">
+
+                        <div>
+                            <h3>Active Workflow</h3>
+                            <p>
+                                Current collection process
+                            </p>
+                        </div>
+
+                        <span class="live-indicator">
+                            <span></span>
+                            LIVE
+                        </span>
+
+                    </div>
+
+
+                    <div class="workflow">
+
+                        <div class="workflow-node active">
+                            <span class="material-symbols-outlined">
+                                home
+                            </span>
+                            <strong>Citizen</strong>
+                            <small>Waste Ready</small>
+                        </div>
+
+                        <div class="workflow-connector"></div>
+
+                        <div class="workflow-node active">
+                            <span class="material-symbols-outlined">
+                                qr_code_scanner
+                            </span>
+                            <strong>Collection</strong>
+                            <small>Verified</small>
+                        </div>
+
+                        <div class="workflow-connector"></div>
+
+                        <div class="workflow-node active">
+                            <span class="material-symbols-outlined">
+                                local_shipping
+                            </span>
+                            <strong>Vehicle</strong>
+                            <small>In Transit</small>
+                        </div>
+
+                        <div class="workflow-connector"></div>
+
+                        <div class="workflow-node">
+                            <span class="material-symbols-outlined">
+                                warehouse
+                            </span>
+                            <strong>Transfer</strong>
+                            <small>Pending</small>
+                        </div>
+
+                        <div class="workflow-connector"></div>
+
+                        <div class="workflow-node">
+                            <span class="material-symbols-outlined">
+                                recycling
+                            </span>
+                            <strong>Processing</strong>
+                            <small>Scheduled</small>
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="panel shift-panel">
+
+                    <div class="panel-header">
+
+                        <div>
+                            <h3>Shift Progress Overview</h3>
+                            <p>
+                                Demonstration schedule
+                            </p>
+                        </div>
+
+                    </div>
+
+
+                    <div class="shift-grid">
+
+                        <div class="shift-card">
+
+                            <div class="shift-head">
+                                <strong>Morning Shift</strong>
+                                <span>95%</span>
+                            </div>
+
+                            <small>
+                                06:00 - 14:00
+                            </small>
+
+                            <div class="progress">
+                                <span style="width:95%"></span>
+                            </div>
+
+                        </div>
+
+
+                        <div class="shift-card">
+
+                            <div class="shift-head">
+                                <strong>Afternoon Shift</strong>
+                                <span>42%</span>
+                            </div>
+
+                            <small>
+                                14:00 - 22:00
+                            </small>
+
+                            <div class="progress">
+                                <span style="width:42%"></span>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================================= -->
+            <!-- REPORTS -->
+            <!-- ================================= -->
+
+            <div class="page" id="reports">
+
+                <div class="page-header">
+
+                    <div>
+                        <div class="eyebrow">CITIZEN PARTICIPATION</div>
+                        <h1>Citizen Reports</h1>
+
+                        <p>
+                            Demonstration view of public sanitation reports.
+                        </p>
+                    </div>
+
+                    <button class="primary-btn">
+                        New Report
+                    </button>
+
+                </div>
+
+
+                <div class="report-stats">
+
+                    <div>
+                        <span>Total Reports</span>
+                        <strong>126</strong>
+                    </div>
+
+                    <div>
+                        <span>Open</span>
+                        <strong class="red">24</strong>
+                    </div>
+
+                    <div>
+                        <span>In Progress</span>
+                        <strong>18</strong>
+                    </div>
+
+                    <div>
+                        <span>Resolved</span>
+                        <strong class="green-text">84</strong>
+                    </div>
+
+                </div>
+
+
+                <div class="reports-layout">
+
+                    <div class="panel reports-list-panel">
+
+                        <div class="table-toolbar">
+
+                            <input
+                                id="reportSearch"
+                                class="table-search"
+                                placeholder="Search reports..."
+                            >
+
+                            <select id="reportFilter">
+
+                                <option value="all">
+                                    All
+                                </option>
+
+                                <option value="open">
+                                    Open
+                                </option>
+
+                                <option value="progress">
+                                    In Progress
+                                </option>
+
+                                <option value="resolved">
+                                    Resolved
+                                </option>
+
+                            </select>
+
+                        </div>
+
+
+                        <div class="reports-list">
+
+                            <button
+                                class="report-row"
+                                data-report="CR-1042">
+
+                                <div class="report-thumbnail">
+                                    <span class="material-symbols-outlined">
+                                        delete
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <strong>
+                                        Overflowing waste container
+                                    </strong>
+
+                                    <span>
+                                        Central Market · 18 min ago
+                                    </span>
+                                </div>
+
+                                <span class="status delayed">
+                                    Open
+                                </span>
+
+                            </button>
+
+
+                            <button
+                                class="report-row"
+                                data-report="CR-1041">
+
+                                <div class="report-thumbnail">
+                                    <span class="material-symbols-outlined">
+                                        recycling
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <strong>
+                                        Damaged recycling bin
+                                    </strong>
+
+                                    <span>
+                                        Ward 4 · 1 hr ago
+                                    </span>
+                                </div>
+
+                                <span class="status active">
+                                    Progress
+                                </span>
+
+                            </button>
+
+
+                            <button
+                                class="report-row"
+                                data-report="CR-1038">
+
+                                <div class="report-thumbnail">
+                                    <span class="material-symbols-outlined">
+                                        delete_sweep
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <strong>
+                                        Missed garbage pickup
+                                    </strong>
+
+                                    <span>
+                                        Station Road · Yesterday
+                                    </span>
+                                </div>
+
+                                <span class="status completed">
+                                    Resolved
+                                </span>
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="panel report-detail">
+
+                        <div class="report-detail-header">
+
+                            <span class="eyebrow">
+                                SELECTED REPORT
+                            </span>
+
+                            <span class="status delayed">
+                                HIGH PRIORITY
+                            </span>
+
+                        </div>
+
+                        <h3 id="selectedReportTitle">
+                            CR-1042
+                        </h3>
+
+                        <h2>
+                            Overflowing waste container
+                        </h2>
+
+                        <p>
+                            Multiple reports of overflowing waste near Central Market.
+                            This is demonstration data for the SWACHHITRA prototype.
+                        </p>
+
+
+                        <div class="detail-grid">
+
+                            <div>
+                                <span>Location</span>
+                                <strong>Central Market</strong>
+                            </div>
+
+                            <div>
+                                <span>Reported</span>
+                                <strong>18 min ago</strong>
+                            </div>
+
+                            <div>
+                                <span>Category</span>
+                                <strong>Overflow</strong>
+                            </div>
+
+                            <div>
+                                <span>Status</span>
+                                <strong>Open</strong>
+                            </div>
+
+                        </div>
+
+
+                        <div class="detail-actions">
+
+                            <button class="primary-btn">
+                                Assign Vehicle
+                            </button>
+
+                            <button class="soft-btn">
+                                Dispatch Inspector
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================================= -->
+            <!-- STAFF -->
+            <!-- ================================= -->
+
+            <div class="page" id="staff">
+
+                <div class="page-header">
+
+                    <div>
+                        <div class="eyebrow">MUNICIPAL WORKFORCE</div>
+                        <h1>Staff Management</h1>
+
+                        <p>
+                            Manage drivers, inspectors and collection teams.
+                        </p>
+                    </div>
+
+                    <div class="header-actions">
+
+                        <button class="soft-btn">
+                            42 Drivers
+                        </button>
+
+                        <button class="primary-btn">
+                            + Add Staff
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <div class="staff-tabs">
+
+                    <button class="active">
+                        Drivers (42)
+                    </button>
+
+                    <button>
+                        Inspectors (15)
+                    </button>
+
+                    <button>
+                        Collection Staff (89)
+                    </button>
+
+                </div>
+
+
+                <div class="staff-grid">
+
+                    <div class="staff-card">
+
+                        <div class="avatar">
+                            RK
+                        </div>
+
+                        <div class="staff-info">
+                            <strong>Rajesh Kumar</strong>
+                            <span>Driver · Central Zone</span>
+                        </div>
+
+                        <span class="status active">
+                            On Route
+                        </span>
+
+                        <div class="staff-meta">
+                            TRK-024 · R-017
+                        </div>
+
+                    </div>
+
+
+                    <div class="staff-card">
+
+                        <div class="avatar">
+                            AD
+                        </div>
+
+                        <div class="staff-info">
+                            <strong>Anita Desai</strong>
+                            <span>Driver · East Zone</span>
+                        </div>
+
+                        <span class="status active">
+                            On Route
+                        </span>
+
+                        <div class="staff-meta">
+                            TRK-194
+                        </div>
+
+                    </div>
+
+
+                    <div class="staff-card">
+
+                        <div class="avatar">
+                            SM
+                        </div>
+
+                        <div class="staff-info">
+                            <strong>Sunil Mehta</strong>
+                            <span>Driver · North Zone</span>
+                        </div>
+
+                        <span class="status">
+                            Available
+                        </span>
+
+                        <div class="staff-meta">
+                            TRK-088
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="panel table-panel">
+
+                    <div class="panel-header">
+
+                        <div>
+                            <h3>Daily Task Completion</h3>
+                            <p>
+                                Demonstration workforce activity
+                            </p>
+                        </div>
+
+                    </div>
+
+
+                    <div class="table-wrapper">
+
+                        <table>
+
+                            <thead>
+
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Role</th>
+                                    <th>Zone</th>
+                                    <th>Task</th>
+                                    <th>Progress</th>
+                                </tr>
+
+                            </thead>
+
+                            <tbody>
+
+                                <tr>
+                                    <td>Rajesh Kumar</td>
+                                    <td>Driver</td>
+                                    <td>Central</td>
+                                    <td>R-017</td>
+                                    <td>
+                                        <div class="table-progress">
+                                            <span style="width:75%"></span>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Anita Desai</td>
+                                    <td>Driver</td>
+                                    <td>East</td>
+                                    <td>R-021</td>
+                                    <td>
+                                        <div class="table-progress">
+                                            <span style="width:88%"></span>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Vikram Joshi</td>
+                                    <td>Inspector</td>
+                                    <td>South</td>
+                                    <td>Inspection</td>
+                                    <td>
+                                        <div class="table-progress">
+                                            <span style="width:100%"></span>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================================= -->
+            <!-- NOTIFICATIONS -->
+            <!-- ================================= -->
+
+            <div class="page" id="notifications">
+
+                <div class="page-header">
+
+                    <div>
+                        <div class="eyebrow">OPERATIONAL RESPONSE</div>
+                        <h1>Notifications & Action Center</h1>
+
+                        <p>
+                            Prioritized alerts and operational decisions.
+                        </p>
+                    </div>
+
+                    <button class="soft-btn">
+                        Mark All Read
+                    </button>
+
+                </div>
+
+
+                <div class="notification-layout">
+
+                    <div class="panel priority-panel">
+
+                        <div class="panel-header">
+
+                            <div>
+                                <h3>Priority Decisions</h3>
+                                <p>
+                                    Issues requiring municipal attention
+                                </p>
+                            </div>
+
+                            <span class="critical-count">
+                                05
+                            </span>
+
+                        </div>
+
+
+                        <div class="priority-card critical">
+
+                            <div class="priority-icon">
+                                <span class="material-symbols-outlined">
+                                    warning
+                                </span>
+                            </div>
+
+                            <div>
+
+                                <span class="eyebrow">
+                                    CRITICAL
+                                </span>
+
+                                <h3>
+                                    Major Route Deviation Detected
+                                </h3>
+
+                                <p>
+                                    TRK-021 has deviated from its assigned
+                                    collection route.
+                                </p>
+
+                                <button class="soft-btn">
+                                    Investigate Route
+                                </button>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="priority-card warning">
+
+                            <div class="priority-icon">
+                                <span class="material-symbols-outlined">
+                                    delete
+                                </span>
+                            </div>
+
+                            <div>
+
+                                <span class="eyebrow">
+                                    WARNING
+                                </span>
+
+                                <h3>
+                                    Capacity Overflow & Sensor Fault
+                                </h3>
+
+                                <p>
+                                    BIN-184 requires immediate inspection.
+                                </p>
+
+                                <button class="soft-btn">
+                                    Assign Field Team
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="panel recent-alerts">
+
+                        <div class="panel-header">
+
+                            <div>
+                                <h3>Recent Alerts Feed</h3>
+                            </div>
+
+                        </div>
+
+
+                        <div class="alert-feed">
+
+                            <div class="feed-item">
+                                <span class="feed-dot red"></span>
+
+                                <div>
+                                    <strong>
+                                        12 New Citizen Reports
+                                    </strong>
+
+                                    <small>
+                                        8 minutes ago
+                                    </small>
+                                </div>
+                            </div>
+
+
+                            <div class="feed-item">
+                                <span class="feed-dot green"></span>
+
+                                <div>
+                                    <strong>
+                                        Maintenance Completed
+                                    </strong>
+
+                                    <small>
+                                        24 minutes ago
+                                    </small>
+                                </div>
+                            </div>
+
+
+                            <div class="feed-item">
+                                <span class="feed-dot green"></span>
+
+                                <div>
+                                    <strong>
+                                        Daily Report Generated
+                                    </strong>
+
+                                    <small>
+                                        1 hour ago
+                                    </small>
+                                </div>
+                            </div>
+
+
+                            <div class="feed-item">
+                                <span class="feed-dot amber"></span>
+
+                                <div>
+                                    <strong>
+                                        Low Battery Warning
+                                    </strong>
+
+                                    <small>
+                                        2 hours ago
+                                    </small>
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<!-- TRUCK MODAL -->
+<div class="modal" id="truckModal">
+
+    <div class="modal-box">
+
+        <button class="modal-close">
+            <span class="material-symbols-outlined">
+                close
+            </span>
+        </button>
+
+        <div class="modal-icon">
+            <span class="material-symbols-outlined">
+                local_shipping
+            </span>
+        </div>
+
+        <span class="eyebrow">
+            LIVE VEHICLE
+        </span>
+
+        <h2 id="modalTruckId">
+            TRK-024
+        </h2>
+
+        <div class="modal-grid">
+
+            <div>
+                <span>Driver</span>
+                <strong>Rajesh Kumar</strong>
+            </div>
+
+            <div>
+                <span>Route</span>
+                <strong>R-017</strong>
+            </div>
+
+            <div>
+                <span>Status</span>
+                <strong>Collecting</strong>
+            </div>
+
+            <div>
+                <span>Fill Level</span>
+                <strong>68%</strong>
+            </div>
+
+        </div>
+
+        <button class="primary-btn modal-action">
+            View Route
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- NOTIFICATION DRAWER -->
+<div class="notification-drawer" id="notificationDrawer">
+
+    <div class="drawer-header">
+
+        <div>
+            <span class="eyebrow">
+                SYSTEM
+            </span>
+
+            <h3>Notifications</h3>
+        </div>
+
+        <button id="closeDrawer">
+            <span class="material-symbols-outlined">
+                close
+            </span>
+        </button>
+
+    </div>
+
+
+    <div class="drawer-item critical">
+
+        <span class="material-symbols-outlined">
+            warning
+        </span>
+
+        <div>
+            <strong>
+                Route R-003 delayed
+            </strong>
+
+            <small>
+                8 minutes ago
+            </small>
+        </div>
+
+    </div>
+
+
+    <div class="drawer-item">
+
+        <span class="material-symbols-outlined">
+            delete
+        </span>
+
+        <div>
+            <strong>
+                BIN-104 reached 94%
+            </strong>
+
+            <small>
+                14 minutes ago
+            </small>
+        </div>
+
+    </div>
+
+
+    <div class="drawer-item">
+
+        <span class="material-symbols-outlined">
+            report
+        </span>
+
+        <div>
+            <strong>
+                12 citizen reports received
+            </strong>
+
+            <small>
+                21 minutes ago
+            </small>
+        </div>
+
+    </div>
+
+</div>
+
+
+<script src="/dashboard/dashboard.js"></script>
+
+</body>
+</html>
