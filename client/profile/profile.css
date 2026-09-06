@@ -238,7 +238,7 @@ body {
 
 .brand h1 {
 
-    font-size: 24px;
+    font-size: 26px;
 
     font-weight: 700;
 
@@ -255,7 +255,7 @@ body {
         "DM Mono",
         monospace;
 
-    font-size: 14px;
+    font-size: 16px;
 
     color: var(--text-muted);
 
@@ -292,7 +292,7 @@ body {
         "Inter",
         sans-serif;
 
-    font-size: 13px;
+    font-size: 15px;
 
     font-weight: 600;
 
@@ -332,7 +332,7 @@ body {
 
 .back-button span {
 
-    font-size: 18px;
+    font-size: 20px;
 
 }
 
@@ -456,7 +456,7 @@ body {
         "DM Mono",
         monospace;
 
-    font-size: 11px;
+    font-size: 13px;
 
     font-weight: 500;
 
@@ -495,7 +495,7 @@ body {
 
     color: var(--text-muted);
 
-    font-size: 15px;
+    font-size: 16px;
 
     line-height: 1.7;
 
@@ -545,7 +545,7 @@ body {
 
 .profile-symbol span {
 
-    font-size: 25px;
+    font-size: 27px;
 
     font-weight: 700;
 
@@ -603,7 +603,7 @@ body {
 
     gap: 9px;
 
-    font-size: 12px;
+    font-size: 14px;
 
     color: var(--text-muted);
 
@@ -648,7 +648,7 @@ body {
 
     color: var(--olive-dark);
 
-    font-size: 12px;
+    font-size: 14px;
 
     font-weight: 700;
 
@@ -685,7 +685,7 @@ body {
 
 .section-heading h3 {
 
-    font-size: 16px;
+    font-size: 17px;
 
     color: var(--olive-dark);
 
@@ -698,7 +698,7 @@ body {
 
     color: var(--text-muted);
 
-    font-size: 12px;
+    font-size: 14px;
 
 }
 
@@ -747,7 +747,7 @@ body {
 
 .field label {
 
-    font-size: 12px;
+    font-size: 14px;
 
     font-weight: 600;
 
@@ -804,7 +804,7 @@ body {
         "Inter",
         sans-serif;
 
-    font-size: 14px;
+    font-size: 16px;
 
     transition:
 
@@ -920,7 +920,7 @@ body {
 
     border-radius: 12px;
 
-    font-size: 13px;
+    font-size: 15px;
 
     line-height: 1.5;
 
@@ -997,7 +997,7 @@ body {
 
 .required-note {
 
-    font-size: 12px;
+    font-size: 14px;
 
     color: var(--text-muted);
 
@@ -1043,7 +1043,7 @@ body {
         "Inter",
         sans-serif;
 
-    font-size: 14px;
+    font-size: 16px;
 
     font-weight: 700;
 
@@ -1114,7 +1114,7 @@ body {
 
 .button-arrow {
 
-    font-size: 19px;
+    font-size: 21px;
 
     transition:
         transform 0.2s ease;
@@ -1147,7 +1147,7 @@ body {
         "DM Mono",
         monospace;
 
-    font-size: 12px;
+    font-size: 14px;
 
     letter-spacing: 0.8px;
 
@@ -1190,7 +1190,7 @@ body {
 
     .brand h1 {
 
-        font-size: 20px;
+        font-size: 22px;
 
     }
 
@@ -1216,7 +1216,7 @@ body {
             10px
             12px;
 
-        font-size: 12px;
+        font-size: 14px;
 
     }
 
@@ -1315,14 +1315,14 @@ body {
 
     .back-button span {
 
-        font-size: 19px;
+        font-size: 21px;
 
     }
 
 
     .profile-header h2 {
 
-        font-size: 28px;
+        font-size: 31px;
 
     }
 

@@ -86,14 +86,14 @@ button {
 
 .brand-name h1 {
     margin: 0;
-    font-size: 20px;
+    font-size: 22px;
     letter-spacing: 0.04em;
 }
 
 .brand-name p {
     margin: 4px 0 0;
     color: #b6c7ae;
-    font-size: 11px;
+    font-size: 13px;
     letter-spacing: 0.07em;
 }
 
@@ -104,7 +104,7 @@ button {
 
 .eyebrow {
     margin: 0;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 800;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -116,7 +116,7 @@ button {
 
 .brand-content h2 {
     margin: 12px 0 16px;
-    font-size: 40px;
+    font-size: 44px;
     line-height: 1.05;
     letter-spacing: -0.045em;
     color: #ffffff;
@@ -125,7 +125,7 @@ button {
 .brand-description {
     margin: 0;
     color: #d0dccb;
-    font-size: 14px;
+    font-size: 15px;
     line-height: 1.7;
 }
 
@@ -134,7 +134,7 @@ button {
     gap: 12px;
     margin-top: 25px;
     color: #e2eade;
-    font-size: 13px;
+    font-size: 15px;
 }
 
 .features div::first-letter {
@@ -144,7 +144,7 @@ button {
 .brand-footer {
     margin: 0;
     color: #9fb19a;
-    font-size: 10px;
+    font-size: 12px;
 }
 
 /* ---------- RIGHT PANEL ---------- */
@@ -188,14 +188,14 @@ button {
 
 .login-heading h2 {
     margin: 8px 0 6px;
-    font-size: 36px;
+    font-size: 40px;
     letter-spacing: -0.045em;
 }
 
 .login-heading > p:last-child {
     margin: 0 0 25px;
     color: var(--muted);
-    font-size: 14px;
+    font-size: 15px;
 }
 
 #loginForm {
@@ -210,7 +210,7 @@ button {
 
 label {
     color: #35432f;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 700;
 }
 
@@ -223,7 +223,7 @@ label {
 .show-password {
     color: #667c44;
     background: transparent;
-    font-size: 11px;
+    font-size: 13px;
     cursor: pointer;
 }
 
@@ -252,7 +252,7 @@ select:focus {
 .login-message {
     min-height: 18px;
     color: var(--danger);
-    font-size: 12px;
+    font-size: 14px;
 }
 
 .login-button {
@@ -266,7 +266,7 @@ select:focus {
             var(--lime),
             var(--lime-2)
         );
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 800;
     box-shadow:
         0 9px 22px rgba(34, 54, 2, 0.22);
@@ -295,7 +295,7 @@ select:focus {
     }
 
     .brand-content h2 {
-        font-size: 34px;
+        font-size: 37px;
     }
 
     .brand-footer {
@@ -315,6 +315,6 @@ select:focus {
     }
 
     .login-heading h2 {
-        font-size: 31px;
+        font-size: 34px;
     }
 }
