@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="SWACHHITRA Sanitary Inspector Operations Dashboard"
+    >
+
+    <title>
+        SWACHHITRA | Sanitary Inspector
+    </title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    >
+
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        crossorigin=""
+    >
+
+    <link
+        rel="stylesheet"
+        href="./InspectorDash.css"
+    >
+
+</head>
+
+<body>
+<div class="sanitary-app">
+
+    <div class="mobile-backdrop" id="mobileBackdrop"></div>
+
+    <!-- ========================= SIDEBAR ========================= -->
+    <aside class="sidebar" id="sidebar" aria-label="Sanitary Inspector navigation">
+        <div class="sidebar-brand-section">
+            <button class="sidebar-brand" type="button" data-tab="overview" aria-label="Go to overview">
+                <div class="sidebar-logo">
+                    <img src="/assets/LOGO(1).png" alt="SWACHHITRA Logo">
+                </div>
+                <div class="sidebar-brand-text">
+                    <strong>SWACHHITRA</strong>
+                    <span>Smart Waste Collection & Route Optimization System</span>
+                </div>
+            </button>
+
+            <div class="sidebar-role">
+                <span class="role-indicator"></span>
+                <div>
+                    <span class="role-label">ROLE:</span>
+                    <strong>SANITARY INSPECTOR</strong>
+                </div>
+            </div>
+        </div>
+
+        <nav class="sidebar-navigation">
+            <div class="navigation-group">
+                <span class="navigation-title">Operations</span>
+
+                <button class="navigation-item active" id="nav-btn-overview" data-tab="overview" type="button">
+                    <span class="navigation-item-left"><span class="navigation-icon">⌂</span><span>Overview</span></span>
+                    <span class="navigation-active-dot"></span>
+                </button>
+
+                <button class="navigation-item" id="nav-btn-routes" data-tab="routes" type="button">
+                    <span class="navigation-item-left"><span class="navigation-icon">⌁</span><span>Routes</span></span>
+                    <span class="navigation-count muted-count">12 Live</span>
+                </button>
+
+                <button class="navigation-item" id="nav-btn-vehicles-drivers" data-tab="vehicles-drivers" type="button">
+                    <span class="navigation-item-left"><span class="navigation-icon">♧</span><span>Vehicles &amp; Drivers</span></span>
+                    <span class="navigation-count muted-count">18/20</span>
+                </button>
+
+                <button class="navigation-item" id="nav-btn-collection-ops" data-tab="collection-ops" type="button">
+                    <span class="navigation-item-left"><span class="navigation-icon">▤</span><span>Collection Operations</span></span>
+                </button>
+
+                <button class="navigation-item" id="nav-btn-citizen-reports" data-tab="citizen-reports" type="button">
+                    <span class="navigation-item-left"><span class="navigation-icon">▧</span><span>Citizen Reports</span></span>
+                    <span class="navigation-count report-count">7</span>
+                </button>
+            </div>
+
+            <div class="navigation-group secondary-navigation">
+                <span class="navigation-title">System</span>
+
+                <button class="navigation-item navigation-button" id="notificationButton" type="button">
+                    <span class="navigation-item-left"><span class="navigation-icon">♢</span><span>Notifications</span></span>
+                    <span class="navigation-count notification-count" id="notificationCount">3</span>
+                </button>
+
+                <button class="navigation-item navigation-button" id="settingsButton" type="button">
+                    <span class="navigation-item-left"><span class="navigation-icon">⚙</span><span>Settings</span></span>
+                </button>
+            </div>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="current-zone-card">
+                <div class="current-zone-icon">◉</div>
+                <div class="current-zone-information">
+                    <span>CURRENT ZONE</span>
+                    <strong>Central Zone (Ward 8, 9, 14)</strong>
+                </div>
+                <span class="zone-online-dot"></span>
+            </div>
+
+            <button class="logout-link" id="logoutButton" type="button">
+                <span class="logout-icon">↪</span>
+                <span>Logout</span>
+            </button>
+        </div>
+    </aside>
+
+    <button class="mobile-menu-button" id="mobileMenuButton" type="button" aria-label="Open navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+    </button>
+
+    <!-- ========================= MAIN AREA ========================= -->
+    <main class="main-area">
+        <header class="top-header">
+            <div class="header-left">
+                <div class="breadcrumb">
+                    <span>SWACHHITRA</span>
+                    <b>/</b>
+                    <strong>Sanitary Inspector</strong>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <div class="global-search" id="globalSearchWrapper">
+                    <span class="search-symbol">⌕</span>
+                    <input id="globalSearch" type="search" placeholder="Search routes, trucks, drivers or reports..." autocomplete="off" aria-label="Search">
+                    <kbd>/</kbd>
+                </div>
+
+                <div class="system-status">
+                    <span class="system-status-dot"></span>
+                    <span>System Operational</span>
+                </div>
+
+                <!-- Stitch-style notification summary is immediately LEFT of bell -->
+                <button class="notification-preview" id="notificationPreview" type="button" title="View latest notification">
+                    <span class="notification-preview-dot"></span>
+                    <span>Route Alert: <strong>R-009</strong> delayed by 25m at Ward 9</span>
+                </button>
+
+                <button class="header-icon-button" id="headerNotificationButton" type="button" title="View all notifications" aria-label="Open notifications">
+                    <span>♢</span>
+                    <i></i>
+                </button>
+
+                <div class="header-separator"></div>
+
+                <button class="header-user" id="headerUserButton" type="button" aria-label="Open user menu">
+                    <span class="header-avatar">SI</span>
+                    <span class="header-user-details">
+                        <strong>Inspector Sharma <span class="header-user-online"></span></strong>
+                        <small>Central Zone • Wards 8, 9, 14</small>
+                    </span>
+                    <span class="header-user-arrow">▾</span>
+                </button>
+            </div>
+        </header>
+
+        <div class="page-content">
+
+            <!-- ========================= OVERVIEW ========================= -->
+            <section class="tab-panel active" id="panel-overview">
+                <div class="overview-banner">
+                    <div>
+                        <div class="shift-pill"><span></span>MORNING SHIFT ACTIVE (06:00 - 14:00)</div>
+                        <h1>Good Morning, Sanitary Inspector.</h1>
+                        <p>Monitor today's waste collection operations, manage routes, and respond to issues across Central Zone.</p>
+                    </div>
+                    <div class="overview-actions">
+                        <div class="assigned-zone">
+                            <span>ASSIGNED ZONE</span>
+                            <strong>Central Zone (xyz)</strong>
+                        </div>
+                        <button class="primary-button" id="assignRouteFromOverview" type="button"><span>+</span> Assign Route</button>
+                    </div>
+                </div>
+
+                <div class="kpi-section three-cards">
+                    <article class="kpi-card">
+                        <div class="kpi-header"><span>ACTIVE ROUTES</span><div class="kpi-icon">⌁</div></div>
+                        <div class="kpi-main-line"><strong class="kpi-number">12</strong><span class="status-pill green">Optimal Flow</span></div>
+                        <div class="kpi-description"><strong>8</strong> on schedule, <span class="orange-text">2 delayed</span>, 2 starting</div>
+                        <div class="kpi-footer"><span>Total Ward Coverage: 82%</span><button type="button" data-tab="routes">View on map →</button></div>
+                    </article>
+
+                    <article class="kpi-card">
+                        <div class="kpi-header"><span>ACTIVE VEHICLES</span><div class="kpi-icon">⇄</div></div>
+                        <div class="kpi-main-line"><strong class="kpi-number">18 / 20</strong><span class="status-pill green">90% Deployed</span></div>
+                        <div class="kpi-description">18 compactor trucks running, 2 under scheduled depot maintenance</div>
+                        <div class="kpi-footer"><span>Fleet telemetry active</span><button type="button" data-tab="vehicles-drivers">View on map →</button></div>
+                    </article>
+
+                    <article class="kpi-card complaint-card">
+                        <div class="kpi-header"><span>CITIZEN COMPLAINTS</span><div class="kpi-icon amber">△</div></div>
+                        <div class="kpi-main-line"><strong class="kpi-number">7 Reports</strong><span class="status-pill amber">3 High Priority</span></div>
+                        <div class="kpi-description">5 overflowing bins, 2 missed residential collection alerts</div>
+                        <div class="kpi-footer"><span>Avg Resolution: 34 mins</span><button type="button" data-tab="citizen-reports">View complaints →</button></div>
+                    </article>
+                </div>
+
+                <div class="overview-lower">
+                    <section class="overview-map-card card-shell">
+                        <div class="map-header">
+                            <div class="map-title-group">
+                                <span class="live-dot"></span>
+                                <div>
+                                    <h2>LIVE WARD COLLECTION MAP</h2>
+                                    <span>Central Zone / Ward 8, 9, 14</span>
+                                </div>
+                            </div>
+                            <div class="map-tools">
+                                <button id="corridorButton" type="button">All Corridors</button>
+                                <button class="active" id="truckLayerButton" type="button">Trucks (18)</button>
+                                <button id="mapPlus" type="button">+</button>
+                                <button id="mapMinus" type="button">−</button>
+                            </div>
+                        </div>
+                        <div class="overview-map-wrap">
+                            <div id="trackingMap" class="tracking-map"></div>
+                            <div class="map-overlay-badge">Simulated GPS</div>
+                            <div class="map-legend">
+                                <strong>Map Legend</strong>
+                                <span><i class="legend-line green"></i>Active Collection Route</span>
+                                <span><i class="legend-line amber"></i>Delayed Route</span>
+                                <span><i class="legend-dot red"></i>Citizen Complaint Hotspot</span>
+                            </div>
+                            <div class="gps-refresh">GPS REFRESH: <strong>4s</strong> • ONLINE</div>
+                        </div>
+                        <div class="map-footer">
+                            <span>Currently showing <strong>Ward 8, 9, 14</strong></span>
+                            <button type="button" data-tab="routes">Expand to Full Route Management →</button>
+                        </div>
+                    </section>
+
+                    <aside class="collection-summary-card card-shell">
+                        <div class="summary-heading">
+                            <h2>COLLECTION PROGRESS</h2>
+                            <span>Shift: 62%<br>Done</span>
+                        </div>
+                        <div class="summary-block">
+                            <div class="summary-label-row"><strong>Central Zone Tonnage Target</strong><strong>34.8 / 42.0 Tons</strong></div>
+                            <div class="thin-progress"><span style="width:83%"></span></div>
+                            <small>Expected target achievement by 13:30 hrs</small>
+                        </div>
+                        <div class="summary-block">
+                            <div class="summary-title">Ward Completion Rate</div>
+                            <div class="ward-progress"><span>Ward 8 (Market &amp; Comm.)</span><strong>92%</strong><div><i style="width:92%"></i></div></div>
+                            <div class="ward-progress delayed"><span>Ward 9 (Residential West)</span><strong>58% (Delayed)</strong><div><i style="width:58%"></i></div></div>
+                            <div class="ward-progress"><span>Ward 14 (Mixed Density)</span><strong>78%</strong><div><i style="width:78%"></i></div></div>
+                        </div>
+                        <div class="summary-mini-grid">
+                            <div><span>RESOLVED COMPLAINTS</span><strong>14 / 21</strong></div>
+                            <div><span>AVG FUEL EFF.</span><strong>3.8 km/L</strong></div>
+                        </div>
+                        <button class="secondary-button full-width" type="button" data-tab="collection-ops">View Full Analytics &amp; Reports →</button>
+                    </aside>
+                </div>
+            </section>
+
+            <!-- ========================= ROUTES ========================= -->
+            <section class="tab-panel" id="panel-routes">
+                <div class="panel-banner">
+                    <div>
+                        <span class="section-eyebrow">ROUTE MANAGEMENT</span>
+                        <h2>Routes &amp; Fleet Corridor Management</h2>
+                        <p>Assign, adjust corridor waypoints, and dispatch collection crews in real time.</p>
+                    </div>
+                    <button class="primary-button" id="createRouteButton" type="button"><span>+</span> Add Route (Map Sketch)</button>
+                </div>
+
+                <div class="routes-layout">
+                    <section class="route-map-card card-shell">
+                        <div class="card-heading-row">
+                            <div>
+                                <h3>INTERACTIVE ROUTE TOPOLOGY</h3>
+                                <p>Click a corridor to re-sequence</p>
+                            </div>
+                            <span class="topology-status">12 active paths</span>
+                        </div>
+                        <div class="route-map-wrap">
+                            <div id="routeMap" class="route-map"></div>
+                            <div class="route-map-center-card">
+                                <strong>LIVE GPS CORRIDOR VIEW</strong>
+                                <p>Showing 12 active paths in Ward 8, 9, 14. Geofencing notifications active.</p>
+                                <button id="toggleGeofenceButton" type="button">Toggle Geofence Markers</button>
+                            </div>
+                            <span class="route-tag green">● R-017 (Optimal)</span>
+                            <span class="route-tag amber">▲ R-009 (Heavy Traffic • Re-route suggested)</span>
+                        </div>
+                    </section>
+
+                    <aside class="active-routes-card card-shell">
+                        <div class="card-heading-row bordered">
+                            <div>
+                                <h3>ACTIVE ROUTES</h3>
+                                <p>Manage driver dispatches and vehicle pairing</p>
+                            </div>
+                            <button class="round-add-button" id="routePlusButton" type="button">+</button>
+                        </div>
+                        <div id="activeRoutesList" class="active-routes-list"></div>
+                    </aside>
+                </div>
+            </section>
+
+            <!-- ========================= VEHICLES & DRIVERS ========================= -->
+            <section class="tab-panel" id="panel-vehicles-drivers">
+                <div class="panel-banner">
+                    <div>
+                        <span class="section-eyebrow">FLEET REGISTRY</span>
+                        <h2>Vehicles &amp; Drivers Pairing Registry</h2>
+                        <p>Cross-linked sanitation driver profiles, assigned trucks, and live capacity telemetry.</p>
+                    </div>
+                    <span class="deployment-badge">18 Deployed • 2 In Depot</span>
+                </div>
+                <div id="vehiclePairings" class="pairing-grid"></div>
+            </section>
+
+            <!-- ========================= COLLECTION OPS ========================= -->
+            <section class="tab-panel" id="panel-collection-ops">
+                <div class="panel-banner">
+                    <div>
+                        <span class="section-eyebrow">COLLECTION OPERATIONS</span>
+                        <h2>Shift Operations &amp; Dumper Depot Logistics</h2>
+                        <p>Tonnage records, landfill transport clearance, and fuel consumption logs.</p>
+                    </div>
+                </div>
+                <div class="ops-grid">
+                    <article class="ops-card card-shell"><span>Total Wet Waste</span><strong>21.4 Tons</strong><p>Direct to Bio-Methanation Plant #2</p></article>
+                    <article class="ops-card card-shell"><span>Dry / Recyclable</span><strong>13.4 Tons</strong><p>Direct to MRF Processing Station</p></article>
+                    <article class="ops-card card-shell"><span>Depot Compliance</span><strong class="green-value">98.2%</strong><p>Zero unauthorized detour alerts</p></article>
+                </div>
+                <div class="analytics-strip card-shell">
+                    <div><span>Morning Shift</span><strong>91%</strong></div>
+                    <div><span>Afternoon Shift</span><strong>64%</strong></div>
+                    <div><span>Fleet Utilization</span><strong>90%</strong></div>
+                    <div><span>Resolved Complaints</span><strong>14 / 21</strong></div>
+                </div>
+            </section>
+
+            <!-- ========================= CITIZEN REPORTS ========================= -->
+            <section class="tab-panel" id="panel-citizen-reports">
+                <div class="panel-banner">
+                    <div>
+                        <span class="section-eyebrow">CITIZEN SERVICES</span>
+                        <h2>Citizen Complaints &amp; Grievance Hotspots</h2>
+                        <p>Direct reports submitted via the citizen channel requiring inspector dispatch.</p>
+                    </div>
+                    <span class="deployment-badge amber-badge">7 Active Grievances</span>
+                </div>
+                <div class="reports-toolbar">
+                    <input id="reportSearch" type="search" placeholder="Search ticket, type, ward or location...">
+                    <select id="reportPriorityFilter"><option value="all">All Priority</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select>
+                    <select id="reportStatusFilter"><option value="all">All Status</option><option value="open">Open</option><option value="in-progress">In Progress</option><option value="resolved">Resolved</option></select>
+                </div>
+                <div class="report-table-shell card-shell">
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead><tr><th>Ticket ID</th><th>Type</th><th>Ward / Location</th><th>Time Elapsed</th><th>Priority</th><th>Status</th><th>Action</th></tr></thead>
+                            <tbody id="reportTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- ========================= NOTIFICATION DRAWER ========================= -->
+    <aside class="notification-drawer" id="notificationDrawer" aria-hidden="true">
+        <div class="drawer-header">
+            <div>
+                <span class="section-eyebrow">SYSTEM</span>
+                <h2>Notifications</h2>
+            </div>
+            <button class="drawer-close" id="closeNotificationDrawer" type="button">×</button>
+        </div>
+        <div class="notification-list" id="notificationList">
+            <article class="notification-card warning"><span></span><div><strong>Route R-009 delayed</strong><p>Traffic congestion at Ward 9.</p><small>6 min ago</small></div></article>
+            <article class="notification-card"><span></span><div><strong>Morning collection update</strong><p>Ward 8 reached 92% completion.</p><small>18 min ago</small></div></article>
+            <article class="notification-card"><span></span><div><strong>New citizen report</strong><p>CR-1042 requires attention.</p><small>22 min ago</small></div></article>
+        </div>
+        <button class="drawer-read-button" id="markNotificationsRead" type="button">Mark all as read</button>
+    </aside>
+
+    <!-- ========================= ADD ROUTE MODAL ========================= -->
+    <div class="modal" id="addRouteModal" aria-hidden="true">
+        <div class="modal-overlay" data-close-modal="addRouteModal"></div>
+        <div class="modal-card">
+            <div class="modal-header-green">
+                <div><span>ROUTE MANAGEMENT</span><h2>Add Route &amp; Assign Crew</h2><p>SWACHHITRA Corridor Optimization Engine</p></div>
+                <button class="modal-close white-close" type="button" data-close-modal="addRouteModal">×</button>
+            </div>
+            <form id="addRouteForm" class="modal-form">
+                <div class="form-grid-2">
+                    <label>Route Identifier<input name="routeId" value="R-028" required></label>
+                    <label>Assigned Zone / Ward<select name="zone" required><option>Central Zone • Ward 8 (Residential)</option><option>Central Zone • Ward 9 (Commercial Corridor)</option><option>Central Zone • Ward 14 (Mixed Density)</option></select></label>
+                    <label>Assign Available Vehicle<select name="vehicle" required><option>TRK-019 (DL-1C-4409) - 8T Compactor</option><option>TRK-022 (DL-1C-8812) - 6T Tipper</option></select></label>
+                    <label>Assign Certified Driver<select name="driver" required><option>Amit Saxena (HMV-DL Valid)</option><option>Dharmendra Pal (HMV-DL Valid)</option></select></label>
+                </div>
+                <label>View / Add on Map (Interactive Waypoints)
+                    <div class="waypoint-box"><strong>Click &amp; Drag to plot street collection nodes</strong><span>Auto-calculates shortest path around known traffic bottlenecks.</span></div>
+                </label>
+                <div class="modal-footer"><button type="button" class="secondary-button" data-close-modal="addRouteModal">Cancel</button><button type="submit" class="primary-button">Save &amp; Dispatch Route</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================= TOAST ========================= -->
+    <div class="toast" id="toast"><span>✓</span><strong id="toastMessage">Done</strong></div>
+</div>
+<script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    crossorigin=""
+></script>
+
+<script
+    src="./InspectorDash.js"
+></script>

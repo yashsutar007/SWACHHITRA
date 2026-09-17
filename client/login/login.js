@@ -1,125 +1,54 @@
 const form = document.getElementById("loginForm");
-
 const email = document.getElementById("email");
 const password = document.getElementById("password");
 const role = document.getElementById("role");
-
 const message = document.getElementById("loginMessage");
+const togglePassword = document.getElementById("togglePassword");
+const button = form.querySelector("button[type=submit]");
 
-const togglePassword =
-    document.getElementById("togglePassword");
-
-
-// ===============================
-// Show / Hide Password
-// ===============================
+const showMessage = text => {
+  message.textContent = text;
+};
 
 togglePassword.addEventListener("click", () => {
-
-    const isHidden =
-        password.type === "password";
-
-    if (isHidden) {
-
-        password.type = "text";
-        togglePassword.textContent = "Hide";
-
-    } else {
-
-        password.type = "password";
-        togglePassword.textContent = "Show";
-
-    }
-
+  const hidden = password.type === "password";
+  password.type = hidden ? "text" : "password";
+  togglePassword.textContent = hidden ? "Hide" : "Show";
 });
 
+form.addEventListener("submit", async event => {
+  event.preventDefault();
+  showMessage("");
 
-// ===============================
-// Login Form Validation
-// ===============================
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    return;
+  }
 
-form.addEventListener("submit", (event) => {
+  button.disabled = true;
+  button.textContent = "Signing in...";
 
-    event.preventDefault();
+  try {
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        email: email.value.trim(),
+        password: password.value,
+        role: role.value
+      })
+    });
 
-    message.textContent = "";
-    message.style.color = "#c83b3b";
-
-
-    const emailValue =
-        email.value.trim();
-
-    const passwordValue =
-        password.value;
-
-    const roleValue =
-        role.value;
-
-
-    // Check empty fields
-
-    if (
-        !emailValue ||
-        !passwordValue ||
-        !roleValue
-    ) {
-
-        message.textContent =
-            "Please fill in all fields.";
-
-        return;
-
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "Login failed.");
     }
 
-
-    // Validate email
-
-    if (!email.checkValidity()) {
-
-        message.textContent =
-            "Please enter a valid email address.";
-
-        email.focus();
-
-        return;
-
-    }
-
-
-    // Validate password length
-
-    if (passwordValue.length < 6) {
-
-        message.textContent =
-            "Password must contain at least 6 characters.";
-
-        password.focus();
-
-        return;
-
-    }
-
-
-    // ===============================
-    // Temporary Role Storage
-    // ===============================
-
-    // MySQL authentication will replace this later
-
-    sessionStorage.setItem(
-        "swachhitraEmail",
-        emailValue
-    );
-
-    sessionStorage.setItem(
-        "swachhitraRole",
-        roleValue
-    );
-
-
-    // Redirect to profile page
-
-    window.location.href =
-        "/profile/profile.html";
-
+    window.location.href = "/profile";
+  } catch (error) {
+    showMessage(error.message);
+    button.disabled = false;
+    button.textContent = "Login";
+  }
 });
