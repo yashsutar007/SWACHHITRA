@@ -169,8 +169,11 @@
                 <button class="header-user" id="headerUserButton" type="button" aria-label="Open user menu">
                     <span class="header-avatar">SI</span>
                     <span class="header-user-details">
-                        <strong>Inspector Sharma <span class="header-user-online"></span></strong>
-                        <small>Central Zone • Wards 8, 9, 14</small>
+                        <strong id="headerInspectorName">
+                            <span id="headerInspectorNameText">Inspector</span>
+                            <span class="header-user-online"></span>
+                        </strong>
+                        <small id="headerInspectorZone">Central Zone • Wards 8, 9, 14</small>
                     </span>
                     <span class="header-user-arrow">▾</span>
                 </button>
@@ -184,7 +187,7 @@
                 <div class="overview-banner">
                     <div>
                         <div class="shift-pill"><span></span>MORNING SHIFT ACTIVE (06:00 - 14:00)</div>
-                        <h1>Good Morning, Sanitary Inspector.</h1>
+                       <h1>Good Morning, <span id="inspectorName">Inspector</span>!</h1>
                         <p>Monitor today's waste collection operations, manage routes, and respond to issues across Central Zone.</p>
                     </div>
                     <div class="overview-actions">

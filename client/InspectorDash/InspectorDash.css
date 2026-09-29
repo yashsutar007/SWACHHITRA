@@ -5,54 +5,77 @@
    Target visual style: Screenshot 2026-09-07 210913
    ========================================================= */
 
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 :root {
-  /* Brand */
-  --sidebar-width: 284px;
-  --header-height: 78px;
-  --sidebar: #1d4214;
+  /* Dashboard design system */
+  --olive-950: #10230c;
+  --olive-900: #193414;
+  --olive-850: #25451b;
+  --olive-800: #2e531e;
+  --olive-700: #416d27;
+  --olive-600: #5b812f;
+
+  --lime: #d4ed8b;
+  --lime-strong: #c1e46c;
+  --sage: #e8efdc;
+  --sage-2: #f0f4e9;
+
+  --page: #f7f8f3;
+  --white: #ffffff;
+  --ink: #182116;
+  --ink-2: #40503d;
+  --muted: #778172;
+  --line: #dfe5d8;
+
+  --danger: #c95743;
+  --warning: #c88b32;
+
+  --shadow-sm: 0 8px 22px rgba(20, 44, 14, .06);
+  --shadow: 0 18px 48px rgba(20, 44, 14, .09);
+  --shadow-hover: 0 24px 58px rgba(20, 44, 14, .14);
+
+  --sidebar-width: 300px;
+  --topbar-height: 72px;
+
+  --radius-sm: 10px;
+  --radius: 16px;
+  --radius-lg: 22px;
+  --radius-pill: 999px;
+
+  /* Compatibility aliases for InspectorDash selectors */
+  --header-height: var(--topbar-height);
+  --sidebar: #2b4d20;
   --sidebar-deep: #16340f;
-  --sidebar-hover: #2a541f;
-  --sidebar-active: #d0f386;
-  --sidebar-active-text: #17310e;
+  --sidebar-hover: #355f28;
+  --sidebar-active: var(--lime);
+  --sidebar-active-text: var(--olive-900);
 
-  --olive: #3f702d;
-  --olive-dark: #28501f;
-  --lime: #d0f386;
-  --lime-soft: #edf6da;
-  --sage: #dfe9d8;
-  --sage-soft: #f3f7ee;
+  --olive: var(--olive-700);
+  --olive-dark: var(--olive-800);
+  --lime-soft: var(--sage-2);
+  --sage-soft: var(--sage-2);
 
-  /* Surfaces */
-  --canvas: #fafbf8;
-  --card: #ffffff;
+  --canvas: var(--page);
+  --card: var(--white);
   --card-soft: #f7faf4;
-  --border: #dfe7da;
+  --border: var(--line);
   --border-strong: #d0dbc9;
 
-  /* Text */
-  --text: #172216;
-  --text-soft: #495548;
-  --muted: #748071;
+  --text: var(--ink);
+  --text-soft: var(--ink-2);
   --soft: #98a193;
 
-  /* States */
   --green: #3e8a43;
   --green-soft: #e9f5e8;
-  --amber: #c78616;
+  --amber: var(--warning);
   --amber-soft: #fff2d5;
-  --red: #c95046;
+  --red: var(--danger);
   --red-soft: #fdecea;
 
-  /* Effects */
-  --shadow-xs: 0 2px 8px rgba(26, 52, 19, 0.045);
-  --shadow-sm: 0 8px 24px rgba(26, 52, 19, 0.06);
-  --shadow: 0 14px 34px rgba(26, 52, 19, 0.075);
-  --shadow-lg: 0 22px 55px rgba(22, 43, 16, 0.13);
-
-  --radius-sm: 9px;
-  --radius: 14px;
-  --radius-lg: 18px;
-  --pill: 999px;
+  --shadow-xs: 0 2px 8px rgba(20, 44, 14, .045);
+  --shadow-sm-inspector: var(--shadow-sm);
+  --shadow-lg: 0 22px 55px rgba(22, 43, 16, .13);
 }
 
 /* =========================================================
@@ -73,16 +96,10 @@ html {
 
 body {
   min-height: 100vh;
-  overflow: hidden;
-  color: var(--text);
-  background: var(--canvas);
-  font-family:
-    "DM Sans",
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  overflow-x: hidden;
+  color: var(--ink);
+  background: var(--page);
+  font-family: "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -141,15 +158,9 @@ a {
   overflow-y: auto;
   overflow-x: hidden;
   color: #f4f7ef;
-  background:
-    linear-gradient(
-      180deg,
-      #28551f 0%,
-      #214919 48%,
-      #1b3c14 100%
-    );
+  background: linear-gradient(180deg, #2b4d20 0%, #1d3816 58%, #162f10 100%);
   border-right: 1px solid rgba(255,255,255,0.08);
-  box-shadow: 9px 0 30px rgba(19, 41, 14, 0.10);
+  box-shadow: 10px 0 32px rgba(16, 38, 10, .08);
 }
 
 .sidebar::-webkit-scrollbar {
@@ -211,14 +222,14 @@ a {
 
 .sidebar-brand-text strong {
   color: #ffffff;
-  font-size: 19px;
+  font-size: 18px;
   line-height: 1;
   font-weight: 800;
-  letter-spacing: 0.035em;
+  letter-spacing: .035em;
 }
 
 .sidebar-brand-text span {
-  color: #c1cfb8;
+  color: #b8c8b1;
   font-size: 12px;
   line-height: 1.3;
   font-weight: 500;
@@ -256,7 +267,7 @@ a {
 
 .role-label {
   color: #a7b79f;
-  font-family: "DM Mono", monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -288,7 +299,7 @@ a {
   display: block;
   padding: 0 11px 7px;
   color: #8ea186;
-  font-family: "DM Mono", monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.12em;
@@ -304,10 +315,10 @@ a {
   justify-content: space-between;
   gap: 10px;
   border: 0;
-  border-radius: 11px;
+  border-radius: 13px;
   color: #d0dacb;
   background: transparent;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 650;
   text-align: left;
   transition:
@@ -347,7 +358,7 @@ a {
   display: grid;
   place-items: center;
   color: #c1d0bb;
-  font-size: 17px;
+  font-size: 21px;
   line-height: 1;
   transition: color 0.2s ease, transform 0.2s ease;
 }
@@ -365,7 +376,7 @@ a {
   margin-left: auto;
   padding: 4px 7px;
   border-radius: 6px;
-  font-family: "DM Mono", monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 10px;
   font-weight: 500;
   line-height: 1;
@@ -434,8 +445,8 @@ a {
 
 .current-zone-information > span {
   color: #94a38c;
-  font-family: "DM Mono", monospace;
-  font-size: 9px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.09em;
 }
@@ -467,7 +478,7 @@ a {
   border: 1px solid rgba(242,164,73,0.30);
   color: #ffd0c8;
   background: rgba(143,97,11,0.20);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   transition:
     background 0.2s ease,
@@ -525,7 +536,7 @@ a {
 
 .breadcrumb span {
   color: #899585;
-  font-family: "DM Mono", monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 12px;
   font-weight: 500;
 }
@@ -605,7 +616,7 @@ a {
   border-radius: 6px;
   color: #7c867a;
   background: #fff;
-  font-family: "DM Mono", monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 10px;
 }
 
@@ -643,7 +654,7 @@ a {
   border-radius: var(--pill);
   color: #9d6207;
   background: #fffaf0;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -767,8 +778,8 @@ a {
 
 .header-user-details small {
   color: #7e897b;
-  font-family: "DM Mono", monospace;
-  font-size: 9px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
   line-height: 1.2;
   white-space: nowrap;
 }
@@ -863,8 +874,8 @@ a {
   border-radius: var(--pill);
   color: #18774c;
   background: #dff7e9;
-  font-family: "DM Mono", monospace;
-  font-size: 10px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
   font-weight: 600;
 }
 
@@ -878,7 +889,7 @@ a {
 .overview-banner h1 {
   margin-top: 9px;
   color: #183019;
-  font-size: 29px;
+  font-size: 32px;
   line-height: 1.12;
   font-weight: 800;
   letter-spacing: -0.025em;
@@ -887,7 +898,7 @@ a {
 .overview-banner p {
   margin-top: 6px;
   color: #6c786b;
-  font-size: 12px;
+  font-size: 15px;
   line-height: 1.45;
 }
 
@@ -907,8 +918,8 @@ a {
 
 .assigned-zone span {
   color: #9aa397;
-  font-family: "DM Mono", monospace;
-  font-size: 9px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
 }
@@ -919,20 +930,20 @@ a {
   border-radius: 8px;
   color: var(--olive-dark);
   background: var(--sage-soft);
-  font-family: "DM Mono", monospace;
-  font-size: 10px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
 }
 
 .primary-button,
 .secondary-button {
-  min-height: 38px;
+  min-height: 44px;
   padding: 0 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   border-radius: 9px;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 800;
   transition:
     transform 0.2s ease,
@@ -1008,7 +1019,7 @@ a {
 
 .kpi-header > span {
   color: #6e796d;
-  font-family: "DM Mono", monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.09em;
@@ -1041,8 +1052,8 @@ a {
 
 .kpi-number {
   color: #10200f;
-  font-family: "DM Mono", monospace;
-  font-size: 32px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 33px;
   line-height: 1;
   font-weight: 500;
   letter-spacing: -0.055em;
@@ -1070,7 +1081,7 @@ a {
 .kpi-description {
   margin-top: 7px;
   color: #556054;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -1092,7 +1103,7 @@ a {
   gap: 8px;
   border-top: 1px solid #edf1e9;
   color: #8a9587;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .kpi-footer button {
@@ -1153,7 +1164,7 @@ a {
 
 .map-title-group h2 {
   color: #273026;
-  font-family: "DM Mono", monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -1163,8 +1174,8 @@ a {
   display: block;
   margin-top: 3px;
   color: #7d897c;
-  font-family: "DM Mono", monospace;
-  font-size: 9px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
 }
 
 .map-tools {
@@ -1227,8 +1238,8 @@ a {
   border-radius: 7px;
   color: #687365;
   background: rgba(255,255,255,0.88);
-  font-family: "DM Mono", monospace;
-  font-size: 8px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
 }
 
 .map-legend {
@@ -1297,8 +1308,8 @@ a {
   border-radius: 7px;
   color: #a7d683;
   background: #17360f;
-  font-family: "DM Mono", monospace;
-  font-size: 8px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
 }
 
 .gps-refresh strong {
@@ -1314,7 +1325,7 @@ a {
   gap: 10px;
   border-top: 1px solid #edf1e9;
   color: #7c8779;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .map-footer strong {
@@ -1350,8 +1361,8 @@ a {
 
 .summary-heading h2 {
   color: #313930;
-  font-family: "DM Mono", monospace;
-  font-size: 10px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.08em;
 }
@@ -1361,7 +1372,7 @@ a {
   border-radius: 6px;
   color: #08734b;
   background: #d5f5e3;
-  font-family: "DM Mono", monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 9px;
   line-height: 1.25;
   font-weight: 700;
@@ -1382,7 +1393,7 @@ a {
 }
 
 .summary-label-row strong:last-child {
-  font-family: "DM Mono", monospace;
+  font-family: "JetBrains Mono", monospace;
   white-space: nowrap;
 }
 
@@ -1426,7 +1437,7 @@ a {
 
 .ward-progress strong {
   color: #178357;
-  font-family: "DM Mono", monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 9px;
 }
 
@@ -1470,7 +1481,7 @@ a {
 .summary-mini-grid span {
   display: block;
   color: #7d877b;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 800;
 }
 
@@ -1478,7 +1489,7 @@ a {
   display: block;
   margin-top: 5px;
   color: #1e351a;
-  font-family: "DM Mono", monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 15px;
 }
 
@@ -1504,8 +1515,8 @@ a {
 
 .section-eyebrow {
   color: #5c7b50;
-  font-family: "DM Mono", monospace;
-  font-size: 10px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.11em;
   text-transform: uppercase;
@@ -1514,7 +1525,7 @@ a {
 .panel-banner h2 {
   margin-top: 5px;
   color: #1b251a;
-  font-size: 25px;
+  font-size: 32px;
   line-height: 1.15;
   font-weight: 800;
   letter-spacing: -0.02em;
@@ -1523,7 +1534,7 @@ a {
 .panel-banner p {
   margin-top: 6px;
   color: #6d786d;
-  font-size: 12px;
+  font-size: 15px;
   line-height: 1.45;
 }
 
@@ -1532,7 +1543,7 @@ a {
   border-radius: 8px;
   color: #1a7047;
   background: #dcf4e6;
-  font-family: "DM Mono", monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 9px;
   font-weight: 700;
   white-space: nowrap;
@@ -1573,7 +1584,7 @@ a {
 
 .card-heading-row h3 {
   color: #283127;
-  font-family: "DM Mono", monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -1582,7 +1593,7 @@ a {
 .card-heading-row p {
   margin-top: 3px;
   color: #8d978a;
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .topology-status {
@@ -1590,7 +1601,7 @@ a {
   border-radius: 6px;
   color: #27704f;
   background: #e8f6eb;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -1626,15 +1637,15 @@ a {
 
 .route-map-center-card strong {
   color: #253025;
-  font-family: "DM Mono", monospace;
-  font-size: 11px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
   font-weight: 700;
 }
 
 .route-map-center-card p {
   margin-top: 7px;
   color: #687468;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.55;
 }
 
@@ -1645,7 +1656,7 @@ a {
   border-radius: 7px;
   color: #fff;
   background: var(--olive-dark);
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 700;
   transition:
     transform 0.18s ease,
@@ -1665,8 +1676,8 @@ a {
   border-radius: 6px;
   background: #fff;
   box-shadow: var(--shadow-xs);
-  font-family: "DM Mono", monospace;
-  font-size: 8px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
   font-weight: 700;
   transition:
     transform 0.18s ease,
@@ -1729,15 +1740,15 @@ a {
   border-radius: 5px;
   color: var(--olive-dark);
   background: var(--sage-soft);
-  font-family: "DM Mono", monospace;
-  font-size: 8px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
   font-weight: 800;
 }
 
 .route-state {
   padding: 5px 7px;
   border-radius: var(--pill);
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 800;
   white-space: nowrap;
 }
@@ -1767,15 +1778,15 @@ a {
 .active-route-meta span {
   display: block;
   color: #939b92;
-  font-family: "DM Mono", monospace;
-  font-size: 8px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
 }
 
 .active-route-meta strong {
   display: block;
   margin-top: 3px;
   color: #394337;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .active-route-footer {
@@ -1786,14 +1797,14 @@ a {
   gap: 8px;
   border-top: 1px solid #e6ece1;
   color: #7b867a;
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .active-route-footer button {
   border: 0;
   color: var(--olive-dark);
   background: transparent;
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 800;
   transition:
     transform 0.18s ease,
@@ -1865,15 +1876,15 @@ a {
   border-radius: 5px;
   color: var(--olive-dark);
   background: var(--sage-soft);
-  font-family: "DM Mono", monospace;
-  font-size: 8px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
   font-weight: 800;
 }
 
 .duty-state {
   padding: 5px 7px;
   border-radius: var(--pill);
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 800;
 }
 
@@ -1924,7 +1935,7 @@ a {
 .person-top strong {
   display: block;
   color: #273027;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 800;
 }
 
@@ -1932,15 +1943,15 @@ a {
   display: block;
   margin-top: 2px;
   color: #8c9589;
-  font-family: "DM Mono", monospace;
-  font-size: 8px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
 }
 
 .person-info {
   display: grid;
   gap: 6px;
   color: #606b60;
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.45;
 }
 
@@ -1958,8 +1969,8 @@ a {
 
 .vehicle-row strong {
   color: #202820;
-  font-family: "DM Mono", monospace;
-  font-size: 11px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -1973,7 +1984,7 @@ a {
   display: grid;
   gap: 6px;
   color: #5f695e;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .vehicle-spec b {
@@ -2003,7 +2014,7 @@ a {
   border-radius: 6px;
   color: var(--olive-dark);
   background: #fff;
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 800;
   transition:
     transform 0.18s ease,
@@ -2064,8 +2075,8 @@ a {
 
 .ops-card > span {
   color: #7d877c;
-  font-family: "DM Mono", monospace;
-  font-size: 9px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2075,8 +2086,8 @@ a {
   display: block;
   margin-top: 7px;
   color: var(--olive);
-  font-family: "DM Mono", monospace;
-  font-size: 27px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 33px;
   line-height: 1;
   font-weight: 500;
 }
@@ -2088,7 +2099,7 @@ a {
 .ops-card p {
   margin-top: 7px;
   color: #697468;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -2112,15 +2123,15 @@ a {
 .analytics-strip span {
   display: block;
   color: #7f8a7e;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .analytics-strip strong {
   display: block;
   margin-top: 5px;
   color: var(--olive);
-  font-family: "DM Mono", monospace;
-  font-size: 20px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 24px;
   font-weight: 500;
 }
 
@@ -2143,7 +2154,7 @@ a {
   outline: 0;
   color: #455145;
   background: #fff;
-  font-size: 10px;
+  font-size: 13px;
   transition:
     border-color 0.18s ease,
     box-shadow 0.18s ease;
@@ -2183,7 +2194,7 @@ a {
   padding: 12px 13px;
   text-align: left;
   color: #687267;
-  font-family: "DM Mono", monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 8px;
   font-weight: 500;
   letter-spacing: 0.07em;
@@ -2210,7 +2221,7 @@ a {
 
 .ticket-id {
   color: var(--olive-dark);
-  font-family: "DM Mono", monospace;
+  font-family: "JetBrains Mono", monospace;
   font-weight: 800;
 }
 
@@ -2219,7 +2230,7 @@ a {
   align-items: center;
   padding: 5px 7px;
   border-radius: var(--pill);
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 800;
 }
 
@@ -2239,7 +2250,7 @@ a {
 }
 
 .report-status {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
 }
 
@@ -2257,7 +2268,7 @@ a {
   border-radius: 7px;
   color: #fff;
   background: var(--olive-dark);
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 800;
   transition:
     transform 0.18s ease,
@@ -2313,7 +2324,7 @@ a {
 .drawer-header h2 {
   margin-top: 4px;
   color: #202920;
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 800;
 }
 
@@ -2377,14 +2388,14 @@ a {
 
 .notification-card strong {
   color: #2b342b;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
 }
 
 .notification-card p {
   margin-top: 4px;
   color: #6c766c;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.45;
 }
 
@@ -2392,7 +2403,7 @@ a {
   display: block;
   margin-top: 6px;
   color: #929a90;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .drawer-read-button {
@@ -2457,7 +2468,7 @@ a {
 
 .modal-header-green > div span {
   color: #bfe58d;
-  font-family: "DM Mono", monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 9px;
   letter-spacing: 0.09em;
 }
