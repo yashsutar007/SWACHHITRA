@@ -6,28 +6,70 @@ dotenv.config({
     path: path.join(__dirname, "../../.env")
 });
 
-const required = [
+
+function getPositiveInteger(value, fallback) {
+    const number = Number(value);
+
+    if (Number.isInteger(number) && number > 0) {
+        return number;
+    }
+
+    return fallback;
+}
+
+
+const requiredEnvironmentVariables = [
     "DB_HOST",
     "DB_USER",
-    "DB_PASSWORD",
     "DB_NAME"
 ];
 
-for (const key of required) {
-    if (!process.env[key]) {
-        throw new Error(`${key} is missing from SWACHHITRA/.env`);
+for (const variable of requiredEnvironmentVariables) {
+    if (!process.env[variable]) {
+        throw new Error(
+            `${variable} is missing from SWACHHITRA/.env`
+        );
     }
 }
 
+
+const dbPort = getPositiveInteger(
+    process.env.DB_PORT,
+    3306
+);
+
+const connectionLimit = getPositiveInteger(
+    process.env.DB_CONNECTION_LIMIT,
+    10
+);
+
+const connectTimeout = getPositiveInteger(
+    process.env.DB_CONNECT_TIMEOUT,
+    10000
+);
+
+
 const pool = mysql.createPool({
     host: process.env.DB_HOST,
-    port: Number(process.env.DB_PORT || 3306),
+
+    port: dbPort,
+
     user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
+
+    password: process.env.DB_PASSWORD || "",
+
     database: process.env.DB_NAME,
+
     waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
+
+    connectionLimit,
+
+    queueLimit: 0,
+
+    connectTimeout,
+
+    charset: "utf8mb4"
 });
+
 
 module.exports = pool;

@@ -86,6 +86,11 @@ button {
     backdrop-filter: blur(3px);
 }
 
+
+.mobile-backdrop {
+    cursor: default;
+}
+
 .sidebar {
     position: fixed;
     inset: 0 auto 0 0;
@@ -115,7 +120,8 @@ button {
 .brand-logo-wrap img {
     width: 60px;
     height: 60px;
-    object-fit:fill;
+    display: block;
+    object-fit: contain;
 }
 
 .brand-copy {
@@ -947,6 +953,26 @@ button {
     display: grid;
 }
 
+
+.truck-list:empty::before {
+    content: "Loading demonstration vehicles...";
+    display: block;
+    padding: 24px 17px;
+    color: #899286;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    text-align: center;
+}
+
+.truck-list .empty-state {
+    padding: 24px 17px;
+    color: #899286;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    line-height: 1.5;
+    text-align: center;
+}
+
 .vehicle-item {
     position: relative;
     display: grid;
@@ -1568,7 +1594,27 @@ button {
     .map-header {
         align-items: flex-start;
     }
-    .vehicle-item {
+    
+.truck-list:empty::before {
+    content: "Loading demonstration vehicles...";
+    display: block;
+    padding: 24px 17px;
+    color: #899286;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    text-align: center;
+}
+
+.truck-list .empty-state {
+    padding: 24px 17px;
+    color: #899286;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    line-height: 1.5;
+    text-align: center;
+}
+
+.vehicle-item {
         grid-template-columns: 42px minmax(0,1fr);
     }
     .vehicle-status {

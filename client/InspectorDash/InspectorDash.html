@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
     <meta charset="UTF-8">
 
     <meta
@@ -11,12 +10,10 @@
 
     <meta
         name="description"
-        content="SWACHHITRA Sanitary Inspector Operations Dashboard"
+        content="SWACHHITRA Sanitary Inspector operations dashboard"
     >
 
-    <title>
-        SWACHHITRA | Sanitary Inspector
-    </title>
+    <title>SWACHHITRA | Sanitary Inspector</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -34,408 +31,2053 @@
 
     <link
         rel="stylesheet"
-        href="./InspectorDash.css"
+        href="./inspectorDash.css"
     >
-
 </head>
 
 <body>
+
 <div class="sanitary-app">
 
-    <div class="mobile-backdrop" id="mobileBackdrop"></div>
+    <div
+        class="mobile-backdrop"
+        id="mobileBackdrop"
+        aria-hidden="true"
+    ></div>
 
-    <!-- ========================= SIDEBAR ========================= -->
-    <aside class="sidebar" id="sidebar" aria-label="Sanitary Inspector navigation">
+
+    <!-- =========================================================
+         SIDEBAR
+         ========================================================= -->
+    <aside
+        class="sidebar"
+        id="sidebar"
+        aria-label="Sanitary Inspector navigation"
+    >
+
         <div class="sidebar-brand-section">
-            <button class="sidebar-brand" type="button" data-tab="overview" aria-label="Go to overview">
+
+            <button
+                class="sidebar-brand"
+                type="button"
+                data-tab="overview"
+                aria-label="Go to overview"
+            >
                 <div class="sidebar-logo">
-                    <img src="/assets/LOGO(1).png" alt="SWACHHITRA Logo">
+                    <img
+                        src="/assets/logo.png"
+                        alt="SWACHHITRA Logo"
+                    >
                 </div>
+
                 <div class="sidebar-brand-text">
                     <strong>SWACHHITRA</strong>
-                    <span>Smart Waste Collection & Route Optimization System</span>
+                    <span>
+                        Smart Waste Collection &amp;
+                        Route Management System
+                    </span>
                 </div>
             </button>
 
+
             <div class="sidebar-role">
-                <span class="role-indicator"></span>
+
+                <span
+                    class="role-indicator"
+                    aria-hidden="true"
+                ></span>
+
                 <div>
                     <span class="role-label">ROLE:</span>
                     <strong>SANITARY INSPECTOR</strong>
                 </div>
+
             </div>
+
         </div>
 
-        <nav class="sidebar-navigation">
-            <div class="navigation-group">
-                <span class="navigation-title">Operations</span>
 
-                <button class="navigation-item active" id="nav-btn-overview" data-tab="overview" type="button">
-                    <span class="navigation-item-left"><span class="navigation-icon">⌂</span><span>Overview</span></span>
+        <nav class="sidebar-navigation">
+
+            <div class="navigation-group">
+
+                <span class="navigation-title">
+                    Operations
+                </span>
+
+
+                <button
+                    class="navigation-item active"
+                    id="nav-btn-overview"
+                    data-tab="overview"
+                    type="button"
+                >
+                    <span class="navigation-item-left">
+                        <span class="navigation-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <rect x="3.5" y="3.5" width="7" height="7" rx="1.4"></rect>
+                                <rect x="13.5" y="3.5" width="7" height="7" rx="1.4"></rect>
+                                <rect x="3.5" y="13.5" width="7" height="7" rx="1.4"></rect>
+                                <rect x="13.5" y="13.5" width="7" height="7" rx="1.4"></rect>
+                            </svg>
+                        </span>
+                        <span>Overview</span>
+                    </span>
+
                     <span class="navigation-active-dot"></span>
                 </button>
 
-                <button class="navigation-item" id="nav-btn-routes" data-tab="routes" type="button">
-                    <span class="navigation-item-left"><span class="navigation-icon">⌁</span><span>Routes</span></span>
-                    <span class="navigation-count muted-count">12 Live</span>
+
+                <button
+                    class="navigation-item"
+                    id="nav-btn-routes"
+                    data-tab="routes"
+                    type="button"
+                >
+                    <span class="navigation-item-left">
+                        <span class="navigation-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <circle cx="5" cy="6" r="2"></circle>
+                                <circle cx="19" cy="18" r="2"></circle>
+                                <path d="M7 6h3.2c2.1 0 3.8 1.7 3.8 3.8v4.4A3.8 3.8 0 0 0 17.8 18H17"></path>
+                            </svg>
+                        </span>
+                        <span>Routes</span>
+                    </span>
+
+                    <span
+                        class="navigation-count muted-count"
+                        id="routeNavCount"
+                    >
+                        —
+                    </span>
                 </button>
 
-                <button class="navigation-item" id="nav-btn-vehicles-drivers" data-tab="vehicles-drivers" type="button">
-                    <span class="navigation-item-left"><span class="navigation-icon">♧</span><span>Vehicles &amp; Drivers</span></span>
-                    <span class="navigation-count muted-count">18/20</span>
+
+                <button
+                    class="navigation-item"
+                    id="nav-btn-vehicles-drivers"
+                    data-tab="vehicles-drivers"
+                    type="button"
+                >
+                    <span class="navigation-item-left">
+                        <span class="navigation-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M3 6.5h11v9H3z"></path>
+                                <path d="M14 10h4l3 3v2.5h-7z"></path>
+                                <circle cx="7" cy="18" r="2"></circle>
+                                <circle cx="18" cy="18" r="2"></circle>
+                            </svg>
+                        </span>
+                        <span>Vehicles &amp; Drivers</span>
+                    </span>
+
+                    <span
+                        class="navigation-count muted-count"
+                        id="fleetNavCount"
+                    >
+                        —
+                    </span>
                 </button>
 
-                <button class="navigation-item" id="nav-btn-collection-ops" data-tab="collection-ops" type="button">
-                    <span class="navigation-item-left"><span class="navigation-icon">▤</span><span>Collection Operations</span></span>
+
+                <button
+                    class="navigation-item"
+                    id="nav-btn-collection-ops"
+                    data-tab="collection-ops"
+                    type="button"
+                >
+                    <span class="navigation-item-left">
+                        <span class="navigation-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M5 4h14v16H5z"></path>
+                                <path d="M8 8h8M8 12h8M8 16h5"></path>
+                            </svg>
+                        </span>
+                        <span>Collection Operations</span>
+                    </span>
                 </button>
 
-                <button class="navigation-item" id="nav-btn-citizen-reports" data-tab="citizen-reports" type="button">
-                    <span class="navigation-item-left"><span class="navigation-icon">▧</span><span>Citizen Reports</span></span>
-                    <span class="navigation-count report-count">7</span>
+
+                <button
+                    class="navigation-item"
+                    id="nav-btn-citizen-reports"
+                    data-tab="citizen-reports"
+                    type="button"
+                >
+                    <span class="navigation-item-left">
+                        <span class="navigation-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16H10l-4.5 4v-4.5A2.5 2.5 0 0 1 4 13.5z"></path>
+                                <path d="M12 7v4M12 13.8h.01"></path>
+                            </svg>
+                        </span>
+                        <span>Citizen Reports</span>
+                    </span>
+
+                    <span
+                        class="navigation-count report-count"
+                        id="reportNavCount"
+                    >
+                        —
+                    </span>
                 </button>
+
             </div>
+
 
             <div class="navigation-group secondary-navigation">
-                <span class="navigation-title">System</span>
 
-                <button class="navigation-item navigation-button" id="notificationButton" type="button">
-                    <span class="navigation-item-left"><span class="navigation-icon">♢</span><span>Notifications</span></span>
-                    <span class="navigation-count notification-count" id="notificationCount">3</span>
+                <span class="navigation-title">
+                    System
+                </span>
+
+                <button
+                    class="navigation-item navigation-button"
+                    id="notificationButton"
+                    type="button"
+                >
+                    <span class="navigation-item-left">
+                        <span class="navigation-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M18 9.5a6 6 0 0 0-12 0c0 7-3 7-3 8.5h18C21 16.5 18 16.5 18 9.5Z"></path>
+                                <path d="M10 21h4"></path>
+                            </svg>
+                        </span>
+                        <span>Notifications</span>
+                    </span>
+
+                    <span
+                        class="navigation-count notification-count"
+                        id="notificationCount"
+                    >
+                        0
+                    </span>
                 </button>
 
-                <button class="navigation-item navigation-button" id="settingsButton" type="button">
-                    <span class="navigation-item-left"><span class="navigation-icon">⚙</span><span>Settings</span></span>
-                </button>
             </div>
+
         </nav>
 
+
         <div class="sidebar-footer">
+
             <div class="current-zone-card">
-                <div class="current-zone-icon">◉</div>
+
+                <div
+                    class="current-zone-icon"
+                    aria-hidden="true"
+                >
+                    <svg viewBox="0 0 24 24">
+                        <path d="M20 10.5c0 5.5-8 10.5-8 10.5S4 16 4 10.5a8 8 0 1 1 16 0Z"></path>
+                        <circle cx="12" cy="10.5" r="2.5"></circle>
+                    </svg>
+                </div>
+
                 <div class="current-zone-information">
                     <span>CURRENT ZONE</span>
-                    <strong>Central Zone (Ward 8, 9, 14)</strong>
+                    <strong id="currentZoneText">Loading...</strong>
                 </div>
-                <span class="zone-online-dot"></span>
+
+                <span
+                    class="zone-online-dot"
+                    aria-hidden="true"
+                ></span>
+
             </div>
 
-            <button class="logout-link" id="logoutButton" type="button">
-                <span class="logout-icon">↪</span>
+
+            <button
+                class="logout-link"
+                id="logoutButton"
+                type="button"
+            >
+                <span class="logout-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M10 5H6.5A1.5 1.5 0 0 0 5 6.5v11A1.5 1.5 0 0 0 6.5 19H10"></path>
+                        <path d="M13 8l4 4-4 4M9 12h8"></path>
+                    </svg>
+                </span>
                 <span>Logout</span>
             </button>
+
         </div>
+
     </aside>
 
-    <button class="mobile-menu-button" id="mobileMenuButton" type="button" aria-label="Open navigation" aria-expanded="false">
-        <span></span><span></span><span></span>
+
+    <button
+        class="mobile-menu-button"
+        id="mobileMenuButton"
+        type="button"
+        aria-label="Open navigation"
+        aria-expanded="false"
+    >
+        <span></span>
+        <span></span>
+        <span></span>
     </button>
 
-    <!-- ========================= MAIN AREA ========================= -->
+
+    <!-- =========================================================
+         MAIN AREA
+         ========================================================= -->
     <main class="main-area">
+
         <header class="top-header">
-            <div class="header-left">
-                <div class="breadcrumb">
-                    <span>SWACHHITRA</span>
-                    <b>/</b>
-                    <strong>Sanitary Inspector</strong>
-                </div>
-            </div>
+
+            <button
+                class="sidebar-toggle-button"
+                id="sidebarToggleButton"
+                type="button"
+                aria-label="Collapse sidebar"
+                aria-expanded="true"
+                title="Collapse sidebar"
+            >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M15 5 8 12l7 7"></path>
+                </svg>
+            </button>
 
             <div class="header-right">
-                <div class="global-search" id="globalSearchWrapper">
-                    <span class="search-symbol">⌕</span>
-                    <input id="globalSearch" type="search" placeholder="Search routes, trucks, drivers or reports..." autocomplete="off" aria-label="Search">
+
+                <div
+                    class="global-search"
+                    id="globalSearchWrapper"
+                >
+                    <span
+                        class="search-symbol"
+                        aria-hidden="true"
+                    >
+                        <svg viewBox="0 0 24 24">
+                            <circle cx="11" cy="11" r="6.5"></circle>
+                            <path d="m16 16 5 5"></path>
+                        </svg>
+                    </span>
+
+                    <input
+                        id="globalSearch"
+                        type="search"
+                        placeholder="Search routes, vehicles, drivers or reports..."
+                        autocomplete="off"
+                        aria-label="Search dashboard"
+                    >
+
                     <kbd>/</kbd>
                 </div>
 
-                <div class="system-status">
+
+                <div
+                    class="system-status"
+                    id="systemStatus"
+                >
                     <span class="system-status-dot"></span>
-                    <span>System Operational</span>
+                    <span id="systemStatusText">Checking system...</span>
                 </div>
 
-                <!-- Stitch-style notification summary is immediately LEFT of bell -->
-                <button class="notification-preview" id="notificationPreview" type="button" title="View latest notification">
-                    <span class="notification-preview-dot"></span>
-                    <span>Route Alert: <strong>R-009</strong> delayed by 25m at Ward 9</span>
+
+                <button
+                    class="header-icon-button"
+                    id="headerNotificationButton"
+                    type="button"
+                    title="View notifications"
+                    aria-label="Open notifications"
+                >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M18 9.5a6 6 0 0 0-12 0c0 7-3 7-3 8.5h18C21 16.5 18 16.5 18 9.5Z"></path>
+                        <path d="M10 21h4"></path>
+                    </svg>
+
+                    <i
+                        id="headerNotificationDot"
+                        aria-hidden="true"
+                    ></i>
                 </button>
 
-                <button class="header-icon-button" id="headerNotificationButton" type="button" title="View all notifications" aria-label="Open notifications">
-                    <span>♢</span>
-                    <i></i>
-                </button>
 
                 <div class="header-separator"></div>
 
-                <button class="header-user" id="headerUserButton" type="button" aria-label="Open user menu">
+
+                <a
+                    class="header-user"
+                    href="/profile"
+                    aria-label="Open profile"
+                >
                     <span class="header-avatar">SI</span>
+
                     <span class="header-user-details">
+
                         <strong id="headerInspectorName">
-                            <span id="headerInspectorNameText">Inspector</span>
-                            <span class="header-user-online"></span>
+                            <span id="headerInspectorNameText">
+                                Inspector
+                            </span>
+
+                            <span
+                                class="header-user-online"
+                                aria-hidden="true"
+                            ></span>
                         </strong>
-                        <small id="headerInspectorZone">Central Zone • Wards 8, 9, 14</small>
+
+                        <small id="headerInspectorZone">
+                            Loading zone...
+                        </small>
+
                     </span>
-                    <span class="header-user-arrow">▾</span>
-                </button>
+                </a>
+
             </div>
+
         </header>
+
 
         <div class="page-content">
 
-            <!-- ========================= OVERVIEW ========================= -->
-            <section class="tab-panel active" id="panel-overview">
+            <!-- =====================================================
+                 OVERVIEW
+                 ===================================================== -->
+            <section
+                class="tab-panel active"
+                id="panel-overview"
+            >
+
                 <div class="overview-banner">
+
                     <div>
-                        <div class="shift-pill"><span></span>MORNING SHIFT ACTIVE (06:00 - 14:00)</div>
-                       <h1>Good Morning, <span id="inspectorName">Inspector</span>!</h1>
-                        <p>Monitor today's waste collection operations, manage routes, and respond to issues across Central Zone.</p>
-                    </div>
-                    <div class="overview-actions">
-                        <div class="assigned-zone">
-                            <span>ASSIGNED ZONE</span>
-                            <strong>Central Zone (xyz)</strong>
+                        <div class="shift-pill">
+                            <span></span>
+                            OPERATIONS OVERVIEW
                         </div>
-                        <button class="primary-button" id="assignRouteFromOverview" type="button"><span>+</span> Assign Route</button>
+
+                        <h1>
+                            Welcome,
+                            <span id="inspectorName">
+                                Inspector
+                            </span>
+                        </h1>
+
+                        <p>
+                            Review your assigned operations,
+                            manage routes, monitor collection,
+                            and respond to citizen reports.
+                        </p>
                     </div>
+
+
+                    <div class="overview-actions">
+
+                        <div class="assigned-zone">
+                            <span>ASSIGNED AREA</span>
+
+                            <strong id="assignedZoneText">
+                                Loading...
+                            </strong>
+                        </div>
+
+                        <button
+                            class="primary-button"
+                            id="assignRouteFromOverview"
+                            type="button"
+                        >
+                            <span>+</span>
+                            Create Route
+                        </button>
+
+                    </div>
+
                 </div>
+
 
                 <div class="kpi-section three-cards">
-                    <article class="kpi-card">
-                        <div class="kpi-header"><span>ACTIVE ROUTES</span><div class="kpi-icon">⌁</div></div>
-                        <div class="kpi-main-line"><strong class="kpi-number">12</strong><span class="status-pill green">Optimal Flow</span></div>
-                        <div class="kpi-description"><strong>8</strong> on schedule, <span class="orange-text">2 delayed</span>, 2 starting</div>
-                        <div class="kpi-footer"><span>Total Ward Coverage: 82%</span><button type="button" data-tab="routes">View on map →</button></div>
-                    </article>
 
                     <article class="kpi-card">
-                        <div class="kpi-header"><span>ACTIVE VEHICLES</span><div class="kpi-icon">⇄</div></div>
-                        <div class="kpi-main-line"><strong class="kpi-number">18 / 20</strong><span class="status-pill green">90% Deployed</span></div>
-                        <div class="kpi-description">18 compactor trucks running, 2 under scheduled depot maintenance</div>
-                        <div class="kpi-footer"><span>Fleet telemetry active</span><button type="button" data-tab="vehicles-drivers">View on map →</button></div>
+
+                        <div class="kpi-header">
+                            <span>ACTIVE ROUTES</span>
+
+                            <div class="kpi-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24">
+                                    <circle cx="5" cy="6" r="2"></circle>
+                                    <circle cx="19" cy="18" r="2"></circle>
+                                    <path d="M7 6h3.2c2.1 0 3.8 1.7 3.8 3.8v4.4A3.8 3.8 0 0 0 17.8 18H17"></path>
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div class="kpi-main-line">
+                            <strong
+                                class="kpi-number"
+                                id="activeRoutesKpi"
+                            >
+                                —
+                            </strong>
+
+                            <span
+                                class="status-pill green"
+                                id="activeRoutesStatus"
+                            >
+                                Loading
+                            </span>
+                        </div>
+
+                        <div
+                            class="kpi-description"
+                            id="activeRoutesDescription"
+                        >
+                            Loading route data...
+                        </div>
+
+                        <div class="kpi-footer">
+                            <span>
+                                Loading route data...
+                            </span>
+
+                            <button
+                                type="button"
+                                data-tab="routes"
+                            >
+                                Manage routes →
+                            </button>
+                        </div>
+
                     </article>
+
+
+                    <article class="kpi-card">
+
+                        <div class="kpi-header">
+                            <span>FLEET STATUS</span>
+
+                            <div class="kpi-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24">
+                                    <path d="M3 6.5h11v9H3z"></path>
+                                    <path d="M14 10h4l3 3v2.5h-7z"></path>
+                                    <circle cx="7" cy="18" r="2"></circle>
+                                    <circle cx="18" cy="18" r="2"></circle>
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div class="kpi-main-line">
+                            <strong
+                                class="kpi-number"
+                                id="fleetKpi"
+                            >
+                                —
+                            </strong>
+
+                            <span
+                                class="status-pill green"
+                                id="fleetStatus"
+                            >
+                                Loading
+                            </span>
+                        </div>
+
+                        <div
+                            class="kpi-description"
+                            id="fleetDescription"
+                        >
+                            Loading fleet data...
+                        </div>
+
+                        <div class="kpi-footer">
+                            <span>
+                                Loading fleet data...
+                            </span>
+
+                            <button
+                                type="button"
+                                data-tab="vehicles-drivers"
+                            >
+                                View fleet →
+                            </button>
+                        </div>
+
+                    </article>
+
 
                     <article class="kpi-card complaint-card">
-                        <div class="kpi-header"><span>CITIZEN COMPLAINTS</span><div class="kpi-icon amber">△</div></div>
-                        <div class="kpi-main-line"><strong class="kpi-number">7 Reports</strong><span class="status-pill amber">3 High Priority</span></div>
-                        <div class="kpi-description">5 overflowing bins, 2 missed residential collection alerts</div>
-                        <div class="kpi-footer"><span>Avg Resolution: 34 mins</span><button type="button" data-tab="citizen-reports">View complaints →</button></div>
+
+                        <div class="kpi-header">
+                            <span>CITIZEN COMPLAINTS</span>
+
+                            <div
+                                class="kpi-icon amber"
+                                aria-hidden="true"
+                            >
+                                <svg viewBox="0 0 24 24">
+                                    <path d="M12 4 21 20H3L12 4Z"></path>
+                                    <path d="M12 9v5M12 17h.01"></path>
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div class="kpi-main-line">
+                            <strong
+                                class="kpi-number"
+                                id="complaintsKpi"
+                            >
+                                —
+                            </strong>
+
+                            <span
+                                class="status-pill amber"
+                                id="complaintsStatus"
+                            >
+                                Loading
+                            </span>
+                        </div>
+
+                        <div
+                            class="kpi-description"
+                            id="complaintsDescription"
+                        >
+                            Loading complaint data...
+                        </div>
+
+                        <div class="kpi-footer">
+                            <span>
+                                Loading complaint data...
+                            </span>
+
+                            <button
+                                type="button"
+                                data-tab="citizen-reports"
+                            >
+                                View reports →
+                            </button>
+                        </div>
+
                     </article>
+
                 </div>
+
 
                 <div class="overview-lower">
+
                     <section class="overview-map-card card-shell">
+
                         <div class="map-header">
+
                             <div class="map-title-group">
                                 <span class="live-dot"></span>
+
                                 <div>
-                                    <h2>LIVE WARD COLLECTION MAP</h2>
-                                    <span>Central Zone / Ward 8, 9, 14</span>
+                                    <h2>
+                                        COLLECTION AREA MAP
+                                    </h2>
+
+                                    <span>
+                                        Database routes and vehicle locations
+                                    </span>
                                 </div>
                             </div>
+
+
                             <div class="map-tools">
-                                <button id="corridorButton" type="button">All Corridors</button>
-                                <button class="active" id="truckLayerButton" type="button">Trucks (18)</button>
-                                <button id="mapPlus" type="button">+</button>
-                                <button id="mapMinus" type="button">−</button>
+
+                                <button
+                                    id="corridorButton"
+                                    type="button"
+                                >
+                                    All Routes
+                                </button>
+
+                                <button
+                                    class="active"
+                                    id="truckLayerButton"
+                                    type="button"
+                                >
+                                    Vehicles (—)
+                                </button>
+
+                                <button
+                                    id="mapPlus"
+                                    type="button"
+                                    aria-label="Zoom in"
+                                >
+                                    +
+                                </button>
+
+                                <button
+                                    id="mapMinus"
+                                    type="button"
+                                    aria-label="Zoom out"
+                                >
+                                    −
+                                </button>
+
                             </div>
+
                         </div>
+
+
                         <div class="overview-map-wrap">
-                            <div id="trackingMap" class="tracking-map"></div>
-                            <div class="map-overlay-badge">Simulated GPS</div>
+
+                            <div
+                                id="trackingMap"
+                                class="tracking-map"
+                            ></div>
+
                             <div class="map-legend">
+
                                 <strong>Map Legend</strong>
-                                <span><i class="legend-line green"></i>Active Collection Route</span>
-                                <span><i class="legend-line amber"></i>Delayed Route</span>
-                                <span><i class="legend-dot red"></i>Citizen Complaint Hotspot</span>
+
+                                <span>
+                                    <i class="legend-line green"></i>
+                                    Database Route
+                                </span>
+
+                                <span>
+                                    <i class="legend-line amber"></i>
+                                    Delayed Route
+                                </span>
+
+                                <span>
+                                    <i class="legend-dot red"></i>
+                                    Citizen Complaint
+                                </span>
+
+                                <span>
+                                    <i class="legend-dot olive"></i>
+                                    Vehicle
+                                </span>
+
                             </div>
-                            <div class="gps-refresh">GPS REFRESH: <strong>4s</strong> • ONLINE</div>
+
                         </div>
+
+
                         <div class="map-footer">
-                            <span>Currently showing <strong>Ward 8, 9, 14</strong></span>
-                            <button type="button" data-tab="routes">Expand to Full Route Management →</button>
+
+                            <span>
+                                Showing
+                                <strong id="mapScopeText">
+                                    assigned operational area
+                                </strong>
+                            </span>
+
+                            <button
+                                type="button"
+                                data-tab="routes"
+                            >
+                                Open Route Management →
+                            </button>
+
                         </div>
+
                     </section>
+
 
                     <aside class="collection-summary-card card-shell">
+
                         <div class="summary-heading">
-                            <h2>COLLECTION PROGRESS</h2>
-                            <span>Shift: 62%<br>Done</span>
+                            <div>
+                                <h2>COLLECTION PROGRESS</h2>
+                            </div>
+
+                            <span id="summaryShiftBadge">
+                                Loading data
+                            </span>
                         </div>
+
+
                         <div class="summary-block">
-                            <div class="summary-label-row"><strong>Central Zone Tonnage Target</strong><strong>34.8 / 42.0 Tons</strong></div>
-                            <div class="thin-progress"><span style="width:83%"></span></div>
-                            <small>Expected target achievement by 13:30 hrs</small>
+
+                            <div class="summary-label-row">
+                                <strong>
+                                    Today's Waste Collected
+                                </strong>
+
+                                <strong id="todayWasteValue">
+                                    —
+                                </strong>
+                            </div>
+
+                            <small>
+                                Calculated from today's collection records.
+                            </small>
+
                         </div>
+
+
                         <div class="summary-block">
-                            <div class="summary-title">Ward Completion Rate</div>
-                            <div class="ward-progress"><span>Ward 8 (Market &amp; Comm.)</span><strong>92%</strong><div><i style="width:92%"></i></div></div>
-                            <div class="ward-progress delayed"><span>Ward 9 (Residential West)</span><strong>58% (Delayed)</strong><div><i style="width:58%"></i></div></div>
-                            <div class="ward-progress"><span>Ward 14 (Mixed Density)</span><strong>78%</strong><div><i style="width:78%"></i></div></div>
+
+                            <div class="summary-title">
+                                Route Completion
+                            </div>
+
+                            <div
+                                id="routeProgressList"
+                                class="route-progress-list"
+                            >
+                                <div class="summary-empty">
+                                    Loading route progress...
+                                </div>
+                            </div>
+
                         </div>
+
+
                         <div class="summary-mini-grid">
-                            <div><span>RESOLVED COMPLAINTS</span><strong>14 / 21</strong></div>
-                            <div><span>AVG FUEL EFF.</span><strong>3.8 km/L</strong></div>
+
+                            <div>
+                                <span>RESOLVED COMPLAINTS</span>
+                                <strong id="resolvedComplaintsValue">
+                                    —
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>FLEET UTILIZATION</span>
+                                <strong id="fleetUtilizationValue">
+                                    —
+                                </strong>
+                            </div>
+
                         </div>
-                        <button class="secondary-button full-width" type="button" data-tab="collection-ops">View Full Analytics &amp; Reports →</button>
+
+
+                        <button
+                            class="secondary-button full-width"
+                            type="button"
+                            data-tab="collection-ops"
+                        >
+                            View Collection Operations →
+                        </button>
+
                     </aside>
+
                 </div>
+
             </section>
 
-            <!-- ========================= ROUTES ========================= -->
-            <section class="tab-panel" id="panel-routes">
+
+            <!-- =====================================================
+                 ROUTES
+                 ===================================================== -->
+            <section
+                class="tab-panel"
+                id="panel-routes"
+            >
+
                 <div class="panel-banner">
+
                     <div>
-                        <span class="section-eyebrow">ROUTE MANAGEMENT</span>
-                        <h2>Routes &amp; Fleet Corridor Management</h2>
-                        <p>Assign, adjust corridor waypoints, and dispatch collection crews in real time.</p>
+                        <span class="section-eyebrow">
+                            ROUTE MANAGEMENT
+                        </span>
+
+                        <h2>
+                            Routes &amp; Crew Assignment
+                        </h2>
+
+                        <p>
+                            Create routes within your assigned scope,
+                            assign available vehicles and drivers,
+                            and update route status.
+                        </p>
                     </div>
-                    <button class="primary-button" id="createRouteButton" type="button"><span>+</span> Add Route (Map Sketch)</button>
+
+                    <button
+                        class="primary-button"
+                        id="createRouteButton"
+                        type="button"
+                    >
+                        <span>+</span>
+                        Add Route
+                    </button>
+
                 </div>
+
 
                 <div class="routes-layout">
+
                     <section class="route-map-card card-shell">
+
                         <div class="card-heading-row">
+
                             <div>
-                                <h3>INTERACTIVE ROUTE TOPOLOGY</h3>
-                                <p>Click a corridor to re-sequence</p>
+                                <h3>
+                                    ROUTE MAP
+                                </h3>
+
+                                <p>
+                                    Route and stop geometry from the database.
+                                </p>
                             </div>
-                            <span class="topology-status">12 active paths</span>
+
+                            <span
+                                class="topology-status"
+                                id="topologyStatus"
+                            >
+                                Loading routes...
+                            </span>
+
                         </div>
+
+
                         <div class="route-map-wrap">
-                            <div id="routeMap" class="route-map"></div>
-                            <div class="route-map-center-card">
-                                <strong>LIVE GPS CORRIDOR VIEW</strong>
-                                <p>Showing 12 active paths in Ward 8, 9, 14. Geofencing notifications active.</p>
-                                <button id="toggleGeofenceButton" type="button">Toggle Geofence Markers</button>
-                            </div>
-                            <span class="route-tag green">● R-017 (Optimal)</span>
-                            <span class="route-tag amber">▲ R-009 (Heavy Traffic • Re-route suggested)</span>
+                            <div
+                                id="routeMap"
+                                class="route-map"
+                            ></div>
                         </div>
+
                     </section>
 
+
                     <aside class="active-routes-card card-shell">
+
                         <div class="card-heading-row bordered">
+
                             <div>
-                                <h3>ACTIVE ROUTES</h3>
-                                <p>Manage driver dispatches and vehicle pairing</p>
+                                <h3>
+                                    ROUTES IN SCOPE
+                                </h3>
+
+                                <p>
+                                    Current routes for your operational area.
+                                </p>
                             </div>
-                            <button class="round-add-button" id="routePlusButton" type="button">+</button>
+
+                            <button
+                                class="round-add-button"
+                                id="routePlusButton"
+                                type="button"
+                                aria-label="Create route"
+                            >
+                                +
+                            </button>
+
                         </div>
-                        <div id="activeRoutesList" class="active-routes-list"></div>
+
+                        <div
+                            id="activeRoutesList"
+                            class="active-routes-list"
+                        >
+                            <div class="summary-empty">
+                                Loading routes...
+                            </div>
+                        </div>
+
                     </aside>
+
                 </div>
+
             </section>
 
-            <!-- ========================= VEHICLES & DRIVERS ========================= -->
-            <section class="tab-panel" id="panel-vehicles-drivers">
+
+            <!-- =====================================================
+                 VEHICLES & DRIVERS
+                 ===================================================== -->
+            <section
+                class="tab-panel"
+                id="panel-vehicles-drivers"
+            >
+
                 <div class="panel-banner">
+
                     <div>
-                        <span class="section-eyebrow">FLEET REGISTRY</span>
-                        <h2>Vehicles &amp; Drivers Pairing Registry</h2>
-                        <p>Cross-linked sanitation driver profiles, assigned trucks, and live capacity telemetry.</p>
+                        <span class="section-eyebrow">
+                            FLEET REGISTRY
+                        </span>
+
+                        <h2>
+                            Vehicles &amp; Drivers
+                        </h2>
+
+                        <p>
+                            View fleet availability, current status,
+                            location, driver assignments, and vehicle load.
+                        </p>
                     </div>
-                    <span class="deployment-badge">18 Deployed • 2 In Depot</span>
+
+                    <div class="fleet-header-actions">
+
+                        <span
+                            class="deployment-badge"
+                            id="deploymentBadge"
+                        >
+                            Loading fleet...
+                        </span>
+
+                        <button
+                            class="secondary-button compact-action-button"
+                            id="addVehicleButton"
+                            type="button"
+                        >
+                            + Add Vehicle
+                        </button>
+
+                        <button
+                            class="primary-button compact-action-button"
+                            id="addDriverButton"
+                            type="button"
+                        >
+                            + Add Driver
+                        </button>
+
+                    </div>
+
                 </div>
-                <div id="vehiclePairings" class="pairing-grid"></div>
+
+
+                <div
+                    id="vehiclePairings"
+                    class="pairing-grid"
+                >
+                    <div class="summary-empty">
+                        Loading vehicles...
+                    </div>
+                </div>
+
+
+                <section class="driver-registry-card card-shell">
+
+                    <div class="card-heading-row">
+
+                        <div>
+                            <h3>
+                                DRIVER REGISTRY
+                            </h3>
+
+                            <p>
+                                Manage drivers assigned to your operational wards.
+                            </p>
+                        </div>
+
+                        <span
+                            class="topology-status"
+                            id="driverRegistryStatus"
+                        >
+                            Loading...
+                        </span>
+
+                    </div>
+
+
+                    <div
+                        id="driverRegistryList"
+                        class="driver-registry-list"
+                    >
+                        <div class="summary-empty">
+                            Loading drivers...
+                        </div>
+                    </div>
+
+                </section>
+
             </section>
 
-            <!-- ========================= COLLECTION OPS ========================= -->
-            <section class="tab-panel" id="panel-collection-ops">
+
+            <!-- =====================================================
+                 COLLECTION OPERATIONS
+                 ===================================================== -->
+            <section
+                class="tab-panel"
+                id="panel-collection-ops"
+            >
+
                 <div class="panel-banner">
+
                     <div>
-                        <span class="section-eyebrow">COLLECTION OPERATIONS</span>
-                        <h2>Shift Operations &amp; Dumper Depot Logistics</h2>
-                        <p>Tonnage records, landfill transport clearance, and fuel consumption logs.</p>
+                        <span class="section-eyebrow">
+                            COLLECTION OPERATIONS
+                        </span>
+
+                        <h2>
+                            Collection Progress
+                        </h2>
+
+                        <p>
+                            Track recorded waste, route completion,
+                            collection records, and complaint resolution.
+                        </p>
                     </div>
+
                 </div>
+
+
                 <div class="ops-grid">
-                    <article class="ops-card card-shell"><span>Total Wet Waste</span><strong>21.4 Tons</strong><p>Direct to Bio-Methanation Plant #2</p></article>
-                    <article class="ops-card card-shell"><span>Dry / Recyclable</span><strong>13.4 Tons</strong><p>Direct to MRF Processing Station</p></article>
-                    <article class="ops-card card-shell"><span>Depot Compliance</span><strong class="green-value">98.2%</strong><p>Zero unauthorized detour alerts</p></article>
+
+                    <article class="ops-card card-shell">
+                        <span>Today's Waste Recorded</span>
+
+                        <strong id="opsWasteValue">
+                            —
+                        </strong>
+
+                        <p>
+                            Today's collection records from MySQL.
+                        </p>
+                    </article>
+
+
+                    <article class="ops-card card-shell">
+                        <span>Collection Records</span>
+
+                        <strong id="opsRecordValue">
+                            —
+                        </strong>
+
+                        <p id="opsRecordDescription">
+                            Loading collection records...
+                        </p>
+                    </article>
+
+
+                    <article class="ops-card card-shell">
+                        <span>Route Completion</span>
+
+                        <strong id="opsCompletionValue">
+                            —
+                        </strong>
+
+                        <p>
+                            Calculated from route stop progress.
+                        </p>
+                    </article>
+
                 </div>
-                <div class="analytics-strip card-shell">
-                    <div><span>Morning Shift</span><strong>91%</strong></div>
-                    <div><span>Afternoon Shift</span><strong>64%</strong></div>
-                    <div><span>Fleet Utilization</span><strong>90%</strong></div>
-                    <div><span>Resolved Complaints</span><strong>14 / 21</strong></div>
-                </div>
+
+
+                <section class="collection-operations-table card-shell">
+
+                    <div class="card-heading-row">
+
+                        <div>
+                            <h3>
+                                COLLECTION RECORDS
+                            </h3>
+
+                            <p>
+                                Collection activity returned by the database.
+                            </p>
+                        </div>
+
+                        <span
+                            class="topology-status"
+                            id="collectionRecordsStatus"
+                        >
+                            Loading...
+                        </span>
+
+                    </div>
+
+
+                    <div
+                        id="collectionRecordsList"
+                        class="collection-records-list"
+                    >
+                        <div class="summary-empty">
+                            Loading collection records...
+                        </div>
+                    </div>
+
+                </section>
+
             </section>
 
-            <!-- ========================= CITIZEN REPORTS ========================= -->
-            <section class="tab-panel" id="panel-citizen-reports">
+
+            <!-- =====================================================
+                 CITIZEN REPORTS
+                 ===================================================== -->
+            <section
+                class="tab-panel"
+                id="panel-citizen-reports"
+            >
+
                 <div class="panel-banner">
+
                     <div>
-                        <span class="section-eyebrow">CITIZEN SERVICES</span>
-                        <h2>Citizen Complaints &amp; Grievance Hotspots</h2>
-                        <p>Direct reports submitted via the citizen channel requiring inspector dispatch.</p>
+                        <span class="section-eyebrow">
+                            CITIZEN SERVICES
+                        </span>
+
+                        <h2>
+                            Citizen Complaints
+                        </h2>
+
+                        <p>
+                            Review complaints in your operational scope
+                            and update their status.
+                        </p>
                     </div>
-                    <span class="deployment-badge amber-badge">7 Active Grievances</span>
+
+                    <span
+                        class="deployment-badge amber-badge"
+                        id="activeComplaintBadge"
+                    >
+                        Loading complaints...
+                    </span>
+
                 </div>
+
+
                 <div class="reports-toolbar">
-                    <input id="reportSearch" type="search" placeholder="Search ticket, type, ward or location...">
-                    <select id="reportPriorityFilter"><option value="all">All Priority</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select>
-                    <select id="reportStatusFilter"><option value="all">All Status</option><option value="open">Open</option><option value="in-progress">In Progress</option><option value="resolved">Resolved</option></select>
+
+                    <input
+                        id="reportSearch"
+                        type="search"
+                        placeholder="Search ticket, type, ward or location..."
+                        aria-label="Search citizen complaints"
+                    >
+
+                    <select
+                        id="reportPriorityFilter"
+                        aria-label="Filter complaints by priority"
+                    >
+                        <option value="all">
+                            All Priority
+                        </option>
+                        <option value="high">
+                            High
+                        </option>
+                        <option value="medium">
+                            Medium
+                        </option>
+                        <option value="low">
+                            Low
+                        </option>
+                    </select>
+
+                    <select
+                        id="reportStatusFilter"
+                        aria-label="Filter complaints by status"
+                    >
+                        <option value="all">
+                            All Status
+                        </option>
+                        <option value="open">
+                            Open
+                        </option>
+                        <option value="in-progress">
+                            In Progress
+                        </option>
+                        <option value="resolved">
+                            Resolved
+                        </option>
+                    </select>
+
                 </div>
+
+
                 <div class="report-table-shell card-shell">
+
                     <div class="table-scroll">
+
                         <table class="data-table">
-                            <thead><tr><th>Ticket ID</th><th>Type</th><th>Ward / Location</th><th>Time Elapsed</th><th>Priority</th><th>Status</th><th>Action</th></tr></thead>
-                            <tbody id="reportTableBody"></tbody>
+
+                            <thead>
+                                <tr>
+                                    <th>Ticket ID</th>
+                                    <th>Type</th>
+                                    <th>Ward / Location</th>
+                                    <th>Reported</th>
+                                    <th>Priority</th>
+                                    <th>Status</th>
+                                    <th>Update</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="reportTableBody">
+
+                                <tr>
+                                    <td
+                                        colspan="7"
+                                        class="table-empty"
+                                    >
+                                        Loading complaints...
+                                    </td>
+                                </tr>
+
+                            </tbody>
+
                         </table>
+
                     </div>
+
                 </div>
+
             </section>
+
         </div>
+
     </main>
 
-    <!-- ========================= NOTIFICATION DRAWER ========================= -->
-    <aside class="notification-drawer" id="notificationDrawer" aria-hidden="true">
+
+    <!-- =========================================================
+         NOTIFICATION DRAWER
+         ========================================================= -->
+    <aside
+        class="notification-drawer"
+        id="notificationDrawer"
+        aria-hidden="true"
+    >
+
         <div class="drawer-header">
+
             <div>
-                <span class="section-eyebrow">SYSTEM</span>
-                <h2>Notifications</h2>
+                <span class="section-eyebrow">
+                    SYSTEM
+                </span>
+
+                <h2>
+                    Notifications
+                </h2>
             </div>
-            <button class="drawer-close" id="closeNotificationDrawer" type="button">×</button>
+
+            <button
+                class="drawer-close"
+                id="closeNotificationDrawer"
+                type="button"
+                aria-label="Close notifications"
+            >
+                ×
+            </button>
+
         </div>
-        <div class="notification-list" id="notificationList">
-            <article class="notification-card warning"><span></span><div><strong>Route R-009 delayed</strong><p>Traffic congestion at Ward 9.</p><small>6 min ago</small></div></article>
-            <article class="notification-card"><span></span><div><strong>Morning collection update</strong><p>Ward 8 reached 92% completion.</p><small>18 min ago</small></div></article>
-            <article class="notification-card"><span></span><div><strong>New citizen report</strong><p>CR-1042 requires attention.</p><small>22 min ago</small></div></article>
+
+
+        <div
+            class="notification-list"
+            id="notificationList"
+        >
+            <div class="summary-empty">
+                Loading notifications...
+            </div>
         </div>
-        <button class="drawer-read-button" id="markNotificationsRead" type="button">Mark all as read</button>
+
+
+        <button
+            class="drawer-read-button"
+            id="markNotificationsRead"
+            type="button"
+        >
+            Mark all as read
+        </button>
+
     </aside>
 
-    <!-- ========================= ADD ROUTE MODAL ========================= -->
-    <div class="modal" id="addRouteModal" aria-hidden="true">
-        <div class="modal-overlay" data-close-modal="addRouteModal"></div>
+
+
+    <!-- =========================================================
+         VEHICLE MANAGEMENT MODAL
+         ========================================================= -->
+    <div
+        class="modal"
+        id="vehicleModal"
+        aria-hidden="true"
+    >
+
+        <div
+            class="modal-overlay"
+            data-close-modal="vehicleModal"
+        ></div>
+
         <div class="modal-card">
+
             <div class="modal-header-green">
-                <div><span>ROUTE MANAGEMENT</span><h2>Add Route &amp; Assign Crew</h2><p>SWACHHITRA Corridor Optimization Engine</p></div>
-                <button class="modal-close white-close" type="button" data-close-modal="addRouteModal">×</button>
-            </div>
-            <form id="addRouteForm" class="modal-form">
-                <div class="form-grid-2">
-                    <label>Route Identifier<input name="routeId" value="R-028" required></label>
-                    <label>Assigned Zone / Ward<select name="zone" required><option>Central Zone • Ward 8 (Residential)</option><option>Central Zone • Ward 9 (Commercial Corridor)</option><option>Central Zone • Ward 14 (Mixed Density)</option></select></label>
-                    <label>Assign Available Vehicle<select name="vehicle" required><option>TRK-019 (DL-1C-4409) - 8T Compactor</option><option>TRK-022 (DL-1C-8812) - 6T Tipper</option></select></label>
-                    <label>Assign Certified Driver<select name="driver" required><option>Amit Saxena (HMV-DL Valid)</option><option>Dharmendra Pal (HMV-DL Valid)</option></select></label>
+
+                <div>
+                    <span>FLEET REGISTRY</span>
+                    <h2 id="vehicleModalTitle">Add Vehicle</h2>
+                    <p>
+                        Register or update a municipal collection vehicle.
+                    </p>
                 </div>
-                <label>View / Add on Map (Interactive Waypoints)
-                    <div class="waypoint-box"><strong>Click &amp; Drag to plot street collection nodes</strong><span>Auto-calculates shortest path around known traffic bottlenecks.</span></div>
-                </label>
-                <div class="modal-footer"><button type="button" class="secondary-button" data-close-modal="addRouteModal">Cancel</button><button type="submit" class="primary-button">Save &amp; Dispatch Route</button></div>
+
+                <button
+                    class="modal-close white-close"
+                    type="button"
+                    data-close-modal="vehicleModal"
+                    aria-label="Close vehicle dialog"
+                >
+                    ×
+                </button>
+
+            </div>
+
+            <form
+                id="vehicleForm"
+                class="modal-form"
+            >
+
+                <input
+                    type="hidden"
+                    name="vehicle_id"
+                >
+
+                <div class="form-grid-2">
+
+                    <label>
+                        Vehicle Number
+                        <input
+                            name="vehicle_number"
+                            maxlength="50"
+                            placeholder="Example: TRK-024"
+                            required
+                        >
+                    </label>
+
+                    <label>
+                        Registration Number
+                        <input
+                            name="registration_number"
+                            maxlength="50"
+                            placeholder="Example: MH09AB1234"
+                        >
+                    </label>
+
+                    <label>
+                        Vehicle Type
+                        <input
+                            name="vehicle_type"
+                            maxlength="60"
+                            placeholder="Example: Compactor"
+                            required
+                        >
+                    </label>
+
+                    <label>
+                        Make / Manufacturer
+                        <input
+                            name="make"
+                            maxlength="80"
+                            placeholder="Example: Tata"
+                        >
+                    </label>
+
+                    <label>
+                        Capacity (Tons)
+                        <input
+                            name="capacity_tons"
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            placeholder="Example: 8"
+                            required
+                        >
+                    </label>
+
+                    <label>
+                        Fleet Status
+                        <select
+                            name="status"
+                        >
+                            <option value="available">Available</option>
+                            <option value="en_route">En Route</option>
+                            <option value="collecting">Collecting</option>
+                            <option value="delayed">Delayed</option>
+                            <option value="maintenance">Maintenance</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </label>
+
+                    <label class="form-grid-full">
+                        Vehicle Image URL / Path (Optional)
+                        <input
+                            name="image_path"
+                            maxlength="255"
+                            placeholder="/assets/vehicles/trk-024.jpg"
+                        >
+                        <small class="modal-help">
+                            The database stores this path/URL. Actual file upload will be added in the media-upload phase.
+                        </small>
+                    </label>
+
+                </div>
+
+                <div class="modal-footer">
+
+                    <button
+                        type="button"
+                        class="secondary-button"
+                        data-close-modal="vehicleModal"
+                    >
+                        Cancel
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="primary-button"
+                    >
+                        Save Vehicle
+                    </button>
+
+                </div>
+
             </form>
+
         </div>
+
     </div>
 
-    <!-- ========================= TOAST ========================= -->
-    <div class="toast" id="toast"><span>✓</span><strong id="toastMessage">Done</strong></div>
+
+    <!-- =========================================================
+         DRIVER MANAGEMENT MODAL
+         ========================================================= -->
+    <div
+        class="modal"
+        id="driverModal"
+        aria-hidden="true"
+    >
+
+        <div
+            class="modal-overlay"
+            data-close-modal="driverModal"
+        ></div>
+
+        <div class="modal-card">
+
+            <div class="modal-header-green">
+
+                <div>
+                    <span>STAFF REGISTRY</span>
+                    <h2 id="driverModalTitle">Add Driver</h2>
+                    <p>
+                        Register or update an operational waste-collection driver.
+                    </p>
+                </div>
+
+                <button
+                    class="modal-close white-close"
+                    type="button"
+                    data-close-modal="driverModal"
+                    aria-label="Close driver dialog"
+                >
+                    ×
+                </button>
+
+            </div>
+
+            <form
+                id="driverForm"
+                class="modal-form"
+            >
+
+                <input
+                    type="hidden"
+                    name="driver_id"
+                >
+
+                <div class="form-grid-2">
+
+                    <label>
+                        Employee ID
+                        <input
+                            name="employee_id"
+                            maxlength="60"
+                            placeholder="Example: KMC-DRV-021"
+                            required
+                        >
+                    </label>
+
+                    <label>
+                        Full Name
+                        <input
+                            name="full_name"
+                            maxlength="120"
+                            placeholder="Driver full name"
+                            required
+                        >
+                    </label>
+
+                    <label>
+                        Mobile Number
+                        <input
+                            name="mobile_number"
+                            maxlength="20"
+                            placeholder="Example: 9876543210"
+                            required
+                        >
+                    </label>
+
+                    <label>
+                        Email
+                        <input
+                            name="email"
+                            type="email"
+                            maxlength="190"
+                            placeholder="driver@example.com"
+                        >
+                    </label>
+
+                    <label>
+                        License Number
+                        <input
+                            name="license_number"
+                            maxlength="80"
+                            placeholder="Example: MH09-2026-00124"
+                            required
+                        >
+                    </label>
+
+                    <label>
+                        License Type
+                        <input
+                            name="license_type"
+                            maxlength="50"
+                            placeholder="Example: HMV"
+                        >
+                    </label>
+
+                    <label>
+                        Zone
+                        <select
+                            name="zone_id"
+                            id="driverZoneSelect"
+                            required
+                        >
+                            <option value="">Select Zone</option>
+                        </select>
+                    </label>
+
+                    <label>
+                        Assigned Ward
+                        <select
+                            name="assigned_ward_id"
+                            id="driverWardSelect"
+                            required
+                        >
+                            <option value="">Select Ward</option>
+                        </select>
+                    </label>
+
+                    <label class="form-grid-full">
+                        Driver Status
+                        <select
+                            name="status"
+                            id="driverStatusSelect"
+                        >
+                            <option value="available">Available</option>
+                            <option value="on_break">On Break</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                        <small
+                            class="modal-help"
+                            id="driverStatusHelp"
+                        >
+                            Route assignment automatically changes the driver to Assigned.
+                        </small>
+                    </label>
+
+                </div>
+
+                <div class="modal-footer">
+
+                    <button
+                        type="button"
+                        class="secondary-button"
+                        data-close-modal="driverModal"
+                    >
+                        Cancel
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="primary-button"
+                    >
+                        Save Driver
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================================================
+         ADD ROUTE MODAL
+         ========================================================= -->
+    <div
+        class="modal"
+        id="addRouteModal"
+        aria-hidden="true"
+    >
+
+        <div
+            class="modal-overlay"
+            data-close-modal="addRouteModal"
+        ></div>
+
+
+        <div class="modal-card">
+
+            <div class="modal-header-green">
+
+                <div>
+                    <span>ROUTE MANAGEMENT</span>
+
+                    <h2>
+                        Create Route
+                    </h2>
+
+                    <p>
+                        Create a route inside your assigned operational scope.
+                    </p>
+                </div>
+
+                <button
+                    class="modal-close white-close"
+                    type="button"
+                    data-close-modal="addRouteModal"
+                    aria-label="Close create route dialog"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <form
+                id="addRouteForm"
+                class="modal-form"
+            >
+
+                <div class="form-grid-2">
+
+                    <label>
+                        Route Code
+                        <input
+                            name="route_code"
+                            maxlength="30"
+                            placeholder="Example: R-028"
+                            required
+                        >
+                    </label>
+
+
+                    <label>
+                        Route Name
+                        <input
+                            name="route_name"
+                            maxlength="150"
+                            placeholder="Example: Ward 8 Morning Route"
+                            required
+                        >
+                    </label>
+
+
+                    <label>
+                        Zone
+                        <select
+                            name="zone_id"
+                            id="routeZoneSelect"
+                            required
+                        >
+                            <option value="">
+                                Select Zone
+                            </option>
+                        </select>
+                    </label>
+
+
+                    <label>
+                        Ward
+                        <select
+                            name="ward_id"
+                            id="routeWardSelect"
+                            required
+                        >
+                            <option value="">
+                                Select Ward
+                            </option>
+                        </select>
+                    </label>
+
+
+                    <label>
+                        Vehicle
+                        <select
+                            name="vehicle_id"
+                            id="routeVehicleSelect"
+                        >
+                            <option value="">
+                                No vehicle yet
+                            </option>
+                        </select>
+                    </label>
+
+
+                    <label>
+                        Driver
+                        <select
+                            name="driver_id"
+                            id="routeDriverSelect"
+                        >
+                            <option value="">
+                                No driver yet
+                            </option>
+                        </select>
+                    </label>
+
+
+                    <label>
+                        Total Stops
+                        <input
+                            name="total_stops"
+                            type="number"
+                            min="0"
+                            step="1"
+                            value="0"
+                            inputmode="numeric"
+                        >
+                    </label>
+
+                </div>
+
+
+                <div class="modal-footer">
+
+                    <button
+                        type="button"
+                        class="secondary-button"
+                        data-close-modal="addRouteModal"
+                    >
+                        Cancel
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="primary-button"
+                    >
+                        Create Route
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================================================
+         EDIT ROUTE MODAL
+         ========================================================= -->
+    <div
+        class="modal"
+        id="editRouteModal"
+        aria-hidden="true"
+    >
+
+        <div
+            class="modal-overlay"
+            data-close-modal="editRouteModal"
+        ></div>
+
+
+        <div class="modal-card">
+
+            <div class="modal-header-green">
+
+                <div>
+                    <span>ROUTE MANAGEMENT</span>
+
+                    <h2>
+                        Update Route
+                    </h2>
+
+                    <p>
+                        Update route details, crew assignment, and status.
+                    </p>
+                </div>
+
+                <button
+                    class="modal-close white-close"
+                    type="button"
+                    data-close-modal="editRouteModal"
+                    aria-label="Close update route dialog"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <form
+                id="editRouteForm"
+                class="modal-form"
+            >
+
+                <input
+                    type="hidden"
+                    name="route_id"
+                >
+
+
+                <div class="form-grid-2">
+
+                    <label>
+                        Route Code
+                        <input
+                            name="route_code"
+                            id="editRouteCode"
+                            readonly
+                        >
+                    </label>
+
+
+                    <label>
+                        Route Name
+                        <input
+                            name="route_name"
+                            id="editRouteName"
+                            maxlength="150"
+                            required
+                        >
+                    </label>
+
+
+                    <label>
+                        Zone
+                        <select
+                            name="zone_id"
+                            id="editRouteZoneSelect"
+                            required
+                        >
+                            <option value="">
+                                Select Zone
+                            </option>
+                        </select>
+                    </label>
+
+
+                    <label>
+                        Ward
+                        <select
+                            name="ward_id"
+                            id="editRouteWardSelect"
+                            required
+                        >
+                            <option value="">
+                                Select Ward
+                            </option>
+                        </select>
+                    </label>
+
+
+                    <label>
+                        Vehicle
+                        <select
+                            name="vehicle_id"
+                            id="editRouteVehicleSelect"
+                        >
+                            <option value="">
+                                No vehicle
+                            </option>
+                        </select>
+                    </label>
+
+
+                    <label>
+                        Driver
+                        <select
+                            name="driver_id"
+                            id="editRouteDriverSelect"
+                        >
+                            <option value="">
+                                No driver
+                            </option>
+                        </select>
+                    </label>
+
+
+                    <label>
+                        Route Status
+                        <select
+                            name="status"
+                            id="editRouteStatusSelect"
+                            required
+                        >
+                            <option value="scheduled">
+                                Scheduled
+                            </option>
+                            <option value="starting">
+                                Starting
+                            </option>
+                            <option value="active">
+                                Active
+                            </option>
+                            <option value="completed">
+                                Completed
+                            </option>
+                            <option value="delayed">
+                                Delayed
+                            </option>
+                            <option value="cancelled">
+                                Cancelled
+                            </option>
+                        </select>
+                    </label>
+
+                </div>
+
+
+                <div class="modal-footer">
+
+                    <button
+                        type="button"
+                        class="secondary-button"
+                        data-close-modal="editRouteModal"
+                    >
+                        Cancel
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="primary-button"
+                    >
+                        Save Changes
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================================================
+         TOAST
+         ========================================================= -->
+    <div
+        class="toast"
+        id="toast"
+        role="status"
+        aria-live="polite"
+    >
+        <span
+            class="toast-icon"
+            aria-hidden="true"
+        >
+            <svg viewBox="0 0 24 24">
+                <path d="m5 12 4 4L19 6"></path>
+            </svg>
+        </span>
+
+        <strong id="toastMessage">
+            Done
+        </strong>
+    </div>
+
 </div>
+
+
 <script
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     crossorigin=""
 ></script>
 
-<script
-    src="./InspectorDash.js"
-></script>
+<script src="./inspectorDash.js"></script>
+
+</body>
+</html>

@@ -6,7 +6,6 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js",
     "create-user": "node scripts/createUser.js"
   },
   "dependencies": {

@@ -1,3 +1,7 @@
+/* =========================================================
+   SWACHHITRA LOGIN PAGE
+   ========================================================= */
+
 :root {
     --olive-dark: #294721;
     --olive: #385b2b;
@@ -34,6 +38,8 @@ body {
         sans-serif;
     color: var(--text);
     background: var(--page);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
 }
 
 button,
@@ -46,13 +52,15 @@ button {
     border: 0;
 }
 
+/* ---------- PAGE ---------- */
+
 .login-page {
     min-height: 100vh;
     display: grid;
-    grid-template-columns: 360px 1fr;
+    grid-template-columns: 360px minmax(0, 1fr);
 }
 
-/* ---------- LEFT PANEL ---------- */
+/* ---------- LEFT BRAND PANEL ---------- */
 
 .brand-panel {
     min-height: 100vh;
@@ -60,6 +68,7 @@ button {
     display: flex;
     flex-direction: column;
     color: #eff6eb;
+
     background:
         linear-gradient(
             180deg,
@@ -78,7 +87,8 @@ button {
 .brand-logo {
     width: 60px;
     height: 60px;
-    object-fit:fill;
+    object-fit: contain;
+    flex: 0 0 auto;
 }
 
 .brand-name h1 {
@@ -91,7 +101,8 @@ button {
     margin: 4px 0 0;
     color: #b6c7ae;
     font-size: 13px;
-    letter-spacing: 0.07em;
+    line-height: 1.4;
+    letter-spacing: 0.04em;
 }
 
 .brand-content {
@@ -142,15 +153,17 @@ button {
     margin: 0;
     color: #9fb19a;
     font-size: 12px;
+    line-height: 1.5;
 }
 
-/* ---------- RIGHT PANEL ---------- */
+/* ---------- RIGHT LOGIN PANEL ---------- */
 
 .login-panel {
     min-height: 100vh;
     display: grid;
     place-items: center;
     padding: 35px;
+
     background:
         radial-gradient(
             circle at 78% 17%,
@@ -168,14 +181,17 @@ button {
 .login-card {
     width: min(455px, 100%);
     padding: 34px;
+
     border: 1px solid var(--border);
     border-radius: 22px;
+
     background:
         linear-gradient(
             145deg,
             #f2f8eb 0%,
             #ffffff 68%
         );
+
     box-shadow: var(--shadow);
 }
 
@@ -186,6 +202,7 @@ button {
 .login-heading h2 {
     margin: 8px 0 6px;
     font-size: 40px;
+    line-height: 1.1;
     letter-spacing: -0.045em;
 }
 
@@ -193,6 +210,7 @@ button {
     margin: 0 0 25px;
     color: var(--muted);
     font-size: 15px;
+    line-height: 1.5;
 }
 
 #loginForm {
@@ -215,25 +233,38 @@ label {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
 }
 
 .show-password {
+    padding: 0;
     color: #667c44;
     background: transparent;
     font-size: 13px;
     cursor: pointer;
 }
 
+.show-password:hover {
+    text-decoration: underline;
+}
+
 input,
 select {
     width: 100%;
+    min-height: 48px;
     padding: 13px 14px;
+
     border: 1px solid #d3dfcc;
     border-radius: 11px;
+
     outline: none;
     color: var(--text);
     background: #ffffff;
-    transition: 0.2s ease;
+
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        background-color 0.2s ease;
 }
 
 input::placeholder {
@@ -246,16 +277,27 @@ select:focus {
     box-shadow: 0 0 0 3px rgba(147, 173, 105, 0.14);
 }
 
+input:disabled,
+select:disabled,
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+}
+
 .login-message {
     min-height: 18px;
     color: var(--danger);
     font-size: 14px;
+    line-height: 1.4;
 }
 
 .login-button {
     width: 100%;
+    min-height: 48px;
     padding: 14px;
+
     border-radius: 11px;
+
     color: #2b5410;
     background:
         linear-gradient(
@@ -263,16 +305,40 @@ select:focus {
             var(--lime),
             var(--lime-2)
         );
+
     font-size: 17px;
     font-weight: 800;
+
     box-shadow:
         0 9px 22px rgba(34, 54, 2, 0.22);
+
     cursor: pointer;
-    transition: 0.2s ease;
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        filter 0.2s ease;
 }
 
 .login-button:hover {
     transform: translateY(-1px);
+    box-shadow:
+        0 11px 25px rgba(34, 54, 2, 0.24);
+}
+
+.login-button:active {
+    transform: translateY(0);
+}
+
+.login-button:focus-visible,
+.show-password:focus-visible {
+    outline: 3px solid rgba(199, 235, 121, 0.7);
+    outline-offset: 3px;
+}
+
+.login-button:disabled {
+    transform: none;
+    filter: grayscale(0.2);
 }
 
 /* ---------- RESPONSIVE ---------- */
@@ -306,6 +372,27 @@ select:focus {
 }
 
 @media (max-width: 500px) {
+    .brand-header {
+        align-items: flex-start;
+    }
+
+    .brand-logo {
+        width: 52px;
+        height: 52px;
+    }
+
+    .brand-name h1 {
+        font-size: 20px;
+    }
+
+    .brand-name p {
+        font-size: 12px;
+    }
+
+    .brand-content {
+        margin: 40px 0;
+    }
+
     .login-card {
         padding: 25px;
         border-radius: 18px;
@@ -313,5 +400,18 @@ select:focus {
 
     .login-heading h2 {
         font-size: 34px;
+    }
+
+    .login-panel {
+        padding-inline: 14px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        transition: none !important;
     }
 }

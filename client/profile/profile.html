@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
 
@@ -11,215 +10,198 @@
 
     <meta
         name="description"
-        content="SWACHHITRA User Profile Setup"
+        content="SWACHHITRA user profile and operational scope"
     >
 
-    <title>SWACHHITRA | Complete Profile</title>
+    <title>SWACHHITRA | User Profile</title>
 
-    <link
-        rel="stylesheet"
-        href="./profile.css"
-    >
+    <link rel="stylesheet" href="./profile.css">
 </head>
 
 <body>
 
-    <main class="profile-page">
+<main class="profile-page">
 
-        <!-- Decorative background -->
-        <div class="background-orb orb-one"></div>
-        <div class="background-orb orb-two"></div>
-        <div class="background-grid"></div>
+    <div class="background-orb orb-one" aria-hidden="true"></div>
+    <div class="background-orb orb-two" aria-hidden="true"></div>
+    <div class="background-grid" aria-hidden="true"></div>
 
 
-        <section class="profile-wrapper">
+    <section class="profile-wrapper">
 
-            <!-- Top Brand -->
+        <!-- Brand bar -->
+        <div class="brand-bar">
 
-            <div class="brand-bar">
-
-                <div class="brand">
+            <div class="brand">
 
                 <div class="brand-header">
                     <img
-                        src="/assets/LOGO(1).png"
+                        src="/assets/logo.png"
                         alt="SWACHHITRA Logo"
                         class="brand-logo"
                     >
                 </div>
 
-                    <div>
+                <div>
+                    <h1>SWACHHITRA</h1>
 
-                        <h1>SWACHHITRA</h1>
-
-                        <p>
-                            Smart Waste Collection & Route Optimization System
-                        </p>
-
-                    </div>
-
+                    <p>
+                        Smart Waste Collection &amp;
+                        Route Management System
+                    </p>
                 </div>
-
-
-                <button
-                    type="button"
-                    id="backButton"
-                    class="back-button"
-                >
-
-                    <span>←</span>
-
-                    Back to Login
-
-                </button>
 
             </div>
 
 
+            <button
+                type="button"
+                id="backButton"
+                class="back-button"
+                aria-label="Go back"
+            >
+                <span aria-hidden="true">←</span>
+                Back
+            </button>
 
-            <!-- Main Profile Card -->
-
-            <section class="profile-card">
-
-                <div class="profile-header">
-
-                    <div class="header-top">
-
-                        <div>
-
-                            <p class="eyebrow">
-                                ACCOUNT SETUP
-                            </p>
+        </div>
 
 
-                            <h2 id="profileTitle">
-                                Complete Your Profile
-                            </h2>
+        <!-- Profile card -->
+        <section class="profile-card">
 
+            <div class="profile-header">
 
-                            <p
-                                id="profileSubtitle"
-                                class="profile-subtitle"
-                            >
-                                Add the required information
-                                to continue.
-                            </p>
+                <div class="header-top">
 
-                        </div>
+                    <div>
 
+                        <p class="eyebrow">
+                            ACCOUNT PROFILE
+                        </p>
 
-                        <div class="profile-symbol">
+                        <h2 id="profileTitle">
+                            Complete Your Profile
+                        </h2>
 
-                            <span id="roleInitial">
-                                U
-                            </span>
-
-                        </div>
+                        <p
+                            id="profileSubtitle"
+                            class="profile-subtitle"
+                        >
+                            Enter the essential information required by
+                            your role.
+                        </p>
 
                     </div>
 
 
-
-                    <div class="role-strip">
-
-                        <div class="role-info">
-
-                            <span class="role-dot"></span>
-
-                            <span>
-                                Selected Account Type
-                            </span>
-
-                        </div>
-
-
-                        <span
-                            id="selectedRole"
-                            class="role-badge"
-                        >
-                            User
-                        </span>
-
+                    <div
+                        class="profile-symbol"
+                        aria-hidden="true"
+                    >
+                        <span id="roleInitial">U</span>
                     </div>
 
                 </div>
 
 
+                <div class="role-strip">
 
-                <!-- Form -->
+                    <div class="role-info">
 
-                <form
-                    id="profileForm"
-                    novalidate
-                >
+                        <span
+                            class="role-dot"
+                            aria-hidden="true"
+                        ></span>
 
-                    <div
-                        id="profileFields"
-                        class="profile-fields"
-                    >
+                        <span>
+                            Selected Account Type
+                        </span>
+
                     </div>
 
 
-                    <div
-                        id="profileMessage"
-                        class="profile-message"
-                        aria-live="polite"
+                    <span
+                        id="selectedRole"
+                        class="role-badge"
                     >
-                    </div>
+                        User
+                    </span>
+
+                </div>
+
+            </div>
 
 
-                    <div class="form-footer">
+            <form
+                id="profileForm"
+                novalidate
+            >
 
-                        <p class="required-note">
+                <!--
+                    profile.js generates role-specific fields here.
+                -->
+                <div
+                    id="profileFields"
+                    class="profile-fields"
+                ></div>
 
-                            <span>*</span>
 
-                            Required fields
+                <div
+                    id="profileMessage"
+                    class="profile-message"
+                    aria-live="polite"
+                    role="status"
+                ></div>
 
-                        </p>
+
+                <div class="form-footer">
+
+                    <p class="required-note">
+                        <span aria-hidden="true">*</span>
+                        Required fields
+                    </p>
 
 
-                        <button
-                            type="submit"
-                            id="submitButton"
-                            class="submit-button"
+                    <button
+                        type="submit"
+                        id="submitButton"
+                        class="submit-button"
+                    >
+
+                        <span id="submitText">
+                            Save Profile
+                        </span>
+
+                        <span
+                            class="button-arrow"
+                            aria-hidden="true"
                         >
+                            →
+                        </span>
 
-                            <span id="submitText">
-                                Complete Profile
-                            </span>
+                    </button>
 
-                            <span class="button-arrow">
-                                →
-                            </span>
+                </div>
 
-                        </button>
-
-                    </div>
-
-                </form>
-
-            </section>
-
-
-
-            <p class="page-footer">
-
-                SWACHHITRA
-
-                <span>•</span>
-
-                Smarter Routes. Cleaner Cities.
-
-            </p>
+            </form>
 
         </section>
 
-    </main>
+
+        <!-- Footer -->
+        <p class="page-footer">
+            SWACHHITRA
+            <span aria-hidden="true">•</span>
+            Smarter Routes. Cleaner Cities.
+        </p>
+
+    </section>
+
+</main>
 
 
-    <script src="./profile.js"></script>
+<script src="./profile.js"></script>
 
 </body>
-
 </html>
