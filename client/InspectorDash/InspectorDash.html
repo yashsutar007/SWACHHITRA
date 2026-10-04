@@ -1817,17 +1817,10 @@
                     </label>
 
 
-                    <label>
-                        Total Stops
-                        <input
-                            name="total_stops"
-                            type="number"
-                            min="0"
-                            step="1"
-                            value="0"
-                            inputmode="numeric"
-                        >
-                    </label>
+                    <div class="route-stop-info form-grid-full">
+                        <strong>Route stops are planned from the map after the route is created.</strong>
+                        <span>Choose the operational area on the map, then place collection points in route order. Stop totals and completion progress are calculated from the saved route stops.</span>
+                    </div>
 
                 </div>
 
@@ -1973,6 +1966,7 @@
                                 No vehicle
                             </option>
                         </select>
+                        <small class="modal-help">Reassignment releases the old vehicle only after the new assignment is committed.</small>
                     </label>
 
 
@@ -1986,6 +1980,7 @@
                                 No driver
                             </option>
                         </select>
+                        <small class="modal-help">Driver must be available and assigned to this route ward (or be an unassigned shared driver).</small>
                     </label>
 
 
@@ -2047,6 +2042,222 @@
 
 
     <!-- =========================================================
+         ROUTE STOP MANAGEMENT MODAL
+         ========================================================= -->
+    <div
+        class="modal"
+        id="routeStopModal"
+        aria-hidden="true"
+    >
+
+        <div
+            class="modal-overlay"
+            data-close-modal="routeStopModal"
+        ></div>
+
+        <div class="modal-card route-stop-modal-card">
+
+            <div class="modal-header-green">
+
+                <div>
+                    <span>ROUTE STOPS</span>
+                    <h2 id="routeStopModalTitle">Manage Route Stops</h2>
+                    <p id="routeStopRouteSubtitle">
+                        Add the real collection points for this route.
+                    </p>
+                </div>
+
+                <button
+                    class="modal-close white-close"
+                    type="button"
+                    data-close-modal="routeStopModal"
+                    aria-label="Close route stop dialog"
+                >
+                    ×
+                </button>
+
+            </div>
+
+            <div class="route-stop-manager">
+
+                <div class="route-stop-manager-head">
+                    <div>
+                        <strong>Map-based route planning</strong>
+                        <span>
+                            The assigned operational area is fixed by your Division/Ward scope. You cannot draw or change the area. Click Add Stops and place collection points only inside the highlighted boundary; the server enforces the same restriction.
+                        </span>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="secondary-button compact-action-button"
+                        id="routeStopViewMapButton"
+                    >
+                        View Full Route
+                    </button>
+                </div>
+
+                <div class="route-planner-shell">
+
+                    <div class="route-planner-toolbar">
+                        <button
+                            type="button"
+                            class="secondary-button planner-tool-button"
+                            id="routeSelectAreaButton"
+                            aria-pressed="false"
+                        >
+                            Select Area
+                        </button>
+
+                        <button
+                            type="button"
+                            class="secondary-button planner-tool-button"
+                            id="routeFinishAreaButton"
+                            disabled
+                        >
+                            Finish Area
+                        </button>
+
+                        <button
+                            type="button"
+                            class="secondary-button planner-tool-button"
+                            id="routeAddStopButton"
+                            aria-pressed="false"
+                        >
+                            Add Stops
+                        </button>
+
+                        <button
+                            type="button"
+                            class="secondary-button planner-tool-button danger-outline"
+                            id="routeClearAreaButton"
+                        >
+                            Clear Area
+                        </button>
+                    </div>
+
+                    <div
+                        class="route-planner-status"
+                        id="routePlanningStatus"
+                        data-tone="neutral"
+                    >
+                        Assigned operational area will be shown here. Click Add Stops to place collection points inside it.
+                    </div>
+
+                    <div
+                        id="routePlanningMap"
+                        class="route-planning-map"
+                    ></div>
+
+                </div>
+
+                <form
+                    id="routeStopForm"
+                    class="modal-form route-stop-form"
+                >
+
+                    <input
+                        type="hidden"
+                        name="route_id"
+                    >
+
+                    <input
+                        type="hidden"
+                        name="stop_id"
+                    >
+
+                    <div class="form-grid-2">
+
+                        <label>
+                            Stop Order
+                            <input
+                                name="stop_order"
+                                type="number"
+                                min="1"
+                                step="1"
+                                required
+                                placeholder="1"
+                            >
+                        </label>
+
+                        <label>
+                            Stop Name
+                            <input
+                                name="stop_name"
+                                maxlength="150"
+                                required
+                                placeholder="Example: Shivaji Chowk"
+                            >
+                        </label>
+
+                        <label class="form-grid-full">
+                            Address
+                            <input
+                                name="address"
+                                maxlength="255"
+                                placeholder="Full collection point address"
+                            >
+                        </label>
+
+                        <div
+                            class="route-selected-point-status form-grid-full"
+                            id="routeSelectedPointStatus"
+                            data-selected="false"
+                        >
+                            No map location selected yet.
+                        </div>
+
+                        <input
+                            name="latitude"
+                            type="hidden"
+                            required
+                        >
+
+                        <input
+                            name="longitude"
+                            type="hidden"
+                            required
+                        >
+
+                    </div>
+
+                    <div class="route-stop-form-actions">
+                        <button
+                            type="button"
+                            class="secondary-button"
+                            id="routeStopClearButton"
+                        >
+                            Clear Form
+                        </button>
+
+                        <button
+                            type="submit"
+                            class="primary-button"
+                            id="routeStopSubmitButton"
+                        >
+                            Add Stop
+                        </button>
+                    </div>
+
+                </form>
+
+                <div
+                    id="routeStopList"
+                    class="route-stop-list"
+                >
+                    <div class="summary-empty">
+                        No stops added yet.
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================================================
          TOAST
          ========================================================= -->
     <div
@@ -2077,7 +2288,7 @@
     crossorigin=""
 ></script>
 
-<script src="./inspectorDash.js"></script>
+<script src="./inspectorDash.js?v=20261004-route-planner"></script>
 
 </body>
 </html>

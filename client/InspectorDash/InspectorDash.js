@@ -271,6 +271,51 @@ const activeRoutesList =
             "editRouteForm"
         );
 
+    const routeStopModal =
+        document.getElementById("routeStopModal");
+
+    const routeStopForm =
+        document.getElementById("routeStopForm");
+
+    const routeStopList =
+        document.getElementById("routeStopList");
+
+    const routeStopModalTitle =
+        document.getElementById("routeStopModalTitle");
+
+    const routeStopRouteSubtitle =
+        document.getElementById("routeStopRouteSubtitle");
+
+    const routeStopClearButton =
+        document.getElementById("routeStopClearButton");
+
+    const routeStopViewMapButton =
+        document.getElementById("routeStopViewMapButton");
+
+    const routeStopSubmitButton =
+        document.getElementById("routeStopSubmitButton");
+
+    const routePlanningMapElement =
+        document.getElementById("routePlanningMap");
+
+    const routeSelectAreaButton =
+        document.getElementById("routeSelectAreaButton");
+
+    const routeFinishAreaButton =
+        document.getElementById("routeFinishAreaButton");
+
+    const routeClearAreaButton =
+        document.getElementById("routeClearAreaButton");
+
+    const routeAddStopButton =
+        document.getElementById("routeAddStopButton");
+
+    const routePlanningStatus =
+        document.getElementById("routePlanningStatus");
+
+    const routeSelectedPointStatus =
+        document.getElementById("routeSelectedPointStatus");
+
     const toast =
         document.getElementById("toast");
 
@@ -296,11 +341,24 @@ const activeRoutesList =
 
     let overviewMap = null;
     let routeMap = null;
+    let routePlanningMap = null;
 
     const overviewMarkers = new Map();
     const routeMarkers = new Map();
     const routeLayers = [];
+    const routeStopLayers = [];
     const complaintLayers = [];
+    const routePlanningLayers = [];
+    const routePlanningRouteLayers = [];
+
+    let mapRenderSequence = 0;
+    let routeStopEditingId = null;
+    let activeStopRouteId = null;
+
+    let routePlanningMode = "idle";
+    let routePlanningArea = null;
+    let routePlanningAreaDraft = [];
+    let routePlanningSelectedPoint = null;
 
     let corridorsVisible = true;
     let trucksVisible = true;
@@ -584,6 +642,10 @@ function normalizeRoute(raw) {
 
         zone,
         ward,
+
+        planningArea:
+            raw?.planningArea ||
+            null,
 
         zoneLabel:
             [
@@ -1024,15 +1086,19 @@ function normalizeCollection(raw) {
             result = {};
         }
 
-        if (
-            response.status === 401 ||
-            response.status === 403
-        ) {
+        if (response.status === 401) {
             window.location.href =
                 "/login";
 
             throw new Error(
                 "Authentication required."
+            );
+        }
+
+        if (response.status === 403) {
+            throw new Error(
+                result.message ||
+                "You are not authorized to perform this operation."
             );
         }
 
@@ -1247,7 +1313,7 @@ async function loadDashboardData() {
     updateOverviewKpis();
     updateCollectionOperations();
 
-    refreshMaps();
+    await refreshMaps();
 
     if (failed.length) {
         showToast(
@@ -1943,7 +2009,9 @@ async function loadDashboardData() {
                                         )}
                                         ·
                                         ${escapeHTML(
-                                            route.zone
+                                            route.zoneLabel ||
+                                            route.zone?.name ||
+                                            "Assigned area"
                                         )}
                                     </span>
 
@@ -2251,89 +2319,40 @@ function renderCollections() {
 
 async function loadRouteFormOptions() {
     const zoneSelect =
-        document.getElementById(
-            "routeZoneSelect"
-        );
+        document.getElementById("routeZoneSelect");
 
     const wardSelect =
-        document.getElementById(
-            "routeWardSelect"
-        );
+        document.getElementById("routeWardSelect");
 
     const vehicleSelect =
-        document.getElementById(
-            "routeVehicleSelect"
-        );
+        document.getElementById("routeVehicleSelect");
 
     const driverSelect =
-        document.getElementById(
-            "routeDriverSelect"
-        );
+        document.getElementById("routeDriverSelect");
 
-    if (
-        !zoneSelect ||
-        !wardSelect ||
-        !vehicleSelect ||
-        !driverSelect
-    ) {
+    if (!zoneSelect || !wardSelect || !vehicleSelect || !driverSelect) {
         return;
     }
 
-    const [
-        zonesResult,
-        wardsResult,
-        vehiclesResult,
-        driversResult
-    ] = await Promise.all([
-        apiRequest(
-            "/api/inspector/zones"
-        ),
-        apiRequest(
-            "/api/inspector/wards"
-        ),
-        apiRequest(
-            "/api/inspector/vehicles"
-        ),
-        apiRequest(
-            "/api/inspector/drivers"
-        )
-    ]);
+    const [zonesResult, wardsResult, vehiclesResult, driversResult] =
+        await Promise.all([
+            apiRequest("/api/inspector/zones"),
+            apiRequest("/api/inspector/wards"),
+            apiRequest("/api/inspector/vehicles"),
+            apiRequest("/api/inspector/drivers")
+        ]);
 
-    const zones =
-        zonesResult.zones ||
-        [];
-
-    const wards =
-        wardsResult.wards ||
-        [];
-
-    const availableVehicles =
-        (vehiclesResult.vehicles || [])
-            .filter(
-                (vehicle) =>
-                    vehicle.status ===
-                        "available" &&
-                    !vehicle.assignment
-            );
-
-    const availableDrivers =
-        (driversResult.drivers || [])
-            .filter(
-                (driver) =>
-                    driver.status ===
-                    "available"
-            );
+    const zones = zonesResult.zones || [];
+    const wards = wardsResult.wards || [];
+    const vehicles = vehiclesResult.vehicles || [];
+    const drivers = driversResult.drivers || [];
 
     setSelectOptions(
         zoneSelect,
-        zones.map(
-            (zone) => ({
-                value:
-                    zone.id,
-                label:
-                    `${zone.code} - ${zone.name}`
-            })
-        ),
+        zones.map(zone => ({
+            value: zone.id,
+            label: `${zone.code} - ${zone.name}`
+        })),
         "Select Zone"
     );
 
@@ -2345,94 +2364,122 @@ async function loadRouteFormOptions() {
 
     setSelectOptions(
         vehicleSelect,
-        availableVehicles.map(
-            (vehicle) => ({
-                value:
-                    vehicle.databaseId,
-                label:
-                    `${vehicle.vehicleNumber} (${
-                        vehicle.registrationNumber ||
-                        "No plate"
-                    })`
-            })
-        ),
+        vehicles
+            .filter(vehicle =>
+                vehicle.status === "available" &&
+                !vehicle.assignment
+            )
+            .map(vehicle => ({
+                value: vehicle.databaseId,
+                label: `${vehicle.vehicleNumber} (${vehicle.registrationNumber || "No plate"})`
+            })),
         "No vehicle"
     );
 
     setSelectOptions(
         driverSelect,
-        availableDrivers.map(
-            (driver) => ({
-                value:
-                    driver.databaseId,
-                label:
-                    `${driver.fullName} (${
-                        driver.employeeId ||
-                        "No employee ID"
-                    })`
-            })
-        ),
+        [],
         "No driver"
     );
 
-    zoneSelect.onchange =
-        async () => {
-            const zoneId =
-                Number(
-                    zoneSelect.value
+    async function populateWards(zoneId) {
+        if (!zoneId) {
+            setSelectOptions(wardSelect, [], "Select Ward");
+            setSelectOptions(driverSelect, [], "No driver");
+            return;
+        }
+
+        const result =
+            await apiRequest(
+                `/api/inspector/wards?zone_id=${encodeURIComponent(zoneId)}`
+            );
+
+        const nextWards = result.wards || [];
+
+        setSelectOptions(
+            wardSelect,
+            nextWards.map(ward => ({
+                value: ward.id,
+                label: `Ward ${ward.number} - ${ward.name}`
+            })),
+            "Select Ward"
+        );
+
+        setSelectOptions(
+            driverSelect,
+            [],
+            "No driver"
+        );
+    }
+
+    async function populateDriversForWard(wardId) {
+        if (!wardId) {
+            setSelectOptions(driverSelect, [], "No driver");
+            return;
+        }
+
+        const result =
+            await apiRequest(
+                "/api/inspector/drivers"
+            );
+
+        const availableDrivers =
+            (result.drivers || [])
+                .filter(driver =>
+                    driver.status === "available" &&
+                    (!driver.ward?.id ||
+                        Number(driver.ward.id) === Number(wardId))
                 );
 
-            if (!zoneId) {
-                setSelectOptions(
-                    wardSelect,
-                    [],
-                    "Select Ward"
-                );
-                return;
-            }
+        setSelectOptions(
+            driverSelect,
+            availableDrivers.map(driver => ({
+                value: driver.databaseId,
+                label: `${driver.fullName} (${driver.employeeId || "No employee ID"})`
+            })),
+            "No driver"
+        );
+    }
 
-            try {
-                const result =
-                    await apiRequest(
-                        `/api/inspector/wards?zone_id=${encodeURIComponent(
-                            zoneId
-                        )}`
-                    );
+    zoneSelect.onchange = async () => {
+        try {
+            await populateWards(
+                Number(zoneSelect.value)
+            );
+        } catch (error) {
+            console.error("Unable to load wards:", error);
+            showToast(error.message || "Unable to load wards.");
+        }
+    };
 
-                setSelectOptions(
-                    wardSelect,
-                    (result.wards || [])
-                        .map(
-                            (ward) => ({
-                                value:
-                                    ward.id,
-                                label:
-                                    `Ward ${ward.number} - ${ward.name}`
-                            })
-                        ),
-                    "Select Ward"
-                );
-            } catch (error) {
-                showToast(
-                    error.message ||
-                    "Unable to load wards."
-                );
-            }
-        };
+    wardSelect.onchange = async () => {
+        try {
+            await populateDriversForWard(
+                Number(wardSelect.value)
+            );
+        } catch (error) {
+            console.error("Unable to load route drivers:", error);
+            showToast(error.message || "Unable to load route drivers.");
+        }
+    };
 
     if (wards.length === 1) {
         setSelectOptions(
             wardSelect,
-            wards.map(
-                (ward) => ({
-                    value:
-                        ward.id,
-                    label:
-                        `Ward ${ward.number} - ${ward.name}`
-                })
-            ),
+            wards.map(ward => ({
+                value: ward.id,
+                label: `Ward ${ward.number} - ${ward.name}`
+            })),
             "Select Ward"
         );
+
+        try {
+            await populateDriversForWard(
+                Number(wards[0].id)
+            );
+        } catch (error) {
+            console.error("Unable to load route drivers:", error);
+        }
     }
 }
 
@@ -2869,6 +2916,57 @@ closeNotificationDrawer?.addEventListener(
         }
     }
 
+    function initializeMaps() {
+        overviewMap = setupMap(trackingMapElement);
+        routeMap = setupMap(routeMapElement);
+
+        if (overviewMap) {
+            overviewMap.on("click", () => {
+                if (corridorsVisible) {
+                    renderRouteLines().catch(error => {
+                        console.warn("Overview map route refresh failed:", error);
+                    });
+                }
+            });
+        }
+
+        if (routeMap) {
+            routeMap.on("click", () => {
+                if (corridorsVisible) {
+                    renderRouteLines().catch(error => {
+                        console.warn("Route map refresh failed:", error);
+                    });
+                }
+            });
+        }
+
+        if (mapPlus) {
+            mapPlus.addEventListener("click", () => {
+                overviewMap?.zoomIn();
+                routeMap?.zoomIn();
+            });
+        }
+
+        if (mapMinus) {
+            mapMinus.addEventListener("click", () => {
+                overviewMap?.zoomOut();
+                routeMap?.zoomOut();
+            });
+        }
+
+        corridorButton?.addEventListener("click", async () => {
+            corridorsVisible = !corridorsVisible;
+            corridorButton.setAttribute("aria-pressed", String(corridorsVisible));
+            await refreshMaps();
+        });
+
+        truckLayerButton?.addEventListener("click", async () => {
+            trucksVisible = !trucksVisible;
+            truckLayerButton.setAttribute("aria-pressed", String(trucksVisible));
+            await refreshMaps();
+        });
+    }
+
     function clearMarkerMap(markerMap) {
         markerMap.forEach(marker => {
             marker.remove();
@@ -2878,18 +2976,15 @@ closeNotificationDrawer?.addEventListener(
     }
 
     function clearRouteLayers() {
-        routeLayers.forEach(layer => {
-            layer.remove();
-        });
-
+        routeLayers.forEach(layer => layer.remove());
         routeLayers.length = 0;
+
+        routeStopLayers.forEach(layer => layer.remove());
+        routeStopLayers.length = 0;
     }
 
     function clearComplaintLayers() {
-        complaintLayers.forEach(layer => {
-            layer.remove();
-        });
-
+        complaintLayers.forEach(layer => layer.remove());
         complaintLayers.length = 0;
     }
 
@@ -2902,71 +2997,170 @@ closeNotificationDrawer?.addEventListener(
             return;
         }
 
+        if (!trucksVisible) {
+            return;
+        }
+
         const locatedVehicles =
             trucks.filter(vehicle =>
-                Array.isArray(
-                    vehicle.position
-                ) &&
+                Array.isArray(vehicle.position) &&
                 vehicle.position.length === 2 &&
-                Number.isFinite(
-                    Number(vehicle.position[0])
-                ) &&
-                Number.isFinite(
-                    Number(vehicle.position[1])
-                )
+                Number.isFinite(Number(vehicle.position[0])) &&
+                Number.isFinite(Number(vehicle.position[1]))
             );
 
         locatedVehicles.forEach(vehicle => {
-            const icon =
-                createTruckIcon(vehicle);
+            const icon = createTruckIcon(vehicle);
 
             if (!icon) {
                 return;
             }
 
             const marker =
-                L.marker(
-                    vehicle.position,
-                    {
-                        icon,
-                        title: vehicle.id
-                    }
-                )
+                L.marker(vehicle.position, {
+                    icon,
+                    title: vehicle.id
+                })
                     .addTo(map)
-                    .bindPopup(
-                        createTruckPopup(
-                            vehicle
-                        )
-                    );
+                    .bindPopup(createTruckPopup(vehicle));
 
-            markerMap.set(
-                vehicle.id,
-                marker
-            );
+            markerMap.set(vehicle.id, marker);
         });
 
-        if (
-            fit &&
-            locatedVehicles.length
-        ) {
+        if (fit && locatedVehicles.length) {
             const bounds =
                 L.latLngBounds(
-                    locatedVehicles.map(
-                        vehicle =>
-                            vehicle.position
-                    )
+                    locatedVehicles.map(vehicle => vehicle.position)
                 );
 
-            map.fitBounds(
-                bounds.pad(0.25),
-                {
-                    maxZoom: 15
-                }
-            );
+            map.fitBounds(bounds.pad(0.25), { maxZoom: 15 });
         }
     }
 
-    function renderRouteLines() {
+    function getRoutePoints(route) {
+        return (route.stops || [])
+            .filter(stop =>
+                Number.isFinite(Number(stop.latitude)) &&
+                Number.isFinite(Number(stop.longitude))
+            )
+            .sort(
+                (a, b) =>
+                    Number(a.order || 0) - Number(b.order || 0)
+            )
+            .map(stop => [
+                Number(stop.latitude),
+                Number(stop.longitude)
+            ]);
+    }
+
+    function getRouteColor(route) {
+        if (route.status === "delayed") {
+            return "#b7791f";
+        }
+
+        if (route.status === "completed") {
+            return "#64748b";
+        }
+
+        return "#2f8f43";
+    }
+
+    async function fetchRoadGeometry(points) {
+        if (!Array.isArray(points) || points.length < 2) {
+            return null;
+        }
+
+        const coordinates = points
+            .map(([lat, lng]) => `${lng},${lat}`)
+            .join(";");
+
+        const url =
+            `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=false`;
+
+        const response = await fetch(url, {
+            headers: {
+                Accept: "application/json"
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Road routing service returned ${response.status}.`);
+        }
+
+        const result = await response.json();
+
+        if (result?.code !== "Ok") {
+            throw new Error(
+                result?.message ||
+                `Road routing service returned ${result?.code || "an unknown error"}.`
+            );
+        }
+
+        const route = result?.routes?.[0];
+        const geometry = route?.geometry?.coordinates || [];
+
+        if (!geometry.length) {
+            return null;
+        }
+
+        return {
+            points: geometry.map(([lng, lat]) => [lat, lng]),
+            distanceKm:
+                Number.isFinite(Number(route?.distance))
+                    ? Number(route.distance) / 1000
+                    : null,
+            durationMinutes:
+                Number.isFinite(Number(route?.duration))
+                    ? Math.ceil(Number(route.duration) / 60)
+                    : null
+        };
+    }
+
+    function addRouteStopMarkers(map, route) {
+        if (!map) {
+            return;
+        }
+
+        (route.stops || [])
+            .filter(stop =>
+                Number.isFinite(Number(stop.latitude)) &&
+                Number.isFinite(Number(stop.longitude))
+            )
+            .sort(
+                (a, b) =>
+                    Number(a.order || 0) - Number(b.order || 0)
+            )
+            .forEach(stop => {
+                const icon = L.divIcon({
+                    className: "",
+                    html: `<div class="route-stop-marker">${Number(stop.order || 0)}</div>`,
+                    iconSize: [27, 27],
+                    iconAnchor: [13.5, 13.5]
+                });
+
+                const marker =
+                    L.marker(
+                        [
+                            Number(stop.latitude),
+                            Number(stop.longitude)
+                        ],
+                        { icon }
+                    )
+                        .addTo(map)
+                        .bindPopup(`
+                            <div class="truck-popup">
+                                <strong>Stop ${Number(stop.order || 0)} · ${escapeHTML(stop.name)}</strong>
+                                <span>${escapeHTML(stop.address || "No address")}</span>
+                                <span>${Number(stop.latitude).toFixed(7)}, ${Number(stop.longitude).toFixed(7)}</span>
+                                <span>Status: ${escapeHTML(humanizeEnum(stop.status))}</span>
+                            </div>
+                        `);
+
+                routeStopLayers.push(marker);
+            });
+    }
+
+    async function renderRouteLines() {
         clearRouteLayers();
 
         if (
@@ -2976,181 +3170,154 @@ closeNotificationDrawer?.addEventListener(
             return;
         }
 
-        routes.forEach(route => {
-            const points =
-                (route.stops || [])
-                    .filter(stop =>
-                        Number.isFinite(
-                            Number(stop.latitude)
-                        ) &&
-                        Number.isFinite(
-                            Number(stop.longitude)
-                        )
-                    )
-                    .sort(
-                        (a, b) =>
-                            Number(a.order || 0) -
-                            Number(b.order || 0)
-                    )
-                    .map(stop => [
-                        Number(stop.latitude),
-                        Number(stop.longitude)
-                    ]);
+        const sequence = ++mapRenderSequence;
+        let routedCount = 0;
+        let routingFailedCount = 0;
+
+        for (const route of routes) {
+            const points = getRoutePoints(route);
+
+            if (!points.length) {
+                continue;
+            }
+
+            if (routeMap) {
+                addRouteStopMarkers(routeMap, route);
+            }
+
+            if (overviewMap) {
+                addRouteStopMarkers(overviewMap, route);
+            }
 
             if (points.length < 2) {
+                continue;
+            }
+
+            const routeColor = getRouteColor(route);
+            let roadResult = null;
+
+            try {
+                roadResult = await fetchRoadGeometry(points);
+            } catch (error) {
+                routingFailedCount += 1;
+                console.warn(
+                    `Road geometry unavailable for ${route.id}:`,
+                    error
+                );
+            }
+
+            if (sequence !== mapRenderSequence) {
                 return;
             }
 
-            const routeColor =
-                route.status === "delayed"
-                    ? "#9a7928"
-                    : route.status === "completed"
-                        ? "#64748b"
-                        : "#547f36";
+            if (!roadResult?.points?.length) {
+                continue;
+            }
+
+            routedCount += 1;
+
+            const lineOptions = {
+                color: routeColor,
+                weight: 7,
+                opacity: 0.88,
+                lineCap: "round",
+                lineJoin: "round"
+            };
 
             if (overviewMap) {
                 routeLayers.push(
-                    L.polyline(
-                        points,
-                        {
-                            color: routeColor,
-                            weight: 4,
-                            opacity: 0.72,
-                            lineCap: "round",
-                            lineJoin: "round"
-                        }
-                    ).addTo(overviewMap)
+                    L.polyline(roadResult.points, lineOptions).addTo(overviewMap)
                 );
             }
 
             if (routeMap) {
                 routeLayers.push(
-                    L.polyline(
-                        points,
-                        {
-                            color: routeColor,
-                            weight: 5,
-                            opacity: 0.72,
-                            lineCap: "round",
-                            lineJoin: "round"
-                        }
-                    ).addTo(routeMap)
+                    L.polyline(roadResult.points, lineOptions).addTo(routeMap)
                 );
             }
-        });
+
+        }
+
+        const roadStatus =
+            document.getElementById("topologyStatus");
+
+        if (roadStatus) {
+            if (routedCount && routingFailedCount) {
+                roadStatus.textContent =
+                    `${routedCount} road route${routedCount === 1 ? "" : "s"} • ${routingFailedCount} unavailable`;
+                roadStatus.classList.add("warning");
+            } else if (routedCount) {
+                roadStatus.textContent =
+                    `${routedCount} road route${routedCount === 1 ? "" : "s"}`;
+                roadStatus.classList.remove("warning");
+            } else if (routingFailedCount) {
+                roadStatus.textContent =
+                    "Road routing unavailable • stop markers remain visible";
+                roadStatus.classList.add("warning");
+            } else {
+                roadStatus.textContent = "Add at least 2 route stops to draw the road route";
+                roadStatus.classList.remove("warning");
+            }
+        }
     }
 
     function renderComplaintMarkers() {
         clearComplaintLayers();
 
-        if (!overviewMap) {
+        if (!overviewMap || typeof window.L === "undefined") {
             return;
         }
 
         reports
             .filter(complaint =>
-                Number.isFinite(
-                    Number(complaint.latitude)
-                ) &&
-                Number.isFinite(
-                    Number(complaint.longitude)
-                )
+                Number.isFinite(Number(complaint.latitude)) &&
+                Number.isFinite(Number(complaint.longitude))
             )
             .forEach(complaint => {
-                const marker =
-                    L.circleMarker(
-                        [
-                            Number(
-                                complaint.latitude
-                            ),
-                            Number(
-                                complaint.longitude
-                            )
-                        ],
-                        {
-                            radius: 7,
-                            color: "#dc2626",
-                            fillColor: "#dc2626",
-                            fillOpacity: 0.9,
-                            weight: 2
-                        }
-                    )
-                        .addTo(overviewMap)
-                        .bindPopup(`
-                            <div class="truck-popup">
-                                <strong>
-                                    ${escapeHTML(
-                                        complaint.id
-                                    )}
-                                </strong>
-                                <span>
-                                    ${escapeHTML(
-                                        complaint.type
-                                    )}
-                                </span>
-                                <span>
-                                    ${escapeHTML(
-                                        complaint.location
-                                    )}
-                                </span>
-                                <span>
-                                    Priority:
-                                    ${escapeHTML(
-                                        complaint.priority
-                                    )}
-                                </span>
-                            </div>
-                        `);
+                const latitude = Number(complaint.latitude);
+                const longitude = Number(complaint.longitude);
 
-                complaintLayers.push(
-                    marker
-                );
+                const marker = L.circleMarker(
+                    [latitude, longitude],
+                    {
+                        radius: 7,
+                        color: "#c95743",
+                        fillColor: "#c95743",
+                        fillOpacity: 0.92,
+                        weight: 2
+                    }
+                )
+                    .addTo(overviewMap)
+                    .bindPopup(`
+                        <div class="truck-popup">
+                            <strong>${escapeHTML(complaint.id || "Complaint")}</strong>
+                            <span>${escapeHTML(complaint.type || "Citizen Report")}</span>
+                            <span>${escapeHTML(complaint.location || "Unknown location")}</span>
+                            <span>Ward: ${escapeHTML(complaint.wardNumber ?? "—")}</span>
+                            <span>Priority: ${escapeHTML(humanizeEnum(complaint.priority || "medium"))}</span>
+                            <span>Status: ${escapeHTML(complaint.status || "Open")}</span>
+                        </div>
+                    `);
+
+                complaintLayers.push(marker);
             });
     }
 
-    function initializeMaps() {
-        overviewMap =
-            setupMap(
-                trackingMapElement
-            );
-
-        routeMap =
-            setupMap(
-                routeMapElement
-            );
-
-        refreshMaps();
-    }
-
-    function refreshMaps() {
-        clearMarkerMap(
-            overviewMarkers
-        );
-
-        clearMarkerMap(
-            routeMarkers
-        );
-
+    async function refreshMaps() {
+        clearMarkerMap(overviewMarkers);
+        clearMarkerMap(routeMarkers);
         clearComplaintLayers();
         clearRouteLayers();
 
         if (overviewMap) {
-            renderVehicleMarkers(
-                overviewMap,
-                overviewMarkers,
-                true
-            );
+            renderVehicleMarkers(overviewMap, overviewMarkers, false);
         }
 
         if (routeMap) {
-            renderVehicleMarkers(
-                routeMap,
-                routeMarkers,
-                true
-            );
+            renderVehicleMarkers(routeMap, routeMarkers, false);
         }
 
-        renderRouteLines();
+        await renderRouteLines();
         renderComplaintMarkers();
 
         if (overviewMap) {
@@ -3159,27 +3326,22 @@ closeNotificationDrawer?.addEventListener(
                 DEFAULT_MAP_ZOOM
             );
 
-            const locatedVehicles =
-                trucks.filter(vehicle =>
-                    Array.isArray(
-                        vehicle.position
-                    )
-                );
+            const points = [];
 
-            if (locatedVehicles.length) {
-                const bounds =
-                    L.latLngBounds(
-                        locatedVehicles.map(
-                            vehicle =>
-                                vehicle.position
-                        )
-                    );
+            trucks.forEach(vehicle => {
+                if (Array.isArray(vehicle.position)) {
+                    points.push(vehicle.position);
+                }
+            });
 
+            routes.forEach(route => {
+                points.push(...getRoutePoints(route));
+            });
+
+            if (points.length) {
                 overviewMap.fitBounds(
-                    bounds.pad(0.25),
-                    {
-                        maxZoom: 15
-                    }
+                    L.latLngBounds(points).pad(0.18),
+                    { maxZoom: 16 }
                 );
             }
         }
@@ -3191,39 +3353,22 @@ closeNotificationDrawer?.addEventListener(
             );
 
             const routePoints =
-                routes.flatMap(
-                    route =>
-                        (route.stops || [])
-                            .filter(stop =>
-                                Number.isFinite(
-                                    Number(
-                                        stop.latitude
-                                    )
-                                ) &&
-                                Number.isFinite(
-                                    Number(
-                                        stop.longitude
-                                    )
-                                )
-                            )
-                            .map(stop => [
-                                Number(
-                                    stop.latitude
-                                ),
-                                Number(
-                                    stop.longitude
-                                )
-                            ])
-                );
+                routes.flatMap(getRoutePoints);
 
-            if (routePoints.length) {
+            const vehiclePoints =
+                trucks
+                    .filter(vehicle => Array.isArray(vehicle.position))
+                    .map(vehicle => vehicle.position);
+
+            const allPoints = [
+                ...routePoints,
+                ...vehiclePoints
+            ];
+
+            if (allPoints.length) {
                 routeMap.fitBounds(
-                    L.latLngBounds(
-                        routePoints
-                    ).pad(0.2),
-                    {
-                        maxZoom: 15
-                    }
+                    L.latLngBounds(allPoints).pad(0.18),
+                    { maxZoom: 16 }
                 );
             }
         }
@@ -3431,6 +3576,17 @@ function renderActiveRoutes() {
                                     )}"
                                 >
                                     Edit
+                                </button>
+
+                                <button
+                                    type="button"
+                                    class="route-action-button stop-action"
+                                    data-route-action="stops"
+                                    data-route-id="${Number(
+                                        route.databaseId
+                                    )}"
+                                >
+                                    Plan Stops (${Number(route.totalStops || 0)})
                                 </button>
 
                                 <button
@@ -4312,250 +4468,197 @@ function findRouteById(
 
 async function loadEditRouteFormOptions(
     selectedZoneId = "",
-    selectedWardId = ""
+    selectedWardId = "",
+    selectedVehicleId = "",
+    selectedDriverId = ""
 ) {
     const zoneSelect =
-        document.getElementById(
-            "editRouteZoneSelect"
-        );
+        document.getElementById("editRouteZoneSelect");
 
     const wardSelect =
-        document.getElementById(
-            "editRouteWardSelect"
-        );
+        document.getElementById("editRouteWardSelect");
 
-    if (!zoneSelect || !wardSelect) {
+    const vehicleSelect =
+        document.getElementById("editRouteVehicleSelect");
+
+    const driverSelect =
+        document.getElementById("editRouteDriverSelect");
+
+    if (!zoneSelect || !wardSelect || !vehicleSelect || !driverSelect) {
         return;
     }
 
-    const zonesResult =
-        await apiRequest(
-            "/api/inspector/zones"
-        );
+    const [zonesResult, vehiclesResult, driversResult] =
+        await Promise.all([
+            apiRequest("/api/inspector/zones"),
+            apiRequest("/api/inspector/vehicles"),
+            apiRequest("/api/inspector/drivers")
+        ]);
 
-    const zones =
-        zonesResult.zones ||
-        [];
+    const zones = zonesResult.zones || [];
+    const vehicles = vehiclesResult.vehicles || [];
+    const drivers = driversResult.drivers || [];
 
     setSelectOptions(
         zoneSelect,
-        zones.map(
-            (zone) => ({
-                value: zone.id,
-                label: `${zone.code} - ${zone.name}`
-            })
-        ),
+        zones.map(zone => ({
+            value: zone.id,
+            label: `${zone.code} - ${zone.name}`
+        })),
         "Select Zone",
         selectedZoneId
     );
 
-    const zoneId =
-        Number(
-            selectedZoneId ||
-            zoneSelect.value ||
-            0
-        );
+    async function loadWardsAndDrivers(zoneId, wardId = "", driverId = "") {
+        if (!zoneId) {
+            setSelectOptions(wardSelect, [], "Select Ward");
+            setSelectOptions(driverSelect, [], "No driver");
+            return;
+        }
 
-    if (!zoneId) {
+        const wardsResult =
+            await apiRequest(
+                `/api/inspector/wards?zone_id=${encodeURIComponent(zoneId)}`
+            );
+
+        const wards = wardsResult.wards || [];
+
         setSelectOptions(
             wardSelect,
-            [],
-            "Select Ward"
-        );
-        return;
-    }
-
-    const wardsResult =
-        await apiRequest(
-            `/api/inspector/wards?zone_id=${encodeURIComponent(
-                zoneId
-            )}`
-        );
-
-    const wards =
-        wardsResult.wards ||
-        [];
-
-    setSelectOptions(
-        wardSelect,
-        wards.map(
-            (ward) => ({
+            wards.map(ward => ({
                 value: ward.id,
                 label: `Ward ${ward.number} - ${ward.name}`
-            })
-        ),
-        "Select Ward",
-        selectedWardId
+            })),
+            "Select Ward",
+            wardId
+        );
+
+        const targetWardId =
+            Number(wardId || wardSelect.value || 0);
+
+        const scopedDrivers =
+            drivers.filter(driver =>
+                (driver.status === "available" ||
+                    Number(driver.databaseId) === Number(driverId)) &&
+                (!driver.ward?.id ||
+                    Number(driver.ward.id) === targetWardId)
+            );
+
+        setSelectOptions(
+            driverSelect,
+            scopedDrivers.map(driver => ({
+                value: driver.databaseId,
+                label: `${driver.fullName} (${driver.employeeId || "No employee ID"})`
+            })),
+            "No driver",
+            driverId
+        );
+    }
+
+    const routeVehicleOptions =
+        vehicles.filter(vehicle =>
+            (vehicle.status === "available" && !vehicle.assignment) ||
+            Number(vehicle.databaseId) === Number(selectedVehicleId)
+        );
+
+    setSelectOptions(
+        vehicleSelect,
+        routeVehicleOptions.map(vehicle => ({
+            value: vehicle.databaseId,
+            label: `${vehicle.vehicleNumber} (${vehicle.registrationNumber || "No plate"})${
+                vehicle.assignment ? " • CURRENT" : ""
+            }`
+        })),
+        "No vehicle",
+        selectedVehicleId
     );
 
-    zoneSelect.onchange =
-        async () => {
-            const nextZoneId =
-                Number(
-                    zoneSelect.value
-                );
+    await loadWardsAndDrivers(
+        Number(selectedZoneId),
+        Number(selectedWardId),
+        Number(selectedDriverId)
+    );
 
-            if (!nextZoneId) {
-                setSelectOptions(
-                    wardSelect,
-                    [],
-                    "Select Ward"
-                );
-                return;
-            }
+    zoneSelect.onchange = async () => {
+        try {
+            await loadWardsAndDrivers(
+                Number(zoneSelect.value),
+                "",
+                ""
+            );
+        } catch (error) {
+            console.error("Unable to load edit-route options:", error);
+            showToast(error.message || "Unable to load route options.");
+        }
+    };
 
-            try {
-                const result =
-                    await apiRequest(
-                        `/api/inspector/wards?zone_id=${encodeURIComponent(
-                            nextZoneId
-                        )}`
-                    );
-
-                setSelectOptions(
-                    wardSelect,
-                    (result.wards || [])
-                        .map(
-                            (ward) => ({
-                                value: ward.id,
-                                label: `Ward ${ward.number} - ${ward.name}`
-                            })
-                        ),
-                    "Select Ward"
-                );
-            } catch (error) {
-                console.error(
-                    "Unable to load edit-route wards:",
-                    error
-                );
-
-                showToast(
-                    error.message ||
-                    "Unable to load wards."
-                );
-            }
-        };
+    wardSelect.onchange = async () => {
+        try {
+            await loadWardsAndDrivers(
+                Number(zoneSelect.value),
+                Number(wardSelect.value),
+                ""
+            );
+        } catch (error) {
+            console.error("Unable to load edit-route drivers:", error);
+            showToast(error.message || "Unable to load route drivers.");
+        }
+    };
 }
 
-async function openEditRoute(
-    routeId
-) {
-    const route =
-        findRouteById(
-            routeId
-        );
+async function openEditRoute(routeId) {
+    const route = findRouteById(routeId);
 
-    if (
-        !route ||
-        !editRouteForm
-    ) {
-        showToast(
-            "Route not found."
-        );
+    if (!route || !editRouteForm) {
+        showToast("Route not found.");
         return;
     }
 
-    const form =
-        editRouteForm.elements;
+    const form = editRouteForm.elements;
+
+    const currentVehicleId =
+        route.vehicle?.id ||
+        route.assignment?.vehicleId ||
+        "";
+
+    const currentDriverId =
+        route.driver?.id ||
+        route.assignment?.driverId ||
+        "";
 
     if (form.route_id) {
-        form.route_id.value =
-            String(
-                route.databaseId
-            );
+        form.route_id.value = String(route.databaseId);
     }
 
     if (form.route_code) {
-        form.route_code.value =
-            route.id ||
-            "";
+        form.route_code.value = route.id || "";
     }
 
     if (form.route_name) {
-        form.route_name.value =
-            route.routeName ||
-            "";
-    }
-
-    const selectedZoneId =
-        route.zone?.id ||
-        "";
-
-    const selectedWardId =
-        route.ward?.id ||
-        "";
-
-    if (form.zone_id) {
-        form.zone_id.value =
-            String(
-                selectedZoneId
-            );
-    }
-
-    if (form.ward_id) {
-        form.ward_id.value =
-            String(
-                selectedWardId
-            );
+        form.route_name.value = route.routeName || "";
     }
 
     if (form.status) {
-        form.status.value =
-            route.status ||
-            "scheduled";
+        form.status.value = route.status || "scheduled";
     }
 
     try {
         await loadEditRouteFormOptions(
-            selectedZoneId,
-            selectedWardId
+            route.zone?.id || "",
+            route.ward?.id || "",
+            currentVehicleId,
+            currentDriverId
         );
     } catch (error) {
-        console.error(
-            "Route edit form initialization failed:",
-            error
-        );
-
+        console.error("Route edit form initialization failed:", error);
         showToast(
             error.message ||
-            "Unable to load zone and ward options."
+            "Unable to load route assignment options."
         );
-
         return;
     }
 
-    /*
-     * Active crew assignment changes are not supported by the
-     * current PUT route endpoint. Hide those fields instead of
-     * presenting a non-working operation.
-     */
-    [
-        form.vehicle_id,
-        form.driver_id
-    ].forEach(
-        (select) => {
-            if (!select) {
-                return;
-            }
-
-            select.disabled =
-                true;
-
-            const label =
-                select.closest(
-                    "label"
-                );
-
-            if (label) {
-                label.style.display =
-                    "none";
-            }
-        }
-    );
-
-    openModal(
-        editRouteModal
-    );
+    openModal(editRouteModal);
 }
 
 createRouteButton?.addEventListener(
@@ -4628,6 +4731,11 @@ activeRoutesList?.addEventListener(
             await openEditRoute(
                 routeId
             );
+            return;
+        }
+
+        if (action === "stops") {
+            await openRouteStopManager(routeId);
             return;
         }
 
@@ -4771,18 +4879,6 @@ addRouteForm?.addEventListener(
             return;
         }
 
-        if (
-            !Number.isInteger(
-                totalStops
-            ) ||
-            totalStops < 0
-        ) {
-            showToast(
-                "Total stops must be a non-negative integer."
-            );
-            return;
-        }
-
         const submitButton =
             addRouteForm.querySelector(
                 'button[type="submit"]'
@@ -4816,9 +4912,7 @@ addRouteForm?.addEventListener(
                                 vehicle_id:
                                     vehicleId,
                                 driver_id:
-                                    driverId,
-                                total_stops:
-                                    totalStops
+                                    driverId
                             })
                     }
                 );
@@ -4831,12 +4925,19 @@ addRouteForm?.addEventListener(
 
             await loadDashboardData();
 
+            const createdRouteId =
+                Number(result.route?.databaseId || result.route?.id || 0);
+
             showToast(
                 `${
                     result.route?.id ||
                     routeCode
-                } created successfully.`
+                } created successfully. Select its route area and place the collection stops.`
             );
+
+            if (createdRouteId) {
+                await openRouteStopManager(createdRouteId);
+            }
         } catch (error) {
             console.error(
                 "Route creation failed:",
@@ -4945,7 +5046,11 @@ editRouteForm?.addEventListener(
                             ward_id:
                                 wardId,
                             status:
-                                data.status
+                                data.status,
+                            vehicle_id:
+                                data.vehicle_id || null,
+                            driver_id:
+                                data.driver_id || null
                         })
                 }
             );
@@ -5826,6 +5931,924 @@ editRouteForm?.addEventListener(
     );
 
     /* =========================================================
+       ROUTE MAP PLANNING HELPERS
+    ========================================================= */
+
+    function setRoutePlanningStatus(message, tone = "neutral") {
+        if (!routePlanningStatus) {
+            return;
+        }
+
+        routePlanningStatus.textContent = message;
+        routePlanningStatus.dataset.tone = tone;
+    }
+
+    function setRoutePlanningMode(mode) {
+        routePlanningMode = mode;
+
+        if (routeSelectAreaButton) {
+            routeSelectAreaButton.classList.toggle(
+                "active",
+                mode === "area"
+            );
+            routeSelectAreaButton.setAttribute(
+                "aria-pressed",
+                String(mode === "area")
+            );
+        }
+
+        if (routeFinishAreaButton) {
+            routeFinishAreaButton.disabled =
+                mode !== "area" || routePlanningAreaDraft.length < 3;
+        }
+
+        if (routeAddStopButton) {
+            routeAddStopButton.classList.toggle(
+                "active",
+                mode === "stop"
+            );
+            routeAddStopButton.setAttribute(
+                "aria-pressed",
+                String(mode === "stop")
+            );
+        }
+
+        if (routePlanningMap?.getContainer()) {
+            routePlanningMap.getContainer().style.cursor =
+                mode === "area"
+                    ? "crosshair"
+                    : mode === "stop"
+                        ? "copy"
+                        : "grab";
+        }
+    }
+
+    function clearRoutePlanningLayers() {
+        routePlanningLayers.forEach(layer => layer.remove());
+        routePlanningLayers.length = 0;
+
+        routePlanningRouteLayers.forEach(layer => layer.remove());
+        routePlanningRouteLayers.length = 0;
+    }
+
+    function renderRoutePlanningAreaDraft() {
+        if (!routePlanningMap || typeof window.L === "undefined") {
+            return;
+        }
+
+        clearRoutePlanningLayers();
+
+        if (routePlanningAreaDraft.length >= 2) {
+            routePlanningLayers.push(
+                L.polyline(
+                    routePlanningAreaDraft,
+                    {
+                        color: "#668457",
+                        weight: 3,
+                        dashArray: "7 6",
+                        opacity: 0.82
+                    }
+                ).addTo(routePlanningMap)
+            );
+        }
+
+        routePlanningAreaDraft.forEach((point, index) => {
+            const marker = L.circleMarker(point, {
+                radius: 5,
+                color: "#668457",
+                fillColor: "#ffffff",
+                fillOpacity: 1,
+                weight: 2
+            }).addTo(routePlanningMap);
+
+            marker.bindTooltip(`Area point ${index + 1}`, {
+                direction: "top",
+                opacity: 0.9
+            });
+
+            routePlanningLayers.push(marker);
+        });
+    }
+
+    function renderRoutePlanningArea() {
+        if (!routePlanningMap || typeof window.L === "undefined") {
+            return;
+        }
+
+        clearRoutePlanningLayers();
+
+        if (routePlanningArea) {
+            const polygon = L.polygon(
+                routePlanningArea,
+                {
+                    color: "#4f7d45",
+                    weight: 2,
+                    fillColor: "#7daa69",
+                    fillOpacity: 0.12,
+                    dashArray: "8 5"
+                }
+            ).addTo(routePlanningMap);
+
+            polygon.bindTooltip("Assigned operational planning area", {
+                sticky: true,
+                opacity: 0.9
+            });
+
+            routePlanningLayers.push(polygon);
+        }
+
+        if (routePlanningSelectedPoint) {
+            const marker = L.circleMarker(
+                routePlanningSelectedPoint,
+                {
+                    radius: 8,
+                    color: "#24351f",
+                    fillColor: "#9ec88f",
+                    fillOpacity: 1,
+                    weight: 3
+                }
+            ).addTo(routePlanningMap);
+
+            marker.bindTooltip("Selected stop location", {
+                direction: "top",
+                opacity: 0.95
+            });
+
+            routePlanningLayers.push(marker);
+        }
+    }
+
+    function renderRoutePlanningSavedStops(route) {
+        if (!routePlanningMap || typeof window.L === "undefined") {
+            return;
+        }
+
+        (route?.stops || [])
+            .filter(stop =>
+                Number.isFinite(Number(stop.latitude)) &&
+                Number.isFinite(Number(stop.longitude))
+            )
+            .sort(
+                (a, b) =>
+                    Number(a.order || 0) - Number(b.order || 0)
+            )
+            .forEach(stop => {
+                const icon = L.divIcon({
+                    className: "",
+                    html: `<div class="route-stop-marker planning-stop-marker">${Number(stop.order || 0)}</div>`,
+                    iconSize: [29, 29],
+                    iconAnchor: [14.5, 14.5]
+                });
+
+                const marker = L.marker(
+                    [Number(stop.latitude), Number(stop.longitude)],
+                    { icon }
+                )
+                    .addTo(routePlanningMap)
+                    .bindPopup(`
+                        <div class="truck-popup">
+                            <strong>Stop ${Number(stop.order || 0)} · ${escapeHTML(stop.name)}</strong>
+                            <span>${escapeHTML(stop.address || "No address provided")}</span>
+                            <span>Status: ${escapeHTML(humanizeEnum(stop.status))}</span>
+                            <span>Use the Edit action in the stop list to change this stop.</span>
+                        </div>
+                    `);
+
+                routePlanningLayers.push(marker);
+            });
+    }
+
+    function pointInsidePlanningArea(point) {
+        if (
+            !routePlanningArea ||
+            routePlanningArea.length < 3
+        ) {
+            return false;
+        }
+
+        const lat = Number(point[0]);
+        const lng = Number(point[1]);
+        let inside = false;
+
+        for (let i = 0, j = routePlanningArea.length - 1; i < routePlanningArea.length; j = i++) {
+            const yi = Number(routePlanningArea[i][0]);
+            const xi = Number(routePlanningArea[i][1]);
+            const yj = Number(routePlanningArea[j][0]);
+            const xj = Number(routePlanningArea[j][1]);
+
+            const intersects =
+                ((yi > lat) !== (yj > lat)) &&
+                (lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi);
+
+            if (intersects) {
+                inside = !inside;
+            }
+        }
+
+        return inside;
+    }
+
+    function nextRouteStopOrder(route) {
+        return (
+            (route?.stops || [])
+                .map(stop => Number(stop.order || 0))
+                .filter(Number.isInteger)
+                .reduce((max, value) => Math.max(max, value), 0) + 1
+        );
+    }
+
+    function updateSelectedPointStatus() {
+        if (!routeSelectedPointStatus) {
+            return;
+        }
+
+        if (!routePlanningSelectedPoint) {
+            routeSelectedPointStatus.textContent =
+                "No map location selected yet.";
+            routeSelectedPointStatus.dataset.selected = "false";
+            return;
+        }
+
+        routeSelectedPointStatus.textContent =
+            "Map location selected. Save the stop to persist it.";
+        routeSelectedPointStatus.dataset.selected = "true";
+    }
+
+    function prepareStopFromMapPoint(latlng) {
+        const route = findRouteById(activeStopRouteId);
+
+        if (!route || !latlng) {
+            return;
+        }
+
+        const point = [Number(latlng.lat), Number(latlng.lng)];
+
+        if (!pointInsidePlanningArea(point)) {
+            showToast(
+                "That point is outside your assigned operational area."
+            );
+            setRoutePlanningStatus(
+                "Choose a collection point inside the assigned operational area.",
+                "warning"
+            );
+            return;
+        }
+
+        routePlanningSelectedPoint = point;
+
+        const form = routeStopForm?.elements;
+        if (!form) {
+            return;
+        }
+
+        if (!routeStopEditingId) {
+            form.stop_order.value = String(nextRouteStopOrder(route));
+            form.stop_name.value = `Collection Point ${nextRouteStopOrder(route)}`;
+            form.address.value = "";
+        }
+
+        form.latitude.value = point[0].toFixed(7);
+        form.longitude.value = point[1].toFixed(7);
+
+        renderRoutePlanningArea();
+        renderRoutePlanningSavedStops(route);
+        updateSelectedPointStatus();
+
+        setRoutePlanningStatus(
+            routeStopEditingId
+                ? "New location selected for this stop. Save changes to persist it."
+                : "Stop location selected. Enter the stop details and save it.",
+            "success"
+        );
+
+        document.querySelector(
+            '#routeStopForm input[name="stop_name"]'
+        )?.focus();
+    }
+
+    function initializeRoutePlanningMap(route) {
+        if (!routePlanningMapElement || typeof window.L === "undefined") {
+            return;
+        }
+
+        routePlanningArea =
+            Array.isArray(route?.planningArea?.polygon)
+                ? route.planningArea.polygon.map(point => [
+                    Number(point[0]),
+                    Number(point[1])
+                ])
+                : null;
+
+        if (!routePlanningMap) {
+            routePlanningMap = setupMap(
+                routePlanningMapElement
+            );
+
+            if (routePlanningMap) {
+                routePlanningMap.on(
+                    "click",
+                    event => {
+                        if (
+                            routePlanningMode ===
+                            "stop"
+                        ) {
+                            prepareStopFromMapPoint(
+                                event.latlng
+                            );
+                        }
+                    }
+                );
+            }
+        }
+
+        if (!routePlanningMap) {
+            return;
+        }
+
+        routePlanningMap.invalidateSize();
+
+        if (
+            Array.isArray(routePlanningArea) &&
+            routePlanningArea.length >= 3
+        ) {
+            const planningBounds =
+                L.latLngBounds(
+                    routePlanningArea
+                );
+
+            routePlanningMap.fitBounds(
+                planningBounds.pad(0.10),
+                {
+                    maxZoom: 16
+                }
+            );
+
+            routePlanningMap.setMaxBounds(
+                planningBounds.pad(0.16)
+            );
+
+            routePlanningMap.options.maxBoundsViscosity =
+                0.92;
+        } else {
+            const points = getRoutePoints(route);
+
+            routePlanningMap.setMaxBounds(null);
+
+            if (points.length) {
+                routePlanningMap.fitBounds(
+                    L.latLngBounds(points).pad(0.25),
+                    { maxZoom: 17 }
+                );
+            } else {
+                routePlanningMap.setView(
+                    DEFAULT_MAP_CENTER,
+                    12
+                );
+            }
+        }
+
+        renderRoutePlanningArea();
+        renderRoutePlanningSavedStops(route);
+        updateSelectedPointStatus();
+
+        setRoutePlanningMode(
+            "idle"
+        );
+
+        setRoutePlanningStatus(
+            routePlanningArea
+                ? `Assigned operational area loaded${route?.planningArea?.source === "official" ? " from verified boundary data" : " for development testing"}. Click Add Stops to place collection points inside it.`
+                : "No planning boundary is available for this ward. Stop placement is disabled.",
+            routePlanningArea
+                ? "success"
+                : "warning"
+        );
+    }
+
+    async function refreshRoutePlanningMap(routeId = activeStopRouteId) {
+        const route = findRouteById(routeId);
+
+        if (!route) {
+            return;
+        }
+
+        initializeRoutePlanningMap(route);
+
+        renderRoutePlanningArea();
+        renderRoutePlanningSavedStops(route);
+
+        if (
+            routePlanningMap &&
+            Array.isArray(routePlanningArea) &&
+            routePlanningArea.length >= 3
+        ) {
+            const planningBounds =
+                L.latLngBounds(
+                    routePlanningArea
+                );
+
+            routePlanningMap.fitBounds(
+                planningBounds.pad(0.10),
+                { maxZoom: 16 }
+            );
+
+            routePlanningMap.setMaxBounds(
+                planningBounds.pad(0.16)
+            );
+
+            routePlanningMap.options.maxBoundsViscosity =
+                0.92;
+        }
+
+        // Reuse the same OSRM road-routing pipeline for the planning view.
+        if (pointsForRouting(route).length >= 2) {
+            try {
+                const result = await fetchRoadGeometry(pointsForRouting(route));
+
+                if (result?.points?.length && routePlanningMap) {
+                    routePlanningRouteLayers.push(
+                        L.polyline(
+                            result.points,
+                            {
+                                color: getRouteColor(route),
+                                weight: 7,
+                                opacity: 0.9,
+                                lineCap: "round",
+                                lineJoin: "round"
+                            }
+                        ).addTo(routePlanningMap)
+                    );
+                }
+            } catch (error) {
+                console.warn("Planning map road routing failed:", error);
+            }
+        }
+    }
+
+    function pointsForRouting(route) {
+        return getRoutePoints(route);
+    }
+
+    /* =========================================================
+       ROUTE STOP MANAGEMENT
+    ========================================================= */
+
+    function resetRouteStopForm() {
+        if (!routeStopForm) {
+            return;
+        }
+
+        routeStopEditingId = null;
+        routePlanningSelectedPoint = null;
+        routeStopForm.reset();
+
+        if (routeStopForm.elements.route_id) {
+            routeStopForm.elements.route_id.value =
+                activeStopRouteId || "";
+        }
+
+        if (routeStopSubmitButton) {
+            routeStopSubmitButton.textContent = "Add Stop";
+        }
+
+        updateSelectedPointStatus();
+
+        if (routePlanningMap) {
+            renderRoutePlanningArea();
+            renderRoutePlanningSavedStops(findRouteById(activeStopRouteId));
+        }
+
+        setRoutePlanningMode(
+            routePlanningArea ? "stop" : "idle"
+        );
+
+        setRoutePlanningStatus(
+            routePlanningArea
+                ? "The assigned operational area is fixed. Click Add Stops, then place collection points inside the highlighted boundary."
+                : "No planning boundary is available for this ward. Stop placement is disabled.",
+            routePlanningArea
+                ? "success"
+                : "warning"
+        );
+    }
+
+    function renderRouteStopList(route) {
+        if (!routeStopList) {
+            return;
+        }
+
+        const stops =
+            (route?.stops || [])
+                .slice()
+                .sort(
+                    (a, b) =>
+                        Number(a.order || 0) -
+                        Number(b.order || 0)
+                );
+
+        if (!stops.length) {
+            routeStopList.innerHTML = `
+                <div class="summary-empty">
+                    No stops added yet. Click Add Stops, then place your first collection point inside the highlighted assigned operational area.
+                </div>
+            `;
+            return;
+        }
+
+        routeStopList.innerHTML =
+            stops
+                .map(stop => `
+                    <article class="route-stop-item">
+                        <div class="route-stop-number">
+                            ${Number(stop.order || 0)}
+                        </div>
+
+                        <div class="route-stop-item-main">
+                            <strong>${escapeHTML(stop.name)}</strong>
+                            <span>${escapeHTML(stop.address || "No address provided")}</span>
+                            <span class="route-stop-coordinate">
+                                ${Number(stop.latitude).toFixed(7)}, ${Number(stop.longitude).toFixed(7)}
+                            </span>
+                            <span>
+                                Status: ${escapeHTML(humanizeEnum(stop.status))}
+                            </span>
+                        </div>
+
+                        <div class="route-stop-item-actions">
+                            <button
+                                type="button"
+                                data-stop-action="edit"
+                                data-stop-id="${Number(stop.id)}"
+                            >
+                                Edit
+                            </button>
+                            <button
+                                type="button"
+                                class="danger"
+                                data-stop-action="delete"
+                                data-stop-id="${Number(stop.id)}"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </article>
+                `)
+                .join("");
+    }
+
+    function getStopById(route, stopId) {
+        return (route?.stops || []).find(
+            stop => Number(stop.id) === Number(stopId)
+        );
+    }
+
+    async function openRouteStopManager(routeId) {
+        const route = findRouteById(routeId);
+
+        if (!route) {
+            showToast("Route not found.");
+            return;
+        }
+
+        activeStopRouteId = Number(route.databaseId);
+        routeStopEditingId = null;
+        routePlanningSelectedPoint = null;
+        routePlanningArea =
+            Array.isArray(route?.planningArea?.polygon)
+                ? route.planningArea.polygon.map(point => [
+                    Number(point[0]),
+                    Number(point[1])
+                ])
+                : null;
+        routePlanningAreaDraft = [];
+
+        if (routeStopModalTitle) {
+            routeStopModalTitle.textContent =
+                `Plan Stops · ${route.id}`;
+        }
+
+        if (routeStopRouteSubtitle) {
+            routeStopRouteSubtitle.textContent =
+                `${route.routeName} · ${route.zoneLabel}`;
+        }
+
+        resetRouteStopForm();
+        renderRouteStopList(route);
+        openModal(routeStopModal);
+
+        setTimeout(async () => {
+            initializeRoutePlanningMap(route);
+            await refreshRoutePlanningMap(route.databaseId);
+        }, 120);
+    }
+
+    function loadStopIntoForm(stop) {
+        if (!routeStopForm || !stop) {
+            return;
+        }
+
+        routeStopEditingId = Number(stop.id);
+        routePlanningSelectedPoint = [
+            Number(stop.latitude),
+            Number(stop.longitude)
+        ];
+
+        const form = routeStopForm.elements;
+
+        form.route_id.value = String(activeStopRouteId || "");
+        form.stop_id.value = String(stop.id);
+        form.stop_order.value = String(stop.order || "");
+        form.stop_name.value = stop.name || "";
+        form.address.value = stop.address || "";
+        form.latitude.value = stop.latitude ?? "";
+        form.longitude.value = stop.longitude ?? "";
+
+        if (routeStopSubmitButton) {
+            routeStopSubmitButton.textContent = "Save Stop";
+        }
+
+        setRoutePlanningMode("stop");
+        updateSelectedPointStatus();
+        setRoutePlanningStatus(
+            "Editing this stop. Click a new location on the map, then save changes.",
+            "success"
+        );
+
+        refreshRoutePlanningMap(activeStopRouteId);
+    }
+
+    routeStopClearButton?.addEventListener(
+        "click",
+        resetRouteStopForm
+    );
+
+    [
+        routeSelectAreaButton,
+        routeFinishAreaButton,
+        routeClearAreaButton
+    ].forEach(button => {
+        if (!button) {
+            return;
+        }
+
+        button.style.display = "none";
+        button.disabled = true;
+        button.setAttribute(
+            "aria-hidden",
+            "true"
+        );
+    });
+
+    routeAddStopButton?.addEventListener(
+        "click",
+        () => {
+            const route = findRouteById(
+                activeStopRouteId
+            );
+
+            routePlanningArea =
+                Array.isArray(route?.planningArea?.polygon)
+                    ? route.planningArea.polygon.map(point => [
+                        Number(point[0]),
+                        Number(point[1])
+                    ])
+                    : null;
+
+            if (!routePlanningArea) {
+                showToast(
+                    "No planning boundary is available for this ward yet."
+                );
+
+                setRoutePlanningMode(
+                    "idle"
+                );
+
+                setRoutePlanningStatus(
+                    "Stop placement is disabled because this ward has no planning boundary yet.",
+                    "warning"
+                );
+
+                return;
+            }
+
+            renderRoutePlanningArea();
+            renderRoutePlanningSavedStops(
+                route
+            );
+
+            setRoutePlanningMode(
+                "stop"
+            );
+
+            setRoutePlanningStatus(
+                routeStopEditingId
+                    ? "Click a new location inside the assigned operational area for this stop."
+                    : "Click the next collection point inside the assigned operational area.",
+                "success"
+            );
+        }
+    );
+
+    routeStopViewMapButton?.addEventListener(
+        "click",
+        () => {
+            closeModal(routeStopModal);
+            switchTab("routes");
+
+            setTimeout(() => {
+                routeMap?.invalidateSize();
+                const route = findRouteById(activeStopRouteId);
+
+                if (route && routeMap) {
+                    const points = getRoutePoints(route);
+
+                    if (points.length) {
+                        routeMap.fitBounds(
+                            L.latLngBounds(points).pad(0.22),
+                            { maxZoom: 17 }
+                        );
+                    }
+                }
+            }, 160);
+        }
+    );
+
+    routeStopList?.addEventListener(
+        "click",
+        async event => {
+            const button =
+                event.target.closest(
+                    "[data-stop-action]"
+                );
+
+            if (!button) {
+                return;
+            }
+
+            const route =
+                findRouteById(activeStopRouteId);
+
+            const stop =
+                getStopById(
+                    route,
+                    Number(button.dataset.stopId)
+                );
+
+            if (!stop) {
+                showToast("Route stop not found.");
+                return;
+            }
+
+            const action = button.dataset.stopAction;
+
+            if (action === "edit") {
+                loadStopIntoForm(stop);
+                return;
+            }
+
+            if (action === "delete") {
+                const confirmed =
+                    window.confirm(
+                        `Delete stop ${Number(stop.order)} · ${stop.name}?`
+                    );
+
+                if (!confirmed) {
+                    return;
+                }
+
+                try {
+                    await apiRequest(
+                        `/api/inspector/routes/${activeStopRouteId}/stops/${Number(stop.id)}`,
+                        {
+                            method: "DELETE"
+                        }
+                    );
+
+                    await loadDashboardData();
+
+                    const updatedRoute =
+                        findRouteById(activeStopRouteId);
+
+                    renderRouteStopList(updatedRoute);
+                    resetRouteStopForm();
+                    await refreshRoutePlanningMap(activeStopRouteId);
+                    await refreshMaps();
+                    showToast("Route stop deleted successfully.");
+                } catch (error) {
+                    console.error("Route stop deletion failed:", error);
+                    showToast(
+                        error.message ||
+                        "Unable to delete route stop."
+                    );
+                }
+            }
+        }
+    );
+
+    routeStopForm?.addEventListener(
+        "submit",
+        async event => {
+            event.preventDefault();
+
+            if (!routeStopForm.checkValidity()) {
+                routeStopForm.reportValidity();
+                return;
+            }
+
+            const data =
+                Object.fromEntries(
+                    new FormData(routeStopForm).entries()
+                );
+
+            const routeId = Number(data.route_id);
+            const stopOrder = Number(data.stop_order);
+            const stopName = String(data.stop_name || "").trim();
+            const address = String(data.address || "").trim();
+            const latitude = Number(data.latitude);
+            const longitude = Number(data.longitude);
+            const stopId = data.stop_id
+                ? Number(data.stop_id)
+                : null;
+
+            if (
+                !Number.isInteger(routeId) ||
+                !Number.isInteger(stopOrder) ||
+                stopOrder <= 0 ||
+                !stopName ||
+                !Number.isFinite(latitude) ||
+                latitude < -90 ||
+                latitude > 90 ||
+                !Number.isFinite(longitude) ||
+                longitude < -180 ||
+                longitude > 180
+            ) {
+                showToast("Select a valid location on the map and complete the stop details.");
+                return;
+            }
+
+            if (!pointInsidePlanningArea([latitude, longitude])) {
+                showToast("The selected stop location must be inside the route planning area.");
+                return;
+            }
+
+            if (routeStopSubmitButton) {
+                routeStopSubmitButton.disabled = true;
+                routeStopSubmitButton.textContent =
+                    stopId ? "Saving..." : "Adding...";
+            }
+
+            try {
+                const payload = {
+                    stop_order: stopOrder,
+                    stop_name: stopName,
+                    address: address || null,
+                    latitude,
+                    longitude
+                };
+
+                await apiRequest(
+                    stopId
+                        ? `/api/inspector/routes/${routeId}/stops/${stopId}`
+                        : `/api/inspector/routes/${routeId}/stops`,
+                    {
+                        method: stopId ? "PUT" : "POST",
+                        body: JSON.stringify(payload)
+                    }
+                );
+
+                await loadDashboardData();
+
+                const updatedRoute =
+                    findRouteById(routeId);
+
+                renderRouteStopList(updatedRoute);
+                resetRouteStopForm();
+                await refreshRoutePlanningMap(routeId);
+
+                // Rebuild the main dashboard map from the newly persisted stop data.
+                await refreshMaps();
+
+                showToast(
+                    stopId
+                        ? "Route stop updated successfully."
+                        : "Route stop added successfully."
+                );
+            } catch (error) {
+                console.error("Route stop save failed:", error);
+                showToast(
+                    error.message ||
+                    "Unable to save route stop."
+                );
+            } finally {
+                if (routeStopSubmitButton) {
+                    routeStopSubmitButton.disabled = false;
+                    routeStopSubmitButton.textContent = "Add Stop";
+                }
+            }
+        }
+    );
+
+    /* =========================================================
        KEYBOARD
     ========================================================= */
 
@@ -5848,6 +6871,10 @@ editRouteForm?.addEventListener(
                 closeModal(
                     driverModal
                 );
+                closeModal(
+                    routeStopModal
+                );
+                setRoutePlanningMode("idle");
             }
 
             if (

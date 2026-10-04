@@ -32,6 +32,328 @@ const VALID_COMPLAINT_STATUSES = [
     "cancelled"
 ];
 
+const ROUTE_STATUS_TRANSITIONS = {
+    scheduled: ["scheduled", "starting", "cancelled"],
+    starting: ["starting", "active", "delayed", "cancelled"],
+    active: ["active", "delayed", "completed", "cancelled"],
+    delayed: ["delayed", "active", "completed", "cancelled"],
+    completed: ["completed"],
+    cancelled: ["cancelled"]
+};
+
+const ACTIVE_VEHICLE_STATUSES = [
+    "en_route",
+    "collecting",
+    "delayed"
+];
+
+
+/*
+ * ---------------------------------------------------------
+ * DEVELOPMENT OPERATIONAL GEOFENCE
+ * ---------------------------------------------------------
+ *
+ * Temporary SWACHHITRA development planning boundary for the
+ * current Ward 10 operational area around Gandhi Maidan / Shivaji Peth.
+ *
+ * IMPORTANT:
+ * This polygon is NOT claimed to be the official KMC Ward 10 boundary.
+ * It is a development geofence used until an authoritative KMC GeoJSON
+ * boundary is imported into ward_boundaries.
+ *
+ * When an official verified boundary exists in ward_boundaries with
+ * is_official = 1, that geometry takes precedence over this polygon.
+ */
+const DEVELOPMENT_OPERATIONAL_BOUNDARIES = {
+    "WARD-10": [
+        [16.6960000, 74.2190000],
+        [16.6970000, 74.2235000],
+        [16.6945000, 74.2272000],
+        [16.6895000, 74.2270000],
+        [16.6868000, 74.2235000],
+        [16.6876000, 74.2195000],
+        [16.6900000, 74.2180000]
+    ]
+};
+
+
+function pointInsidePolygon(point, polygon) {
+    if (
+        !Array.isArray(point) ||
+        point.length < 2 ||
+        !Array.isArray(polygon) ||
+        polygon.length < 3
+    ) {
+        return false;
+    }
+
+    const lat = Number(point[0]);
+    const lng = Number(point[1]);
+
+    if (
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lng)
+    ) {
+        return false;
+    }
+
+    let inside = false;
+
+    for (
+        let i = 0,
+            j = polygon.length - 1;
+        i < polygon.length;
+        j = i
+    ) {
+        const yi = Number(polygon[i][0]);
+        const xi = Number(polygon[i][1]);
+        const yj = Number(polygon[j][0]);
+        const xj = Number(polygon[j][1]);
+
+        if (
+            !Number.isFinite(yi) ||
+            !Number.isFinite(xi) ||
+            !Number.isFinite(yj) ||
+            !Number.isFinite(xj)
+        ) {
+            continue;
+        }
+
+        const intersects =
+            ((yi > lat) !== (yj > lat)) &&
+            (
+                lng <
+                (
+                    ((xj - xi) * (lat - yi)) /
+                    (yj - yi)
+                ) + xi
+            );
+
+        if (intersects) {
+            inside = !inside;
+        }
+    }
+
+    return inside;
+}
+
+
+function extractPolygonCoordinates(geoJson) {
+    if (!geoJson) {
+        return [];
+    }
+
+    let parsed = geoJson;
+
+    if (typeof parsed === "string") {
+        try {
+            parsed = JSON.parse(parsed);
+        } catch {
+            return [];
+        }
+    }
+
+    if (
+        !parsed ||
+        typeof parsed !== "object"
+    ) {
+        return [];
+    }
+
+    if (parsed.type === "Feature") {
+        return extractPolygonCoordinates(
+            parsed.geometry
+        );
+    }
+
+    if (parsed.type === "FeatureCollection") {
+        for (const feature of parsed.features || []) {
+            const coordinates =
+                extractPolygonCoordinates(feature);
+
+            if (coordinates.length >= 3) {
+                return coordinates;
+            }
+        }
+
+        return [];
+    }
+
+    if (parsed.type === "Polygon") {
+        return (parsed.coordinates?.[0] || [])
+            .map(point => [
+                Number(point[1]),
+                Number(point[0])
+            ])
+            .filter(point =>
+                Number.isFinite(point[0]) &&
+                Number.isFinite(point[1])
+            );
+    }
+
+    if (parsed.type === "MultiPolygon") {
+        return (parsed.coordinates?.[0]?.[0] || [])
+            .map(point => [
+                Number(point[1]),
+                Number(point[0])
+            ])
+            .filter(point =>
+                Number.isFinite(point[0]) &&
+                Number.isFinite(point[1])
+            );
+    }
+
+    return [];
+}
+
+
+async function getOperationalBoundaryForWard(
+    wardId,
+    wardCode,
+    connection = db
+) {
+    const [rows] =
+        await connection.execute(
+            `
+            SELECT
+                boundary_geojson
+            FROM ward_boundaries
+            WHERE ward_id = ?
+              AND is_official = 1
+            LIMIT 1
+            `,
+            [wardId]
+        );
+
+    const authoritativePolygon =
+        extractPolygonCoordinates(
+            rows[0]?.boundary_geojson
+        );
+
+    if (authoritativePolygon.length >= 3) {
+        return {
+            source: "official",
+            polygon: authoritativePolygon
+        };
+    }
+
+    const developmentPolygon =
+        DEVELOPMENT_OPERATIONAL_BOUNDARIES[
+            String(wardCode || "").toUpperCase()
+        ];
+
+    if (
+        Array.isArray(developmentPolygon) &&
+        developmentPolygon.length >= 3
+    ) {
+        return {
+            source: "development",
+            polygon: developmentPolygon
+        };
+    }
+
+    return null;
+}
+
+
+async function validateRouteStopLocation({
+    connection,
+    wardId,
+    latitude,
+    longitude
+}) {
+    const [wardRows] =
+        await connection.execute(
+            `
+            SELECT
+                id,
+                ward_code,
+                ward_number,
+                ward_name,
+                division_id
+            FROM wards
+            WHERE id = ?
+              AND status = 'active'
+            LIMIT 1
+            FOR SHARE
+            `,
+            [wardId]
+        );
+
+    if (!wardRows.length) {
+        throw createScopeError(
+            "The route ward is not available."
+        );
+    }
+
+    const ward = wardRows[0];
+
+    const boundary =
+        await getOperationalBoundaryForWard(
+            Number(ward.id),
+            ward.ward_code,
+            connection
+        );
+
+    if (!boundary) {
+        const error = new Error(
+            `No verified route-planning boundary is available for Ward ${Number(ward.ward_number)}.`
+        );
+        error.statusCode = 409;
+        throw error;
+    }
+
+    if (!pointInsidePolygon(
+        [latitude, longitude],
+        boundary.polygon
+    )) {
+        throw createScopeError(
+            `The collection point must be inside the assigned operational area for Ward ${Number(ward.ward_number)}.`
+        );
+    }
+
+    return {
+        ward,
+        source: boundary.source,
+        polygon: boundary.polygon
+    };
+}
+
+function assignmentStatusForRouteStatus(routeStatus) {
+    if (routeStatus === "active") {
+        return "active";
+    }
+
+    if (routeStatus === "delayed") {
+        return "delayed";
+    }
+
+    return "assigned";
+}
+
+function vehicleStatusForRouteStatus(routeStatus) {
+    switch (routeStatus) {
+        case "active":
+            return "collecting";
+        case "delayed":
+            return "delayed";
+        case "starting":
+        case "scheduled":
+            return "en_route";
+        default:
+            return "available";
+    }
+}
+
+function routeStatusAllowsAssignment(routeStatus) {
+    return [
+        "scheduled",
+        "starting",
+        "active",
+        "delayed"
+    ].includes(routeStatus);
+}
+
 
 function sendServerError(res, message, error) {
     console.error(message, error);
@@ -140,8 +462,7 @@ async function getScopeContext(
     req,
     connection = db
 ) {
-    const role =
-        req.currentUser?.role;
+    const role = req.currentUser?.role;
 
     if (!ADMIN_ROLES.includes(role)) {
         throw createScopeError(
@@ -149,19 +470,16 @@ async function getScopeContext(
         );
     }
 
-
-    if (
-        role ===
-        "deputy_commissioner"
-    ) {
+    if (role === "deputy_commissioner") {
         return {
             role,
             scopeType: "city",
-
+            divisionId: null,
+            divisionCode: null,
+            divisionName: "Entire City",
             zoneId: null,
             zoneCode: null,
             zoneName: "Entire City",
-
             wardId: null,
             wardNumber: null,
             wardCode: null,
@@ -169,44 +487,44 @@ async function getScopeContext(
         };
     }
 
+    const [rows] = await connection.execute(
+        `
+        SELECT
+            p.zone_id,
+            z.zone_code,
+            z.zone_name,
 
-    const [rows] =
-        await connection.execute(
-            `
-            SELECT
-                p.zone_id,
+            p.division_id,
+            d.division_code,
+            d.division_name,
 
-                z.zone_code,
-                z.zone_name,
+            p.ward_id,
+            w.ward_number,
+            w.ward_code,
+            w.ward_name
 
-                p.ward_id,
+        FROM user_profiles p
 
-                w.ward_number,
-                w.ward_code,
-                w.ward_name
+        LEFT JOIN zones z
+            ON z.id = p.zone_id
+           AND z.status = 'active'
 
-            FROM user_profiles p
+        LEFT JOIN divisions d
+            ON d.id = p.division_id
+           AND d.status = 'active'
 
-            LEFT JOIN zones z
-                ON z.id = p.zone_id
-               AND z.status = 'active'
+        LEFT JOIN wards w
+            ON w.id = p.ward_id
+           AND w.division_id = p.division_id
+           AND w.status = 'active'
 
-            LEFT JOIN wards w
-                ON w.id = p.ward_id
-               AND w.zone_id = p.zone_id
-               AND w.status = 'active'
+        WHERE p.user_id = ?
+        LIMIT 1
+        `,
+        [req.currentUser.id]
+    );
 
-            WHERE p.user_id = ?
-
-            LIMIT 1
-            `,
-            [req.currentUser.id]
-        );
-
-
-    const profile =
-        rows[0];
-
+    const profile = rows[0];
 
     if (!profile) {
         throw createScopeError(
@@ -214,33 +532,35 @@ async function getScopeContext(
         );
     }
 
+    if (role === "assistant_commissioner") {
+        const divisionId = positiveInteger(profile.division_id);
 
-    if (
-        role ===
-        "assistant_commissioner"
-    ) {
-        const zoneId =
-            positiveInteger(
-                profile.zone_id
-            );
-
-        if (!zoneId) {
+        if (!divisionId) {
             throw createScopeError(
-                "Assistant Commissioner zone assignment is missing."
+                "Assistant Commissioner division assignment is missing."
+            );
+        }
+
+        if (
+            !profile.division_code ||
+            !profile.division_name
+        ) {
+            throw createScopeError(
+                "Assistant Commissioner division assignment is invalid or inactive."
             );
         }
 
         return {
             role,
-            scopeType: "zone",
+            scopeType: "division",
 
-            zoneId,
+            divisionId,
+            divisionCode: profile.division_code,
+            divisionName: profile.division_name,
 
-            zoneCode:
-                profile.zone_code,
-
-            zoneName:
-                profile.zone_name,
+            zoneId: positiveInteger(profile.zone_id),
+            zoneCode: profile.zone_code,
+            zoneName: profile.zone_name,
 
             wardId: null,
             wardNumber: null,
@@ -249,70 +569,55 @@ async function getScopeContext(
         };
     }
 
+    if (role === "sanitary_inspector") {
+        const divisionId = positiveInteger(profile.division_id);
+        const wardId = positiveInteger(profile.ward_id);
+        const zoneId = positiveInteger(profile.zone_id);
 
-    if (
-        role ===
-        "sanitary_inspector"
-    ) {
-        const zoneId =
-            positiveInteger(
-                profile.zone_id
-            );
-
-        const wardId =
-            positiveInteger(
-                profile.ward_id
-            );
-
-
-        if (!zoneId || !wardId) {
+        if (!divisionId || !wardId) {
             throw createScopeError(
-                "Sanitary Inspector ward assignment is missing. Complete your profile first."
+                "Sanitary Inspector Division/Ward assignment is missing. An Assistant Commissioner must assign the operational jurisdiction first."
             );
         }
 
-
         if (
-            !profile.zone_code ||
-            !profile.zone_name ||
+            !profile.division_code ||
+            !profile.division_name ||
             !profile.ward_code ||
             !profile.ward_name
         ) {
             throw createScopeError(
-                "Sanitary Inspector zone/ward assignment is invalid."
+                "Sanitary Inspector Division/Ward assignment is invalid or inactive."
             );
         }
 
+        if (!zoneId || !profile.zone_code || !profile.zone_name) {
+            throw createScopeError(
+                "The Inspector's compatibility zone mapping is missing or invalid."
+            );
+        }
 
         return {
             role,
             scopeType: "ward",
 
+            divisionId,
+            divisionCode: profile.division_code,
+            divisionName: profile.division_name,
+
             zoneId,
-
-            zoneCode:
-                profile.zone_code,
-
-            zoneName:
-                profile.zone_name,
+            zoneCode: profile.zone_code,
+            zoneName: profile.zone_name,
 
             wardId,
-
             wardNumber:
                 profile.ward_number === null
                     ? null
-                    : Number(
-                        profile.ward_number
-                    ),
-
-            wardCode:
-                profile.ward_code,
-
-            wardName:
-                profile.ward_name
+                    : Number(profile.ward_number),
+            wardCode: profile.ward_code,
+            wardName: profile.ward_name
         };
     }
-
 
     throw createScopeError(
         "This account does not have administrative dashboard access."
@@ -322,43 +627,46 @@ async function getScopeContext(
 
 /*
  * Route scope filter.
+ *
+ * Existing routes may still have division_id = NULL until the migration
+ * backfill is performed. For those legacy rows, the route's ward is used to
+ * resolve its division without weakening scope enforcement.
  */
 function routeScope(
     scope,
     alias = "r"
 ) {
-    if (
-        scope.scopeType ===
-        "zone"
-    ) {
+    if (scope.scopeType === "division") {
         return {
-            sql:
-                `AND ${alias}.zone_id = ?`,
+            sql: `
+                AND (
+                    ${alias}.division_id = ?
+                    OR (
+                        ${alias}.division_id IS NULL
+                        AND EXISTS (
+                            SELECT 1
+                            FROM wards scoped_w
+                            WHERE scoped_w.id = ${alias}.ward_id
+                              AND scoped_w.division_id = ?
+                        )
+                    )
+                )
+            `,
             params: [
-                scope.zoneId
+                scope.divisionId,
+                scope.divisionId
             ]
         };
     }
 
-
-    if (
-        scope.scopeType ===
-        "ward"
-    ) {
+    if (scope.scopeType === "ward") {
         return {
-            sql:
-                `AND ${alias}.ward_id = ?`,
-            params: [
-                scope.wardId
-            ]
+            sql: `AND ${alias}.ward_id = ?`,
+            params: [scope.wardId]
         };
     }
 
-
-    return {
-        sql: "",
-        params: []
-    };
+    return { sql: "", params: [] };
 }
 
 
@@ -369,56 +677,36 @@ function wardScope(
     scope,
     alias = "w"
 ) {
-    if (
-        scope.scopeType ===
-        "zone"
-    ) {
+    if (scope.scopeType === "division") {
         return {
-            sql:
-                `AND ${alias}.zone_id = ?`,
-            params: [
-                scope.zoneId
-            ]
+            sql: `AND ${alias}.division_id = ?`,
+            params: [scope.divisionId]
         };
     }
 
-
-    if (
-        scope.scopeType ===
-        "ward"
-    ) {
+    if (scope.scopeType === "ward") {
         return {
-            sql:
-                `AND ${alias}.id = ?`,
-            params: [
-                scope.wardId
-            ]
+            sql: `AND ${alias}.id = ?`,
+            params: [scope.wardId]
         };
     }
 
-
-    return {
-        sql: "",
-        params: []
-    };
+    return { sql: "", params: [] };
 }
 
 
 /*
  * Driver scope.
  *
- * Drivers are operationally associated with wards.
- * An unassigned driver (NULL ward) remains visible as a
- * common available resource.
+ * Drivers are operationally associated with wards. An unassigned driver
+ * remains visible as an available common resource to an authorized
+ * operational Inspector.
  */
 function driverScope(
     scope,
     alias = "d"
 ) {
-    if (
-        scope.scopeType ===
-        "zone"
-    ) {
+    if (scope.scopeType === "division") {
         return {
             sql: `
                 AND (
@@ -426,21 +714,15 @@ function driverScope(
                     OR ${alias}.assigned_ward_id IN (
                         SELECT id
                         FROM wards
-                        WHERE zone_id = ?
+                        WHERE division_id = ?
                     )
                 )
             `,
-            params: [
-                scope.zoneId
-            ]
+            params: [scope.divisionId]
         };
     }
 
-
-    if (
-        scope.scopeType ===
-        "ward"
-    ) {
+    if (scope.scopeType === "ward") {
         return {
             sql: `
                 AND (
@@ -448,43 +730,20 @@ function driverScope(
                     OR ${alias}.assigned_ward_id = ?
                 )
             `,
-            params: [
-                scope.wardId
-            ]
+            params: [scope.wardId]
         };
     }
 
-
-    return {
-        sql: "",
-        params: []
-    };
+    return { sql: "", params: [] };
 }
 
 
 /*
- * Vehicle scope.
- *
- * Vehicles do not have an assigned_ward_id.
- *
- * A vehicle's operational ward/zone is obtained through:
- *
- *     vehicle
- *        -> active route assignment
- *        -> route
- *        -> zone / ward
- *
- * Available unassigned vehicles are kept in the common fleet
- * pool so an authorized Inspector can assign one to a new route.
- */
-
-/*
  * Vehicle management scope.
  *
- * Unlike the operational dashboard filter, fleet management must
- * also allow unassigned vehicles that are currently in maintenance
- * or another non-inactive state. Assigned vehicles are restricted
- * to the authenticated user's operational area.
+ * A vehicle has no direct ward assignment. Assigned vehicles inherit scope
+ * through route_assignments -> routes -> ward/division. Unassigned vehicles
+ * remain in the common fleet pool.
  */
 function vehicleManagementScope(
     scope,
@@ -493,15 +752,24 @@ function vehicleManagementScope(
         assignmentAlias = "ra"
     } = {}
 ) {
-    if (scope.scopeType === "zone") {
+    if (scope.scopeType === "division") {
         return {
             sql: `
                 AND (
                     ${assignmentAlias}.id IS NULL
-                    OR ${routeAlias}.zone_id = ?
+                    OR ${routeAlias}.division_id = ?
+                    OR (
+                        ${routeAlias}.division_id IS NULL
+                        AND EXISTS (
+                            SELECT 1
+                            FROM wards scoped_w
+                            WHERE scoped_w.id = ${routeAlias}.ward_id
+                              AND scoped_w.division_id = ?
+                        )
+                    )
                 )
             `,
-            params: [scope.zoneId]
+            params: [scope.divisionId, scope.divisionId]
         };
     }
 
@@ -517,10 +785,7 @@ function vehicleManagementScope(
         };
     }
 
-    return {
-        sql: "",
-        params: []
-    };
+    return { sql: "", params: [] };
 }
 
 
@@ -531,16 +796,24 @@ function vehicleScope(
         assignmentAlias = "ra"
     } = {}
 ) {
-    if (
-        scope.scopeType ===
-        "zone"
-    ) {
+    if (scope.scopeType === "division") {
         return {
             sql: `
                 AND (
                     (
                         ${assignmentAlias}.id IS NOT NULL
-                        AND ${routeAlias}.zone_id = ?
+                        AND (
+                            ${routeAlias}.division_id = ?
+                            OR (
+                                ${routeAlias}.division_id IS NULL
+                                AND EXISTS (
+                                    SELECT 1
+                                    FROM wards scoped_w
+                                    WHERE scoped_w.id = ${routeAlias}.ward_id
+                                      AND scoped_w.division_id = ?
+                                )
+                            )
+                        )
                     )
                     OR (
                         ${assignmentAlias}.id IS NULL
@@ -548,17 +821,11 @@ function vehicleScope(
                     )
                 )
             `,
-            params: [
-                scope.zoneId
-            ]
+            params: [scope.divisionId, scope.divisionId]
         };
     }
 
-
-    if (
-        scope.scopeType ===
-        "ward"
-    ) {
+    if (scope.scopeType === "ward") {
         return {
             sql: `
                 AND (
@@ -572,17 +839,11 @@ function vehicleScope(
                     )
                 )
             `,
-            params: [
-                scope.wardId
-            ]
+            params: [scope.wardId]
         };
     }
 
-
-    return {
-        sql: "",
-        params: []
-    };
+    return { sql: "", params: [] };
 }
 
 
@@ -618,6 +879,42 @@ function latestAssignmentJoin(
  * ROUTE STOPS
  * ---------------------------------------------------------
  */
+async function syncRouteStopTotals(
+    connection,
+    routeId
+) {
+    const [rows] = await connection.execute(
+        `
+        SELECT
+            COUNT(*) AS total_stops,
+            COALESCE(
+                SUM(status = 'collected'),
+                0
+            ) AS completed_stops
+        FROM route_stops
+        WHERE route_id = ?
+        `,
+        [routeId]
+    );
+
+    const totalStops = Number(rows[0]?.total_stops || 0);
+    const completedStops = Number(
+        rows[0]?.completed_stops || 0
+    );
+
+    await connection.execute(
+        `
+        UPDATE routes
+        SET
+            total_stops = ?,
+            completed_stops = ?
+        WHERE id = ?
+        `,
+        [totalStops, completedStops, routeId]
+    );
+}
+
+
 async function getRouteStops(
     routeId,
     connection = db
@@ -703,6 +1000,7 @@ async function getRouteRecord(
                 r.route_code,
                 r.route_name,
                 r.zone_id,
+                r.division_id,
                 r.ward_id,
                 r.status,
                 r.start_point,
@@ -724,6 +1022,7 @@ async function getRouteRecord(
                 w.ward_number,
                 w.ward_code,
                 w.ward_name,
+                wb.boundary_geojson,
 
                 ra.id AS assignment_id,
                 ra.assignment_code,
@@ -748,6 +1047,10 @@ async function getRouteRecord(
             JOIN wards w
                 ON w.id = r.ward_id
                AND w.zone_id = r.zone_id
+
+            LEFT JOIN ward_boundaries wb
+                ON wb.ward_id = w.id
+               AND wb.is_official = 1
 
             ${latestAssignmentJoin(
                 "r",
@@ -810,6 +1113,14 @@ function toRouteDto(
         routeName:
             row.route_name,
 
+        division:
+            row.division_id === null ||
+            row.division_id === undefined
+                ? null
+                : {
+                    id: Number(row.division_id)
+                },
+
         status:
             row.status,
 
@@ -839,6 +1150,37 @@ function toRouteDto(
             name:
                 row.ward_name
         },
+
+
+        planningArea:
+            (() => {
+                const officialPolygon =
+                    extractPolygonCoordinates(
+                        row.boundary_geojson
+                    );
+
+                if (officialPolygon.length >= 3) {
+                    return {
+                        source: "official",
+                        polygon: officialPolygon
+                    };
+                }
+
+                const developmentPolygon =
+                    DEVELOPMENT_OPERATIONAL_BOUNDARIES[
+                        String(
+                            row.ward_code ||
+                            ""
+                        ).toUpperCase()
+                    ];
+
+                return developmentPolygon
+                    ? {
+                        source: "development",
+                        polygon: developmentPolygon
+                    }
+                    : null;
+            })(),
 
 
         startPoint:
@@ -1248,7 +1590,16 @@ async function getOverview(
                     scope.wardCode,
 
                 wardName:
-                    scope.wardName
+                    scope.wardName,
+
+                divisionId:
+                    scope.divisionId,
+
+                divisionCode:
+                    scope.divisionCode,
+
+                divisionName:
+                    scope.divisionName
             },
 
 
@@ -1376,6 +1727,7 @@ async function getRoutes(
                     r.route_code,
                     r.route_name,
                     r.zone_id,
+                    r.division_id,
                     r.ward_id,
                     r.status,
                     r.start_point,
@@ -1397,6 +1749,7 @@ async function getRoutes(
                     w.ward_number,
                     w.ward_code,
                     w.ward_name,
+                    wb.boundary_geojson,
 
                     ra.id AS assignment_id,
                     ra.assignment_code,
@@ -1421,6 +1774,10 @@ async function getRoutes(
                 JOIN wards w
                     ON w.id = r.ward_id
                    AND w.zone_id = r.zone_id
+
+                LEFT JOIN ward_boundaries wb
+                    ON wb.ward_id = w.id
+                   AND wb.is_official = 1
 
                 ${latestAssignmentJoin(
                     "r",
@@ -1596,70 +1953,37 @@ async function createRoute(
     req,
     res
 ) {
-    const routeCode =
-        clean(
-            req.body?.route_code
-        );
-
-    const routeName =
-        clean(
-            req.body?.route_name
-        );
-
-    const zoneId =
-        positiveInteger(
-            req.body?.zone_id
-        );
-
-    const wardId =
-        positiveInteger(
-            req.body?.ward_id
-        );
-
+    const routeCode = clean(req.body?.route_code);
+    const routeName = clean(req.body?.route_name);
+    const requestedZoneId = positiveInteger(req.body?.zone_id);
+    const requestedWardId = positiveInteger(req.body?.ward_id);
 
     const vehicleId =
-        req.body?.vehicle_id ===
-            undefined ||
-        req.body?.vehicle_id ===
-            null ||
+        req.body?.vehicle_id === undefined ||
+        req.body?.vehicle_id === null ||
         req.body?.vehicle_id === ""
             ? null
-            : positiveInteger(
-                req.body.vehicle_id
-            );
-
+            : positiveInteger(req.body.vehicle_id);
 
     const driverId =
-        req.body?.driver_id ===
-            undefined ||
-        req.body?.driver_id ===
-            null ||
+        req.body?.driver_id === undefined ||
+        req.body?.driver_id === null ||
         req.body?.driver_id === ""
             ? null
-            : positiveInteger(
-                req.body.driver_id
-            );
+            : positiveInteger(req.body.driver_id);
 
-
-    const totalStops =
-        req.body?.total_stops ===
-            undefined ||
-        req.body?.total_stops ===
-            null ||
+    const legacyTotalStops =
+        req.body?.total_stops === undefined ||
+        req.body?.total_stops === null ||
         req.body?.total_stops === ""
             ? 0
-            : Number(
-                req.body.total_stops
-            );
-
+            : Number(req.body.total_stops);
 
     if (
         !routeCode ||
         routeCode.length > 30 ||
         !routeName ||
-        routeName.length > 150 ||
-        !zoneId ||
-        !wardId
+        routeName.length > 150
     ) {
         return res.status(400).json({
             success: false,
@@ -1668,20 +1992,23 @@ async function createRoute(
         });
     }
 
-
     if (
-        !Number.isInteger(
-            totalStops
-        ) ||
-        totalStops < 0
+        !Number.isInteger(legacyTotalStops) ||
+        legacyTotalStops < 0
     ) {
         return res.status(400).json({
             success: false,
-            message:
-                "Total stops must be a non-negative integer."
+            message: "Total stops must be a non-negative integer."
         });
     }
 
+    if (legacyTotalStops > 0) {
+        return res.status(400).json({
+            success: false,
+            message:
+                "Create the route first, then add its actual route stops. Stop totals are calculated automatically."
+        });
+    }
 
     if (
         (vehicleId && !driverId) ||
@@ -1694,77 +2021,67 @@ async function createRoute(
         });
     }
 
-
     let connection;
 
-
     try {
-        const scope =
-            await getScopeContext(req);
+        const scope = await getScopeContext(req);
 
-
-        /*
-         * A new route must be inside the authenticated user's scope.
-         */
-        if (
-            scope.scopeType ===
-                "zone" &&
-            zoneId !== scope.zoneId
-        ) {
+        if (scope.scopeType !== "ward") {
             throw createScopeError(
-                "Route zone is outside the assigned zone."
+                "Only a Sanitary Inspector with an assigned ward can create operational routes."
             );
         }
 
-
+        // The Inspector's authenticated scope is authoritative.
+        // Client-supplied zone/ward values are accepted only as a legacy
+        // compatibility check and can never change the effective route scope.
         if (
-            scope.scopeType ===
-                "ward" &&
-            (
-                zoneId !==
-                    scope.zoneId ||
-                wardId !==
-                    scope.wardId
-            )
+            requestedZoneId !== null &&
+            requestedZoneId !== scope.zoneId
         ) {
             throw createScopeError(
-                "Route ward is outside the assigned ward."
+                "Route zone is outside the Inspector's assigned ward."
             );
         }
 
+        if (
+            requestedWardId !== null &&
+            requestedWardId !== scope.wardId
+        ) {
+            throw createScopeError(
+                "Route ward is outside the Inspector's assigned ward."
+            );
+        }
 
-        connection =
-            await db.getConnection();
+        const zoneId = scope.zoneId;
+        const wardId = scope.wardId;
+        const divisionId = scope.divisionId;
 
-
+        connection = await db.getConnection();
         await connection.beginTransaction();
 
-
-        /*
-         * Ensure the selected ward belongs to the selected zone.
-         */
-        const [wardRows] =
-            await connection.execute(
-                `
-                SELECT
-                    w.id,
-                    w.zone_id
-                FROM wards w
-                JOIN zones z
-                    ON z.id = w.zone_id
-                WHERE w.id = ?
-                  AND w.zone_id = ?
-                  AND w.status = 'active'
-                  AND z.status = 'active'
-                LIMIT 1
-                FOR UPDATE
-                `,
-                [
-                    wardId,
-                    zoneId
-                ]
-            );
-
+        const [wardRows] = await connection.execute(
+            `
+            SELECT
+                w.id,
+                w.zone_id,
+                w.division_id
+            FROM wards w
+            JOIN zones z
+                ON z.id = w.zone_id
+            JOIN divisions d
+                ON d.id = w.division_id
+            WHERE w.id = ?
+              AND w.zone_id = ?
+              AND w.division_id = ?
+              AND w.status = 'active'
+              AND z.status = 'active'
+              AND d.status = 'active'
+            LIMIT 1
+            FOR UPDATE
+            `,
+            [wardId, zoneId, divisionId]
+        );
 
         if (!wardRows.length) {
             throw createScopeError(
@@ -1772,223 +2089,75 @@ async function createRoute(
             );
         }
 
+        const [routeResult] = await connection.execute(
+            `
+            INSERT INTO routes
+            (
+                route_code,
+                route_name,
+                zone_id,
+                division_id,
+                ward_id,
+                status,
+                total_stops,
+                completed_stops,
+                delay_minutes,
+                created_by
+            )
+            VALUES (?, ?, ?, ?, ?, 'scheduled', 0, 0, 0, ?)
+            `,
+            [
+                routeCode,
+                routeName,
+                zoneId,
+                divisionId,
+                wardId,
+                req.currentUser.id
+            ]
+        );
 
-        /*
-         * Vehicles are a common fleet resource.
-         *
-         * They have no assigned_ward_id.
-         * An available vehicle is eligible for a new route,
-         * then becomes associated with the route through the
-         * route_assignments table.
-         */
-        if (vehicleId) {
-            const [vehicleRows] =
-                await connection.execute(
-                    `
-                    SELECT
-                        v.id,
-                        v.status
-                    FROM vehicles v
-                    WHERE v.id = ?
-                      AND v.status = 'available'
-                    FOR UPDATE
-                    `,
-                    [vehicleId]
-                );
+        const routeId = Number(routeResult.insertId);
 
-
-            if (!vehicleRows.length) {
-                throw createConflictError(
-                    "Selected vehicle is unavailable."
-                );
-            }
+        if (vehicleId || driverId) {
+            await applyRouteAssignmentChange({
+                req,
+                connection,
+                routeId,
+                routeStatus: "scheduled",
+                vehicleId,
+                driverId,
+                allowUnassign: false
+            });
         }
-
-
-        /*
-         * Drivers may be assigned to a target ward or remain in
-         * the common available pool until assigned.
-         */
-        if (driverId) {
-            const [driverRows] =
-                await connection.execute(
-                    `
-                    SELECT
-                        d.id,
-                        d.status,
-                        d.assigned_ward_id
-                    FROM drivers d
-                    WHERE d.id = ?
-                      AND d.status = 'available'
-                      AND (
-                          d.assigned_ward_id = ?
-                          OR d.assigned_ward_id IS NULL
-                      )
-                    FOR UPDATE
-                    `,
-                    [
-                        driverId,
-                        wardId
-                    ]
-                );
-
-
-            if (!driverRows.length) {
-                throw createConflictError(
-                    "Selected driver is unavailable or not assigned to the route ward."
-                );
-            }
-        }
-
-
-        const routeStatus =
-            vehicleId &&
-            driverId
-                ? "starting"
-                : "scheduled";
-
-
-        const [routeResult] =
-            await connection.execute(
-                `
-                INSERT INTO routes
-                (
-                    route_code,
-                    route_name,
-                    zone_id,
-                    ward_id,
-                    status,
-                    total_stops,
-                    completed_stops,
-                    delay_minutes,
-                    created_by
-                )
-                VALUES (
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    0,
-                    0,
-                    ?
-                )
-                `,
-                [
-                    routeCode,
-                    routeName,
-                    zoneId,
-                    wardId,
-                    routeStatus,
-                    totalStops,
-                    req.currentUser.id
-                ]
-            );
-
-
-        if (
-            vehicleId &&
-            driverId
-        ) {
-            const assignmentCode =
-                `ASG-${Date.now()}-${routeResult.insertId}`;
-
-
-            await connection.execute(
-                `
-                INSERT INTO route_assignments
-                (
-                    assignment_code,
-                    route_id,
-                    vehicle_id,
-                    driver_id,
-                    assigned_by,
-                    status,
-                    assigned_at
-                )
-                VALUES (
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    'assigned',
-                    NOW()
-                )
-                `,
-                [
-                    assignmentCode,
-                    routeResult.insertId,
-                    vehicleId,
-                    driverId,
-                    req.currentUser.id
-                ]
-            );
-
-
-            await connection.execute(
-                `
-                UPDATE vehicles
-                SET status = 'en_route'
-                WHERE id = ?
-                `,
-                [vehicleId]
-            );
-
-
-            await connection.execute(
-                `
-                UPDATE drivers
-                SET status = 'assigned'
-                WHERE id = ?
-                `,
-                [driverId]
-            );
-        }
-
 
         await connection.commit();
 
-
-        const route =
-            await getRouteRecord(
-                routeResult.insertId,
-                scope
-            );
-
+        const route = await getRouteRecord(
+            routeId,
+            scope
+        );
 
         return res.status(201).json({
             success: true,
-            message:
-                "Route created successfully.",
+            message: "Route created successfully.",
             route
         });
 
     } catch (error) {
-        if (connection) {
-            await connection.rollback();
-        }
+        await connection?.rollback();
 
-
-        if (
-            error.code ===
-            "ER_DUP_ENTRY"
-        ) {
+        if (error.code === "ER_DUP_ENTRY") {
             return res.status(409).json({
                 success: false,
-                message:
-                    "Route code already exists."
+                message: "Route code already exists."
             });
         }
-
 
         return sendServerError(
             res,
             "Unable to create route.",
             error
         );
-
     } finally {
         connection?.release();
     }
@@ -2004,102 +2173,332 @@ async function updateRoute(
     req,
     res
 ) {
-    const routeId =
-        positiveInteger(
-            req.params.id
-        );
-
+    const routeId = positiveInteger(req.params.id);
 
     if (!routeId) {
         return res.status(400).json({
             success: false,
-            message:
-                "Invalid route ID."
+            message: "Invalid route ID."
         });
     }
 
+    let connection;
 
     try {
-        const scope =
-            await getScopeContext(req);
+        const scope = await getScopeContext(req);
+        const scopeFilter = routeScope(scope, "r");
 
+        connection = await db.getConnection();
+        await connection.beginTransaction();
 
-        const scopeFilter =
-            routeScope(
-                scope,
-                "r"
-            );
+        const [routeRows] = await connection.execute(
+            `
+            SELECT
+                r.id,
+                r.route_code,
+                r.route_name,
+                r.zone_id,
+                r.division_id,
+                r.ward_id,
+                r.status,
+                r.start_point,
+                r.end_point,
+                r.estimated_distance_km,
+                r.estimated_duration_minutes,
+                r.total_stops,
+                r.completed_stops,
+                r.delay_minutes,
+                r.scheduled_start_time,
+                r.scheduled_end_time
+            FROM routes r
+            WHERE r.id = ?
+              ${scopeFilter.sql}
+            LIMIT 1
+            FOR UPDATE
+            `,
+            [routeId, ...scopeFilter.params]
+        );
 
-
-        const [routeRows] =
-            await db.execute(
-                `
-                SELECT
-                    r.id,
-                    r.route_name,
-                    r.zone_id,
-                    r.ward_id,
-                    r.status,
-                    r.start_point,
-                    r.end_point,
-                    r.estimated_distance_km,
-                    r.estimated_duration_minutes,
-                    r.total_stops,
-                    r.completed_stops,
-                    r.delay_minutes,
-                    r.scheduled_start_time,
-                    r.scheduled_end_time
-
-                FROM routes r
-
-                WHERE r.id = ?
-                  AND r.status <> 'cancelled'
-
-                  ${scopeFilter.sql}
-
-                LIMIT 1
-                `,
-                [
-                    routeId,
-                    ...scopeFilter.params
-                ]
-            );
-
-
-        const existing =
-            routeRows[0];
-
+        const existing = routeRows[0];
 
         if (!existing) {
+            await connection.rollback();
             return res.status(404).json({
                 success: false,
-                message:
-                    "Route not found in the current scope."
+                message: "Route not found in the current scope."
             });
         }
 
+        if (existing.status === "cancelled") {
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message: "Cancelled routes cannot be modified."
+            });
+        }
+
+        const requestedStatus =
+            req.body?.status === undefined
+                ? existing.status
+                : clean(req.body.status);
+
+        if (!VALID_ROUTE_STATUSES.includes(requestedStatus)) {
+            await connection.rollback();
+            return res.status(400).json({
+                success: false,
+                message: "Invalid route status."
+            });
+        }
+
+        const allowedStatuses =
+            ROUTE_STATUS_TRANSITIONS[existing.status] || [];
+
+        if (!allowedStatuses.includes(requestedStatus)) {
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message:
+                    `Invalid route status transition from ${existing.status} to ${requestedStatus}.`
+            });
+        }
+
+        if (scope.scopeType !== "ward") {
+            await connection.rollback();
+            return res.status(403).json({
+                success: false,
+                message:
+                    "Only a Sanitary Inspector can modify operational routes."
+            });
+        }
+
+        const requestedZoneId =
+            req.body?.zone_id === undefined
+                ? null
+                : positiveInteger(req.body.zone_id);
+
+        const requestedWardId =
+            req.body?.ward_id === undefined
+                ? null
+                : positiveInteger(req.body.ward_id);
+
+        if (
+            req.body?.zone_id !== undefined &&
+            !requestedZoneId
+        ) {
+            await connection.rollback();
+            return res.status(400).json({
+                success: false,
+                message: "zone_id must be a positive integer when supplied."
+            });
+        }
+
+        if (
+            req.body?.ward_id !== undefined &&
+            !requestedWardId
+        ) {
+            await connection.rollback();
+            return res.status(400).json({
+                success: false,
+                message: "ward_id must be a positive integer when supplied."
+            });
+        }
+
+        if (
+            requestedZoneId !== null &&
+            requestedZoneId !== scope.zoneId
+        ) {
+            throw createScopeError(
+                "Route zone is outside the Inspector's assigned ward."
+            );
+        }
+
+        if (
+            requestedWardId !== null &&
+            requestedWardId !== scope.wardId
+        ) {
+            throw createScopeError(
+                "Route ward is outside the Inspector's assigned ward."
+            );
+        }
+
+        const nextZoneId = scope.zoneId;
+        const nextWardId = scope.wardId;
+        const nextDivisionId = scope.divisionId;
+
+        if (
+            nextZoneId !== Number(existing.zone_id) ||
+            nextWardId !== Number(existing.ward_id)
+        ) {
+            const [wardRows] = await connection.execute(
+                `
+                SELECT id
+                FROM wards
+                JOIN divisions d
+                    ON d.id = wards.division_id
+                WHERE wards.id = ?
+                  AND wards.zone_id = ?
+                  AND wards.division_id = ?
+                  AND wards.status = 'active'
+                  AND d.status = 'active'
+                LIMIT 1
+                FOR UPDATE
+                `,
+                [nextWardId, nextZoneId, nextDivisionId]
+            );
+
+            if (!wardRows.length) {
+                throw createScopeError(
+                    "Selected ward does not belong to the selected zone."
+                );
+            }
+        }
+
+        const [assignmentRows] = await connection.execute(
+            `
+            SELECT
+                id,
+                assignment_code,
+                vehicle_id,
+                driver_id,
+                status
+            FROM route_assignments
+            WHERE route_id = ?
+              AND status IN (
+                '${ACTIVE_ASSIGNMENT_STATUSES.join("','")}'
+              )
+            ORDER BY id DESC
+            LIMIT 1
+            FOR UPDATE
+            `,
+            [routeId]
+        );
+
+        const currentAssignment = assignmentRows[0] || null;
+        const currentVehicleId = currentAssignment
+            ? Number(currentAssignment.vehicle_id)
+            : null;
+        const currentDriverId = currentAssignment
+            ? Number(currentAssignment.driver_id)
+            : null;
+
+        const hasVehicleField =
+            Object.prototype.hasOwnProperty.call(
+                req.body || {},
+                "vehicle_id"
+            );
+
+        const hasDriverField =
+            Object.prototype.hasOwnProperty.call(
+                req.body || {},
+                "driver_id"
+            );
+
+        if (hasVehicleField !== hasDriverField) {
+            await connection.rollback();
+            return res.status(400).json({
+                success: false,
+                message:
+                    "Vehicle and driver must be supplied together when changing route assignment."
+            });
+        }
+
+        let desiredVehicleId = currentVehicleId;
+        let desiredDriverId = currentDriverId;
+        let assignmentChangeRequested = false;
+
+        if (hasVehicleField && hasDriverField) {
+            desiredVehicleId =
+                req.body.vehicle_id === null ||
+                req.body.vehicle_id === ""
+                    ? null
+                    : positiveInteger(req.body.vehicle_id);
+
+            desiredDriverId =
+                req.body.driver_id === null ||
+                req.body.driver_id === ""
+                    ? null
+                    : positiveInteger(req.body.driver_id);
+
+            if (
+                (desiredVehicleId && !desiredDriverId) ||
+                (!desiredVehicleId && desiredDriverId)
+            ) {
+                await connection.rollback();
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "Vehicle and driver must be selected together."
+                });
+            }
+
+            assignmentChangeRequested =
+                desiredVehicleId !== currentVehicleId ||
+                desiredDriverId !== currentDriverId;
+        }
+
+        if (
+            (nextZoneId !== Number(existing.zone_id) ||
+                nextWardId !== Number(existing.ward_id)) &&
+            (currentAssignment || assignmentChangeRequested)
+        ) {
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message:
+                    "Change the route area only after the current crew assignment has been removed."
+            });
+        }
+
+        if (
+            ["starting", "active", "delayed"].includes(requestedStatus) &&
+            !desiredVehicleId
+        ) {
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message:
+                    "Starting, active, and delayed routes require an assigned vehicle and driver."
+            });
+        }
+
+        if (requestedStatus === "completed") {
+            const [stopStats] = await connection.execute(
+                `
+                SELECT
+                    COUNT(*) AS total_stops,
+                    COALESCE(
+                        SUM(status = 'collected'),
+                        0
+                    ) AS completed_stops
+                FROM route_stops
+                WHERE route_id = ?
+                `,
+                [routeId]
+            );
+
+            const totalStops = Number(stopStats[0]?.total_stops || 0);
+            const completedStops = Number(
+                stopStats[0]?.completed_stops || 0
+            );
+
+            if (totalStops > 0 && completedStops < totalStops) {
+                await connection.rollback();
+                return res.status(409).json({
+                    success: false,
+                    message:
+                        `Route cannot be completed until all ${totalStops} route stops are collected.`
+                });
+            }
+        }
 
         const updates = [];
         const values = [];
 
+        if (req.body?.route_name !== undefined) {
+            const routeName = clean(req.body.route_name);
 
-        /*
-         * Basic route fields.
-         */
-        if (
-            req.body?.route_name !==
-            undefined
-        ) {
-            const routeName =
-                clean(
-                    req.body.route_name
-                );
-
-
-            if (
-                !routeName ||
-                routeName.length > 150
-            ) {
+            if (!routeName || routeName.length > 150) {
+                await connection.rollback();
                 return res.status(400).json({
                     success: false,
                     message:
@@ -2107,284 +2506,39 @@ async function updateRoute(
                 });
             }
 
-
-            updates.push(
-                "route_name = ?"
-            );
-
-            values.push(
-                routeName
-            );
+            updates.push("route_name = ?");
+            values.push(routeName);
         }
-
-
-        /*
-         * Route status.
-         */
-        let requestedStatus = null;
 
         if (
-            req.body?.status !==
-            undefined
+            Number(existing.zone_id) !== Number(nextZoneId) ||
+            Number(existing.ward_id) !== Number(nextWardId) ||
+            Number(existing.division_id || 0) !== Number(nextDivisionId)
         ) {
-            requestedStatus =
-                clean(
-                    req.body.status
-                );
-
-
-            if (
-                !VALID_ROUTE_STATUSES.includes(
-                    requestedStatus
-                )
-            ) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Invalid route status."
-                });
-            }
-
-
-            updates.push(
-                "status = ?"
-            );
-
-            values.push(
-                requestedStatus
-            );
+            updates.push("zone_id = ?");
+            updates.push("division_id = ?");
+            updates.push("ward_id = ?");
+            values.push(nextZoneId, nextDivisionId, nextWardId);
         }
 
-
-        /*
-         * Zone + ward must always move together.
-         */
-        let nextZoneId =
-            Number(
-                existing.zone_id
-            );
-
-        let nextWardId =
-            Number(
-                existing.ward_id
-            );
-
-
-        if (
-            req.body?.zone_id !==
-                undefined ||
-            req.body?.ward_id !==
-                undefined
-        ) {
-            if (
-                req.body.zone_id ===
-                    undefined ||
-                req.body.ward_id ===
-                    undefined
-            ) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Zone and ward must be updated together."
-                });
-            }
-
-
-            nextZoneId =
-                positiveInteger(
-                    req.body.zone_id
-                );
-
-            nextWardId =
-                positiveInteger(
-                    req.body.ward_id
-                );
-
-
-            if (
-                !nextZoneId ||
-                !nextWardId
-            ) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Zone and ward must be valid positive integers."
-                });
-            }
-
-
-            if (
-                scope.scopeType ===
-                    "zone" &&
-                nextZoneId !==
-                    scope.zoneId
-            ) {
-                throw createScopeError(
-                    "Route zone is outside the assigned zone."
-                );
-            }
-
-
-            if (
-                scope.scopeType ===
-                    "ward" &&
-                (
-                    nextZoneId !==
-                        scope.zoneId ||
-                    nextWardId !==
-                        scope.wardId
-                )
-            ) {
-                throw createScopeError(
-                    "Route ward is outside the assigned ward."
-                );
-            }
-
-
-            const [wardRows] =
-                await db.execute(
-                    `
-                    SELECT id
-                    FROM wards
-                    WHERE id = ?
-                      AND zone_id = ?
-                      AND status = 'active'
-                    LIMIT 1
-                    `,
-                    [
-                        nextWardId,
-                        nextZoneId
-                    ]
-                );
-
-
-            if (!wardRows.length) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Ward does not belong to the selected zone."
-                });
-            }
-
-
-            /*
-             * Moving a route with a live assignment can leave its
-             * vehicle/driver associated with the wrong operational area.
-             * Require the assignment to be removed first.
-             */
-            if (
-                nextZoneId !==
-                    Number(
-                        existing.zone_id
-                    ) ||
-                nextWardId !==
-                    Number(
-                        existing.ward_id
-                    )
-            ) {
-                const [
-                    assignmentRows
-                ] = await db.execute(
-                    `
-                    SELECT id
-                    FROM route_assignments
-                    WHERE route_id = ?
-                      AND status IN (
-                        '${ACTIVE_ASSIGNMENT_STATUSES.join("','")}'
-                      )
-                    LIMIT 1
-                    `,
-                    [routeId]
-                );
-
-
-                if (
-                    assignmentRows.length
-                ) {
-                    return res.status(409).json({
-                        success: false,
-                        message:
-                            "Unassign the current vehicle and driver before changing the route area."
-                    });
-                }
-            }
-
-
-            updates.push(
-                "zone_id = ?"
-            );
-
-            updates.push(
-                "ward_id = ?"
-            );
-
-            values.push(
-                nextZoneId,
-                nextWardId
-            );
+        if (requestedStatus !== existing.status) {
+            updates.push("status = ?");
+            values.push(requestedStatus);
         }
 
-
-        /*
-         * Numeric route fields.
-         */
-        const numericFields = [
+        for (const field of [
             "estimated_distance_km",
             "estimated_duration_minutes",
-            "total_stops",
-            "completed_stops",
             "delay_minutes"
-        ];
-
-
-        const nextValues = {
-            estimated_distance_km:
-                existing.estimated_distance_km,
-
-            estimated_duration_minutes:
-                existing.estimated_duration_minutes,
-
-            total_stops:
-                Number(
-                    existing.total_stops || 0
-                ),
-
-            completed_stops:
-                Number(
-                    existing.completed_stops || 0
-                ),
-
-            delay_minutes:
-                Number(
-                    existing.delay_minutes || 0
-                )
-        };
-
-
-        for (
-            const field
-            of numericFields
-        ) {
-            if (
-                req.body?.[field] ===
-                undefined
-            ) {
+        ]) {
+            if (req.body?.[field] === undefined) {
                 continue;
             }
 
+            const number = Number(req.body[field]);
 
-            const number =
-                Number(
-                    req.body[field]
-                );
-
-
-            if (
-                !Number.isFinite(
-                    number
-                ) ||
-                number < 0
-            ) {
+            if (!Number.isFinite(number) || number < 0) {
+                await connection.rollback();
                 return res.status(400).json({
                     success: false,
                     message:
@@ -2392,18 +2546,11 @@ async function updateRoute(
                 });
             }
 
-
             if (
-                [
-                    "estimated_duration_minutes",
-                    "total_stops",
-                    "completed_stops",
-                    "delay_minutes"
-                ].includes(field) &&
-                !Number.isInteger(
-                    number
-                )
+                field !== "estimated_distance_km" &&
+                !Number.isInteger(number)
             ) {
+                await connection.rollback();
                 return res.status(400).json({
                     success: false,
                     message:
@@ -2411,67 +2558,28 @@ async function updateRoute(
                 });
             }
 
-
-            nextValues[field] =
-                number;
-
-
-            updates.push(
-                `${field} = ?`
-            );
-
-            values.push(
-                number
-            );
+            updates.push(`${field} = ?`);
+            values.push(number);
         }
 
-
-        if (
-            nextValues.completed_stops >
-            nextValues.total_stops
-        ) {
-            return res.status(400).json({
-                success: false,
-                message:
-                    "Completed stops cannot exceed total stops."
-            });
-        }
-
-
-        /*
-         * Route text / schedule fields.
-         */
-        for (
-            const field
-            of [
-                "start_point",
-                "end_point",
-                "scheduled_start_time",
-                "scheduled_end_time"
-            ]
-        ) {
-            if (
-                req.body?.[field] ===
-                undefined
-            ) {
+        for (const field of [
+            "start_point",
+            "end_point",
+            "scheduled_start_time",
+            "scheduled_end_time"
+        ]) {
+            if (req.body?.[field] === undefined) {
                 continue;
             }
 
-
-            const value =
-                clean(
-                    req.body[field]
-                );
-
+            const value = clean(req.body[field]);
 
             if (
-                [
-                    "start_point",
-                    "end_point"
-                ].includes(field) &&
+                ["start_point", "end_point"].includes(field) &&
                 value &&
                 value.length > 200
             ) {
+                await connection.rollback();
                 return res.status(400).json({
                     success: false,
                     message:
@@ -2479,239 +2587,68 @@ async function updateRoute(
                 });
             }
 
-
-            updates.push(
-                `${field} = ?`
-            );
-
-            values.push(
-                value
-            );
+            updates.push(`${field} = ?`);
+            values.push(value);
         }
 
-
-        if (!updates.length) {
-            return res.status(400).json({
-                success: false,
-                message:
-                    "No supported route fields were provided."
-            });
-        }
-
-
-        let connection;
-
-        try {
-            connection =
-                await db.getConnection();
-
-            await connection.beginTransaction();
-
-
-            /*
-             * Re-check the route under a lock before updating it.
-             */
-            const [
-                lockedRows
-            ] = await connection.execute(
-                `
-                SELECT
-                    id,
-                    status
-                FROM routes
-                WHERE id = ?
-                LIMIT 1
-                FOR UPDATE
-                `,
-                [routeId]
-            );
-
-
-            if (!lockedRows.length) {
-                throw new Error(
-                    "Route no longer exists."
-                );
-            }
-
-
+        if (updates.length) {
             await connection.execute(
                 `
                 UPDATE routes
-                SET
-                    ${updates.join(", ")}
+                SET ${updates.join(", ")}
                 WHERE id = ?
                 `,
-                [
-                    ...values,
-                    routeId
-                ]
+                [...values, routeId]
             );
-
-
-            /*
-             * Keep active assignment/asset states consistent with
-             * route completion/cancellation.
-             */
-            if (
-                requestedStatus ===
-                    "completed" ||
-                requestedStatus ===
-                    "cancelled"
-            ) {
-                const newAssignmentStatus =
-                    requestedStatus ===
-                        "completed"
-                        ? "completed"
-                        : "cancelled";
-
-
-                const [
-                    assignmentRows
-                ] = await connection.execute(
-                    `
-                    SELECT
-                        id,
-                        vehicle_id,
-                        driver_id
-                    FROM route_assignments
-                    WHERE route_id = ?
-                      AND status IN (
-                        '${ACTIVE_ASSIGNMENT_STATUSES.join("','")}'
-                      )
-                    FOR UPDATE
-                    `,
-                    [routeId]
-                );
-
-
-                await connection.execute(
-                    `
-                    UPDATE route_assignments
-                    SET
-                        status = ?,
-                        ${
-                            requestedStatus ===
-                            "completed"
-                                ? "completed_at = NOW()"
-                                : "unassigned_at = NOW()"
-                        }
-                    WHERE route_id = ?
-                      AND status IN (
-                        '${ACTIVE_ASSIGNMENT_STATUSES.join("','")}'
-                      )
-                    `,
-                    [
-                        newAssignmentStatus,
-                        routeId
-                    ]
-                );
-
-
-                for (
-                    const assignment
-                    of assignmentRows
-                ) {
-                    const [
-                        otherVehicleRows
-                    ] = await connection.execute(
-                        `
-                        SELECT id
-                        FROM route_assignments
-                        WHERE vehicle_id = ?
-                          AND status IN (
-                            '${ACTIVE_ASSIGNMENT_STATUSES.join("','")}'
-                          )
-                        LIMIT 1
-                        `,
-                        [
-                            assignment.vehicle_id
-                        ]
-                    );
-
-
-                    if (
-                        !otherVehicleRows.length
-                    ) {
-                        await connection.execute(
-                            `
-                            UPDATE vehicles
-                            SET status = 'available'
-                            WHERE id = ?
-                            `,
-                            [
-                                assignment.vehicle_id
-                            ]
-                        );
-                    }
-
-
-                    const [
-                        otherDriverRows
-                    ] = await connection.execute(
-                        `
-                        SELECT id
-                        FROM route_assignments
-                        WHERE driver_id = ?
-                          AND status IN (
-                            '${ACTIVE_ASSIGNMENT_STATUSES.join("','")}'
-                          )
-                        LIMIT 1
-                        `,
-                        [
-                            assignment.driver_id
-                        ]
-                    );
-
-
-                    if (
-                        !otherDriverRows.length
-                    ) {
-                        await connection.execute(
-                            `
-                            UPDATE drivers
-                            SET status = 'available'
-                            WHERE id = ?
-                            `,
-                            [
-                                assignment.driver_id
-                            ]
-                        );
-                    }
-                }
-            }
-
-
-            await connection.commit();
-
-        } catch (error) {
-            await connection?.rollback();
-            throw error;
-
-        } finally {
-            connection?.release();
         }
 
-
-        const route =
-            await getRouteRecord(
+        if (
+            assignmentChangeRequested ||
+            (currentAssignment &&
+                ["scheduled", "starting", "active", "delayed", "completed", "cancelled"].includes(
+                    requestedStatus
+                ))
+        ) {
+            await applyRouteAssignmentChange({
+                req,
+                connection,
                 routeId,
-                scope
-            );
+                routeStatus: requestedStatus,
+                vehicleId: desiredVehicleId,
+                driverId: desiredDriverId,
+                currentAssignment,
+                allowUnassign: true
+            });
+        }
 
+        if (!updates.length && !assignmentChangeRequested && !currentAssignment) {
+            await connection.rollback();
+            return res.status(400).json({
+                success: false,
+                message: "No supported route changes were supplied."
+            });
+        }
+
+        await connection.commit();
+
+        const route = await getRouteRecord(routeId, scope);
 
         return res.json({
             success: true,
-            message:
-                "Route updated successfully.",
+            message: "Route updated successfully.",
             route
         });
 
     } catch (error) {
+        await connection?.rollback();
+
         return sendServerError(
             res,
             "Unable to update route.",
             error
         );
+    } finally {
+        connection?.release();
     }
 }
 
@@ -2728,72 +2665,53 @@ async function deleteRoute(
     req,
     res
 ) {
-    const routeId =
-        positiveInteger(
-            req.params.id
-        );
-
+    const routeId = positiveInteger(req.params.id);
 
     if (!routeId) {
         return res.status(400).json({
             success: false,
-            message:
-                "Invalid route ID."
+            message: "Invalid route ID."
         });
     }
 
-
     let connection;
 
-
     try {
-        const scope =
-            await getScopeContext(req);
+        const scope = await getScopeContext(req);
+        const scopeFilter = routeScope(scope, "r");
 
-
-        connection =
-            await db.getConnection();
-
-
+        connection = await db.getConnection();
         await connection.beginTransaction();
 
-
-        const scopeFilter =
-            routeScope(
-                scope,
-                "r"
-            );
-
-
-        const [
-            routeRows
-        ] = await connection.execute(
+        const [routeRows] = await connection.execute(
             `
-            SELECT
-                r.id
+            SELECT id, status
             FROM routes r
             WHERE r.id = ?
               ${scopeFilter.sql}
             LIMIT 1
             FOR UPDATE
             `,
-            [
-                routeId,
-                ...scopeFilter.params
-            ]
+            [routeId, ...scopeFilter.params]
         );
 
-
         if (!routeRows.length) {
-            throw createScopeError(
-                "Route not found in the current scope."
-            );
+            await connection.rollback();
+            return res.status(404).json({
+                success: false,
+                message: "Route not found in the current scope."
+            });
         }
 
+        if (routeRows[0].status === "completed") {
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message: "Completed routes cannot be cancelled."
+            });
+        }
 
-        const [
-            assignmentRows
-        ] = await connection.execute(
+        const [assignmentRows] = await connection.execute(
             `
             SELECT
                 id,
@@ -2809,7 +2727,6 @@ async function deleteRoute(
             [routeId]
         );
 
-
         await connection.execute(
             `
             UPDATE route_assignments
@@ -2824,7 +2741,6 @@ async function deleteRoute(
             [routeId]
         );
 
-
         await connection.execute(
             `
             UPDATE routes
@@ -2834,87 +2750,23 @@ async function deleteRoute(
             [routeId]
         );
 
-
-        for (
-            const assignment
-            of assignmentRows
-        ) {
-            const [
-                vehicleAssignments
-            ] = await connection.execute(
-                `
-                SELECT id
-                FROM route_assignments
-                WHERE vehicle_id = ?
-                  AND status IN (
-                    '${ACTIVE_ASSIGNMENT_STATUSES.join("','")}'
-                  )
-                LIMIT 1
-                `,
-                [
-                    assignment.vehicle_id
-                ]
+        for (const assignment of assignmentRows) {
+            await releaseVehicleIfUnused(
+                connection,
+                Number(assignment.vehicle_id)
             );
 
-
-            if (
-                !vehicleAssignments.length
-            ) {
-                await connection.execute(
-                    `
-                    UPDATE vehicles
-                    SET status = 'available'
-                    WHERE id = ?
-                    `,
-                    [
-                        assignment.vehicle_id
-                    ]
-                );
-            }
-
-
-            const [
-                driverAssignments
-            ] = await connection.execute(
-                `
-                SELECT id
-                FROM route_assignments
-                WHERE driver_id = ?
-                  AND status IN (
-                    '${ACTIVE_ASSIGNMENT_STATUSES.join("','")}'
-                  )
-                LIMIT 1
-                `,
-                [
-                    assignment.driver_id
-                ]
+            await releaseDriverIfUnused(
+                connection,
+                Number(assignment.driver_id)
             );
-
-
-            if (
-                !driverAssignments.length
-            ) {
-                await connection.execute(
-                    `
-                    UPDATE drivers
-                    SET status = 'available'
-                    WHERE id = ?
-                    `,
-                    [
-                        assignment.driver_id
-                    ]
-                );
-            }
         }
-
 
         await connection.commit();
 
-
         return res.json({
             success: true,
-            message:
-                "Route cancelled successfully."
+            message: "Route cancelled successfully."
         });
 
     } catch (error) {
@@ -2925,7 +2777,587 @@ async function deleteRoute(
             "Unable to cancel route.",
             error
         );
+    } finally {
+        connection?.release();
+    }
+}
 
+
+async function getRouteStopsForInspector(
+    req,
+    res
+) {
+    const routeId = positiveInteger(req.params.id);
+
+    if (!routeId) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid route ID."
+        });
+    }
+
+    try {
+        const scope = await getScopeContext(req);
+        const scopeFilter = routeScope(scope, "r");
+
+        const [routeRows] = await db.execute(
+            `
+            SELECT r.id
+            FROM routes r
+            WHERE r.id = ?
+              AND r.status <> 'cancelled'
+              ${scopeFilter.sql}
+            LIMIT 1
+            `,
+            [routeId, ...scopeFilter.params]
+        );
+
+        if (!routeRows.length) {
+            return res.status(404).json({
+                success: false,
+                message: "Route not found in the current scope."
+            });
+        }
+
+        const stops = await getRouteStops(
+            routeId,
+            db
+        );
+
+        return res.json({
+            success: true,
+            stops
+        });
+    } catch (error) {
+        return sendServerError(
+            res,
+            "Unable to load route stops.",
+            error
+        );
+    }
+}
+
+async function createRouteStop(
+    req,
+    res
+) {
+    const routeId = positiveInteger(req.params.id);
+    const stopName = clean(req.body?.stop_name);
+    const address = clean(req.body?.address);
+    const latitude = Number(req.body?.latitude);
+    const longitude = Number(req.body?.longitude);
+    let stopOrder =
+        req.body?.stop_order === undefined ||
+        req.body?.stop_order === ""
+            ? null
+            : positiveInteger(req.body.stop_order);
+
+    if (!routeId) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid route ID."
+        });
+    }
+
+    if (!stopName || stopName.length > 150) {
+        return res.status(400).json({
+            success: false,
+            message: "Stop name is required and must be at most 150 characters."
+        });
+    }
+
+    if (address && address.length > 255) {
+        return res.status(400).json({
+            success: false,
+            message: "Stop address cannot exceed 255 characters."
+        });
+    }
+
+    if (
+        !Number.isFinite(latitude) ||
+        latitude < -90 ||
+        latitude > 90 ||
+        !Number.isFinite(longitude) ||
+        longitude < -180 ||
+        longitude > 180
+    ) {
+        return res.status(400).json({
+            success: false,
+            message: "Latitude must be between -90 and 90 and longitude between -180 and 180."
+        });
+    }
+
+    let connection;
+
+    try {
+        const scope = await getScopeContext(req);
+        const scopeFilter = routeScope(scope, "r");
+
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        const [routeRows] = await connection.execute(
+            `
+            SELECT
+                r.id,
+                r.status,
+                r.ward_id
+            FROM routes r
+            WHERE r.id = ?
+              AND r.status NOT IN ('completed', 'cancelled')
+              ${scopeFilter.sql}
+            LIMIT 1
+            FOR UPDATE
+            `,
+            [routeId, ...scopeFilter.params]
+        );
+
+        if (!routeRows.length) {
+            await connection.rollback();
+            return res.status(404).json({
+                success: false,
+                message:
+                    "Route not found or is no longer editable."
+            });
+        }
+
+        await validateRouteStopLocation({
+            connection,
+            wardId: Number(routeRows[0].ward_id),
+            latitude,
+            longitude
+        });
+
+        if (!stopOrder) {
+            const [orderRows] = await connection.execute(
+                `
+                SELECT COALESCE(MAX(stop_order), 0) + 1 AS next_order
+                FROM route_stops
+                WHERE route_id = ?
+                FOR UPDATE
+                `,
+                [routeId]
+            );
+            stopOrder = Number(orderRows[0]?.next_order || 1);
+        }
+
+        const [duplicateOrder] = await connection.execute(
+            `
+            SELECT id
+            FROM route_stops
+            WHERE route_id = ?
+              AND stop_order = ?
+            LIMIT 1
+            FOR UPDATE
+            `,
+            [routeId, stopOrder]
+        );
+
+        if (duplicateOrder.length) {
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message:
+                    "That stop order is already used by this route."
+            });
+        }
+
+        const [result] = await connection.execute(
+            `
+            INSERT INTO route_stops
+            (
+                route_id,
+                stop_order,
+                stop_name,
+                address,
+                latitude,
+                longitude,
+                status
+            )
+            VALUES (?, ?, ?, ?, ?, ?, 'pending')
+            `,
+            [
+                routeId,
+                stopOrder,
+                stopName,
+                address,
+                latitude,
+                longitude
+            ]
+        );
+
+        await syncRouteStopTotals(
+            connection,
+            routeId
+        );
+
+        await connection.commit();
+
+        const [stopRows] = await db.execute(
+            `
+            SELECT
+                id,
+                route_id,
+                stop_order,
+                stop_name,
+                address,
+                latitude,
+                longitude,
+                status,
+                collected_at,
+                created_at,
+                updated_at
+            FROM route_stops
+            WHERE id = ?
+            LIMIT 1
+            `,
+            [Number(result.insertId)]
+        );
+
+        return res.status(201).json({
+            success: true,
+            message: "Route stop added successfully.",
+            stop:
+                stopRows[0]
+                    ? {
+                        id: Number(stopRows[0].id),
+                        routeId: Number(stopRows[0].route_id),
+                        order: Number(stopRows[0].stop_order),
+                        name: stopRows[0].stop_name,
+                        address: stopRows[0].address,
+                        latitude: toNumber(stopRows[0].latitude),
+                        longitude: toNumber(stopRows[0].longitude),
+                        status: stopRows[0].status,
+                        collectedAt: isoOrNull(stopRows[0].collected_at),
+                        createdAt: isoOrNull(stopRows[0].created_at),
+                        updatedAt: isoOrNull(stopRows[0].updated_at)
+                    }
+                    : null
+        });
+
+    } catch (error) {
+        await connection?.rollback();
+        return sendServerError(
+            res,
+            "Unable to add route stop.",
+            error
+        );
+    } finally {
+        connection?.release();
+    }
+}
+
+async function updateRouteStop(
+    req,
+    res
+) {
+    const routeId = positiveInteger(req.params.id);
+    const stopId = positiveInteger(req.params.stopId);
+
+    if (!routeId || !stopId) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid route or stop ID."
+        });
+    }
+
+    let connection;
+
+    try {
+        const scope = await getScopeContext(req);
+        const scopeFilter = routeScope(scope, "r");
+
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        const [rows] = await connection.execute(
+            `
+            SELECT
+                r.id AS route_id,
+                r.status AS route_status,
+                r.ward_id,
+                s.id,
+                s.stop_order,
+                s.stop_name,
+                s.address,
+                s.latitude,
+                s.longitude
+            FROM routes r
+            JOIN route_stops s
+                ON s.route_id = r.id
+            WHERE r.id = ?
+              AND s.id = ?
+              AND r.status NOT IN ('completed', 'cancelled')
+              ${scopeFilter.sql}
+            LIMIT 1
+            FOR UPDATE
+            `,
+            [routeId, stopId, ...scopeFilter.params]
+        );
+
+        const existing = rows[0];
+
+        if (!existing) {
+            await connection.rollback();
+            return res.status(404).json({
+                success: false,
+                message:
+                    "Route stop not found in the current scope."
+            });
+        }
+
+        const stopName =
+            req.body?.stop_name === undefined
+                ? existing.stop_name
+                : clean(req.body.stop_name);
+
+        const address =
+            req.body?.address === undefined
+                ? existing.address
+                : clean(req.body.address);
+
+        const latitude =
+            req.body?.latitude === undefined
+                ? Number(existing.latitude)
+                : Number(req.body.latitude);
+
+        const longitude =
+            req.body?.longitude === undefined
+                ? Number(existing.longitude)
+                : Number(req.body.longitude);
+
+        const stopOrder =
+            req.body?.stop_order === undefined
+                ? Number(existing.stop_order)
+                : positiveInteger(req.body.stop_order);
+
+        if (!stopName || stopName.length > 150) {
+            await connection.rollback();
+            return res.status(400).json({
+                success: false,
+                message:
+                    "Stop name is required and must be at most 150 characters."
+            });
+        }
+
+        if (address && address.length > 255) {
+            await connection.rollback();
+            return res.status(400).json({
+                success: false,
+                message:
+                    "Stop address cannot exceed 255 characters."
+            });
+        }
+
+        if (
+            !Number.isFinite(latitude) ||
+            latitude < -90 ||
+            latitude > 90 ||
+            !Number.isFinite(longitude) ||
+            longitude < -180 ||
+            longitude > 180
+        ) {
+            await connection.rollback();
+            return res.status(400).json({
+                success: false,
+                message:
+                    "Latitude must be between -90 and 90 and longitude between -180 and 180."
+            });
+        }
+
+        await validateRouteStopLocation({
+            connection,
+            wardId: Number(existing.ward_id),
+            latitude,
+            longitude
+        });
+
+        if (!stopOrder) {
+            await connection.rollback();
+            return res.status(400).json({
+                success: false,
+                message: "Stop order must be a positive integer."
+            });
+        }
+
+        const [duplicateOrder] = await connection.execute(
+            `
+            SELECT id
+            FROM route_stops
+            WHERE route_id = ?
+              AND stop_order = ?
+              AND id <> ?
+            LIMIT 1
+            FOR UPDATE
+            `,
+            [routeId, stopOrder, stopId]
+        );
+
+        if (duplicateOrder.length) {
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message:
+                    "That stop order is already used by this route."
+            });
+        }
+
+        await connection.execute(
+            `
+            UPDATE route_stops
+            SET
+                stop_order = ?,
+                stop_name = ?,
+                address = ?,
+                latitude = ?,
+                longitude = ?
+            WHERE id = ?
+              AND route_id = ?
+            `,
+            [
+                stopOrder,
+                stopName,
+                address,
+                latitude,
+                longitude,
+                stopId,
+                routeId
+            ]
+        );
+
+        await syncRouteStopTotals(
+            connection,
+            routeId
+        );
+
+        await connection.commit();
+
+        return res.json({
+            success: true,
+            message: "Route stop updated successfully."
+        });
+
+    } catch (error) {
+        await connection?.rollback();
+        return sendServerError(
+            res,
+            "Unable to update route stop.",
+            error
+        );
+    } finally {
+        connection?.release();
+    }
+}
+
+async function deleteRouteStop(
+    req,
+    res
+) {
+    const routeId = positiveInteger(req.params.id);
+    const stopId = positiveInteger(req.params.stopId);
+
+    if (!routeId || !stopId) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid route or stop ID."
+        });
+    }
+
+    let connection;
+
+    try {
+        const scope = await getScopeContext(req);
+        const scopeFilter = routeScope(scope, "r");
+
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        const [rows] = await connection.execute(
+            `
+            SELECT
+                r.id,
+                r.status
+            FROM routes r
+            JOIN route_stops s
+                ON s.route_id = r.id
+            WHERE r.id = ?
+              AND s.id = ?
+              AND r.status NOT IN ('completed', 'cancelled')
+              ${scopeFilter.sql}
+            LIMIT 1
+            FOR UPDATE
+            `,
+            [routeId, stopId, ...scopeFilter.params]
+        );
+
+        if (!rows.length) {
+            await connection.rollback();
+            return res.status(404).json({
+                success: false,
+                message: "Route stop not found in the current scope."
+            });
+        }
+
+        await connection.execute(
+            `
+            DELETE FROM route_stops
+            WHERE id = ?
+              AND route_id = ?
+            `,
+            [stopId, routeId]
+        );
+
+        // Re-number the remaining stops safely around the UNIQUE(route_id, stop_order) key.
+        await connection.execute(
+            `
+            UPDATE route_stops
+            SET stop_order = stop_order + 1000000
+            WHERE route_id = ?
+            `,
+            [routeId]
+        );
+
+        const [remaining] = await connection.execute(
+            `
+            SELECT id
+            FROM route_stops
+            WHERE route_id = ?
+            ORDER BY stop_order
+            FOR UPDATE
+            `,
+            [routeId]
+        );
+
+        for (let index = 0; index < remaining.length; index += 1) {
+            await connection.execute(
+                `
+                UPDATE route_stops
+                SET stop_order = ?
+                WHERE id = ?
+                `,
+                [index + 1, Number(remaining[index].id)]
+            );
+        }
+
+        await syncRouteStopTotals(
+            connection,
+            routeId
+        );
+
+        await connection.commit();
+
+        return res.json({
+            success: true,
+            message: "Route stop deleted successfully."
+        });
+
+    } catch (error) {
+        await connection?.rollback();
+        return sendServerError(
+            res,
+            "Unable to delete route stop.",
+            error
+        );
     } finally {
         connection?.release();
     }
@@ -3976,17 +4408,23 @@ async function validateDriverWard(
             SELECT
                 w.id,
                 w.zone_id,
+                w.division_id,
                 w.ward_number,
                 z.zone_code,
                 z.zone_name,
+                d.division_code,
+                d.division_name,
                 w.ward_code,
                 w.ward_name
             FROM wards w
             JOIN zones z
                 ON z.id = w.zone_id
+            JOIN divisions d
+                ON d.id = w.division_id
             WHERE w.id = ?
               AND w.status = 'active'
               AND z.status = 'active'
+              AND d.status = 'active'
             LIMIT 1
             `,
             [wardId]
@@ -4001,11 +4439,11 @@ async function validateDriverWard(
     }
 
     if (
-        scope.scopeType === "zone" &&
-        Number(ward.zone_id) !== Number(scope.zoneId)
+        scope.scopeType === "division" &&
+        Number(ward.division_id) !== Number(scope.divisionId)
     ) {
         throw createScopeError(
-            "Selected ward is outside the assigned zone."
+            "Selected ward is outside the assigned division."
         );
     }
 
@@ -4652,6 +5090,664 @@ async function deleteDriver(
  * ROUTE ASSIGNMENTS
  * ---------------------------------------------------------
  */
+async function getCurrentRouteAssignment(
+    connection,
+    routeId,
+    { forUpdate = false } = {}
+) {
+    const [rows] = await connection.execute(
+        `
+        SELECT
+            id,
+            assignment_code,
+            vehicle_id,
+            driver_id,
+            status,
+            assigned_at,
+            started_at,
+            completed_at,
+            unassigned_at
+        FROM route_assignments
+        WHERE route_id = ?
+          AND status IN (
+            '${ACTIVE_ASSIGNMENT_STATUSES.join("','")}'
+          )
+        ORDER BY id DESC
+        LIMIT 1
+        ${forUpdate ? "FOR UPDATE" : ""}
+        `,
+        [routeId]
+    );
+
+    return rows[0] || null;
+}
+
+async function releaseVehicleIfUnused(
+    connection,
+    vehicleId
+) {
+    const [rows] = await connection.execute(
+        `
+        SELECT id
+        FROM route_assignments
+        WHERE vehicle_id = ?
+          AND status IN (
+            '${ACTIVE_ASSIGNMENT_STATUSES.join("','")}'
+          )
+        LIMIT 1
+        `,
+        [vehicleId]
+    );
+
+    if (!rows.length) {
+        await connection.execute(
+            `
+            UPDATE vehicles
+            SET status = 'available'
+            WHERE id = ?
+              AND status <> 'inactive'
+            `,
+            [vehicleId]
+        );
+    }
+}
+
+async function releaseDriverIfUnused(
+    connection,
+    driverId
+) {
+    const [rows] = await connection.execute(
+        `
+        SELECT id
+        FROM route_assignments
+        WHERE driver_id = ?
+          AND status IN (
+            '${ACTIVE_ASSIGNMENT_STATUSES.join("','")}'
+          )
+        LIMIT 1
+        `,
+        [driverId]
+    );
+
+    if (!rows.length) {
+        await connection.execute(
+            `
+            UPDATE drivers
+            SET status = 'available'
+            WHERE id = ?
+              AND status <> 'inactive'
+            `,
+            [driverId]
+        );
+    }
+}
+
+async function ensureVehicleAvailableForAssignment(
+    connection,
+    vehicleId,
+    routeId,
+    currentVehicleId = null
+) {
+    const [vehicleRows] = await connection.execute(
+        `
+        SELECT
+            v.id,
+            v.status
+        FROM vehicles v
+        WHERE v.id = ?
+        LIMIT 1
+        FOR UPDATE
+        `,
+        [vehicleId]
+    );
+
+    const vehicle = vehicleRows[0];
+
+    if (!vehicle || vehicle.status === "inactive") {
+        throw createConflictError(
+            "Selected vehicle is unavailable."
+        );
+    }
+
+    if (
+        Number(vehicle.id) === Number(currentVehicleId)
+    ) {
+        return;
+    }
+
+    if (vehicle.status !== "available") {
+        throw createConflictError(
+            "Selected vehicle is not available."
+        );
+    }
+
+    const [assignmentRows] = await connection.execute(
+        `
+        SELECT id
+        FROM route_assignments
+        WHERE vehicle_id = ?
+          AND route_id <> ?
+          AND status IN (
+            '${ACTIVE_ASSIGNMENT_STATUSES.join("','")}'
+          )
+        LIMIT 1
+        FOR UPDATE
+        `,
+        [vehicleId, routeId]
+    );
+
+    if (assignmentRows.length) {
+        throw createConflictError(
+            "Selected vehicle is already assigned to another active route."
+        );
+    }
+}
+
+async function ensureDriverAvailableForAssignment(
+    connection,
+    driverId,
+    routeId,
+    wardId,
+    currentDriverId = null
+) {
+    const [driverRows] = await connection.execute(
+        `
+        SELECT
+            d.id,
+            d.status,
+            d.assigned_ward_id
+        FROM drivers d
+        WHERE d.id = ?
+        LIMIT 1
+        FOR UPDATE
+        `,
+        [driverId]
+    );
+
+    const driver = driverRows[0];
+
+    if (!driver || driver.status === "inactive") {
+        throw createConflictError(
+            "Selected driver is unavailable."
+        );
+    }
+
+    if (
+        Number(driver.id) === Number(currentDriverId)
+    ) {
+        return;
+    }
+
+    if (driver.status !== "available") {
+        throw createConflictError(
+            "Selected driver is not available."
+        );
+    }
+
+    if (
+        driver.assigned_ward_id !== null &&
+        Number(driver.assigned_ward_id) !== Number(wardId)
+    ) {
+        throw createConflictError(
+            "Selected driver is not assigned to the route ward."
+        );
+    }
+
+    const [assignmentRows] = await connection.execute(
+        `
+        SELECT id
+        FROM route_assignments
+        WHERE driver_id = ?
+          AND route_id <> ?
+          AND status IN (
+            '${ACTIVE_ASSIGNMENT_STATUSES.join("','")}'
+          )
+        LIMIT 1
+        FOR UPDATE
+        `,
+        [driverId, routeId]
+    );
+
+    if (assignmentRows.length) {
+        throw createConflictError(
+            "Selected driver is already assigned to another active route."
+        );
+    }
+}
+
+async function applyRouteAssignmentChange({
+    req,
+    connection,
+    routeId,
+    routeStatus,
+    vehicleId,
+    driverId,
+    currentAssignment = null,
+    allowUnassign = true
+}) {
+    const current =
+        currentAssignment ||
+        await getCurrentRouteAssignment(
+            connection,
+            routeId,
+            { forUpdate: true }
+        );
+
+    const currentVehicleId = current
+        ? Number(current.vehicle_id)
+        : null;
+
+    const currentDriverId = current
+        ? Number(current.driver_id)
+        : null;
+
+    if (
+        (vehicleId && !driverId) ||
+        (!vehicleId && driverId)
+    ) {
+        throw createConflictError(
+            "Vehicle and driver must be assigned together."
+        );
+    }
+
+    if (!vehicleId && !driverId) {
+        if (!current) {
+            if (!allowUnassign) {
+                return null;
+            }
+            return null;
+        }
+
+        if (routeStatus !== "scheduled") {
+            throw createConflictError(
+                "An active route cannot be left without a vehicle and driver."
+            );
+        }
+
+        await connection.execute(
+            `
+            UPDATE route_assignments
+            SET
+                status = 'cancelled',
+                unassigned_at = NOW()
+            WHERE id = ?
+            `,
+            [current.id]
+        );
+
+        await releaseVehicleIfUnused(
+            connection,
+            currentVehicleId
+        );
+
+        await releaseDriverIfUnused(
+            connection,
+            currentDriverId
+        );
+
+        return null;
+    }
+
+    if (["completed", "cancelled"].includes(routeStatus)) {
+        if (!current) {
+            return null;
+        }
+
+        if (
+            Number(vehicleId) !== currentVehicleId ||
+            Number(driverId) !== currentDriverId
+        ) {
+            throw createConflictError(
+                "A completed or cancelled route cannot be reassigned."
+            );
+        }
+
+        const finalAssignmentStatus =
+            routeStatus === "completed"
+                ? "completed"
+                : "cancelled";
+
+        await connection.execute(
+            `
+            UPDATE route_assignments
+            SET
+                status = ?,
+                completed_at = CASE
+                    WHEN ? = 'completed'
+                        THEN NOW()
+                    ELSE completed_at
+                END,
+                unassigned_at = CASE
+                    WHEN ? = 'cancelled'
+                        THEN NOW()
+                    ELSE unassigned_at
+                END
+            WHERE id = ?
+            `,
+            [
+                finalAssignmentStatus,
+                routeStatus,
+                routeStatus,
+                current.id
+            ]
+        );
+
+        await releaseVehicleIfUnused(
+            connection,
+            currentVehicleId
+        );
+
+        await releaseDriverIfUnused(
+            connection,
+            currentDriverId
+        );
+
+        return null;
+    }
+
+    if (!routeStatusAllowsAssignment(routeStatus)) {
+        throw createConflictError(
+            "A completed or cancelled route cannot receive a new assignment."
+        );
+    }
+
+    if (
+        current &&
+        currentVehicleId === Number(vehicleId) &&
+        currentDriverId === Number(driverId)
+    ) {
+        const assignmentStatus =
+            assignmentStatusForRouteStatus(routeStatus);
+
+        const vehicleStatus =
+            vehicleStatusForRouteStatus(routeStatus);
+
+        await connection.execute(
+            `
+            UPDATE route_assignments
+            SET
+                status = ?,
+                started_at = CASE
+                    WHEN ? = 'active' AND started_at IS NULL
+                        THEN NOW()
+                    ELSE started_at
+                END
+            WHERE id = ?
+            `,
+            [assignmentStatus, routeStatus, current.id]
+        );
+
+        await connection.execute(
+            `
+            UPDATE vehicles
+            SET status = ?
+            WHERE id = ?
+            `,
+            [vehicleStatus, currentVehicleId]
+        );
+
+        await connection.execute(
+            `
+            UPDATE drivers
+            SET status = 'assigned'
+            WHERE id = ?
+            `,
+            [currentDriverId]
+        );
+
+        return current;
+    }
+
+    // Determine route ward for driver validation.
+    const [routeRows] = await connection.execute(
+        `
+        SELECT ward_id
+        FROM routes
+        WHERE id = ?
+        LIMIT 1
+        FOR UPDATE
+        `,
+        [routeId]
+    );
+
+    const routeRow = routeRows[0];
+
+    if (!routeRow) {
+        throw new Error("Route no longer exists.");
+    }
+
+    await ensureVehicleAvailableForAssignment(
+        connection,
+        Number(vehicleId),
+        routeId,
+        currentVehicleId
+    );
+
+    await ensureDriverAvailableForAssignment(
+        connection,
+        Number(driverId),
+        routeId,
+        Number(routeRow.ward_id),
+        currentDriverId
+    );
+
+    if (current) {
+        await connection.execute(
+            `
+            UPDATE route_assignments
+            SET
+                status = 'cancelled',
+                unassigned_at = NOW()
+            WHERE id = ?
+            `,
+            [current.id]
+        );
+
+        await releaseVehicleIfUnused(
+            connection,
+            currentVehicleId
+        );
+
+        await releaseDriverIfUnused(
+            connection,
+            currentDriverId
+        );
+    }
+
+    const assignmentCode =
+        `ASG-${routeId}-${Date.now()}`;
+
+    const assignmentStatus =
+        assignmentStatusForRouteStatus(routeStatus);
+
+    await connection.execute(
+        `
+        INSERT INTO route_assignments
+        (
+            assignment_code,
+            route_id,
+            vehicle_id,
+            driver_id,
+            assigned_by,
+            status,
+            assigned_at,
+            started_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)
+        `,
+        [
+            assignmentCode,
+            routeId,
+            Number(vehicleId),
+            Number(driverId),
+            req.currentUser.id,
+            assignmentStatus,
+            routeStatus === "active"
+                ? new Date()
+                : null
+        ]
+    );
+
+    await connection.execute(
+        `
+        UPDATE vehicles
+        SET status = ?
+        WHERE id = ?
+        `,
+        [
+            vehicleStatusForRouteStatus(routeStatus),
+            Number(vehicleId)
+        ]
+    );
+
+    await connection.execute(
+        `
+        UPDATE drivers
+        SET status = 'assigned'
+        WHERE id = ?
+        `,
+        [Number(driverId)]
+    );
+
+    return await getCurrentRouteAssignment(
+        connection,
+        routeId,
+        { forUpdate: false }
+    );
+}
+
+async function updateRouteAssignment(
+    req,
+    res
+) {
+    const routeId = positiveInteger(req.params.id);
+
+    if (!routeId) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid route ID."
+        });
+    }
+
+    const vehicleId =
+        req.body?.vehicle_id === null ||
+        req.body?.vehicle_id === "" ||
+        req.body?.vehicle_id === undefined
+            ? null
+            : positiveInteger(req.body.vehicle_id);
+
+    const driverId =
+        req.body?.driver_id === null ||
+        req.body?.driver_id === "" ||
+        req.body?.driver_id === undefined
+            ? null
+            : positiveInteger(req.body.driver_id);
+
+    let connection;
+
+    try {
+        if (
+            (vehicleId && !driverId) ||
+            (!vehicleId && driverId)
+        ) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    "Vehicle and driver must be assigned together."
+            });
+        }
+
+        const scope = await getScopeContext(req);
+        const scopeFilter = routeScope(scope, "r");
+
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        const [routeRows] = await connection.execute(
+            `
+            SELECT id, status, zone_id, ward_id
+            FROM routes r
+            WHERE r.id = ?
+              ${scopeFilter.sql}
+            LIMIT 1
+            FOR UPDATE
+            `,
+            [routeId, ...scopeFilter.params]
+        );
+
+        const route = routeRows[0];
+
+        if (!route) {
+            await connection.rollback();
+            return res.status(404).json({
+                success: false,
+                message: "Route not found in the current scope."
+            });
+        }
+
+        if (!routeStatusAllowsAssignment(route.status)) {
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message:
+                    "Completed or cancelled routes cannot be reassigned."
+            });
+        }
+
+        const currentAssignment =
+            await getCurrentRouteAssignment(
+                connection,
+                routeId,
+                { forUpdate: true }
+            );
+
+        await applyRouteAssignmentChange({
+            req,
+            connection,
+            routeId,
+            routeStatus: route.status,
+            vehicleId,
+            driverId,
+            currentAssignment,
+            allowUnassign: true
+        });
+
+        await connection.commit();
+
+        const updatedRoute =
+            await getRouteRecord(routeId, scope);
+
+        return res.json({
+            success: true,
+            message: "Route assignment updated successfully.",
+            route: updatedRoute
+        });
+
+    } catch (error) {
+        await connection?.rollback();
+        return sendServerError(
+            res,
+            "Unable to update route assignment.",
+            error
+        );
+    } finally {
+        connection?.release();
+    }
+}
+
+async function removeRouteAssignment(
+    req,
+    res
+) {
+    req.body = {
+        vehicle_id: null,
+        driver_id: null
+    };
+
+    return updateRouteAssignment(req, res);
+}
+
+
 async function getAssignments(
     req,
     res
@@ -4790,6 +5886,13 @@ async function getAssignments(
                             row.route_name
                     },
 
+
+                    division: {
+                        id:
+                            row.division_id === null
+                                ? null
+                                : Number(row.division_id),
+                    },
 
                     zone: {
                         id:
@@ -5668,18 +6771,18 @@ async function getZones(
         let scopeSql = "";
 
 
-        if (
-            scope.scopeType ===
-                "zone" ||
-            scope.scopeType ===
-                "ward"
-        ) {
-            scopeSql =
-                "AND z.id = ?";
-
-            params.push(
-                scope.zoneId
-            );
+        if (scope.scopeType === "division") {
+            scopeSql = `
+                AND EXISTS (
+                    SELECT 1
+                    FROM wards zone_wards
+                    WHERE zone_wards.zone_id = z.id
+                      AND zone_wards.division_id = ?
+                )`;
+            params.push(scope.divisionId);
+        } else if (scope.scopeType === "ward") {
+            scopeSql = "AND z.id = ?";
+            params.push(scope.zoneId);
         }
 
 
@@ -5771,23 +6874,10 @@ async function getWards(
         let scopeSql = "";
 
 
-        if (
-            scope.scopeType ===
-            "zone"
-        ) {
-            scopeSql +=
-                "AND w.zone_id = ?";
-
-            params.push(
-                scope.zoneId
-            );
-        }
-
-
-        if (
-            scope.scopeType ===
-            "ward"
-        ) {
+        if (scope.scopeType === "division") {
+            scopeSql += "AND w.division_id = ?";
+            params.push(scope.divisionId);
+        } else if (scope.scopeType === "ward") {
             scopeSql +=
                 "AND w.id = ?";
 
@@ -5799,26 +6889,31 @@ async function getWards(
 
         if (requestedZoneId) {
             if (
-                scope.scopeType ===
-                    "zone" &&
-                requestedZoneId !==
-                    scope.zoneId
-            ) {
-                throw createScopeError(
-                    "Requested zone is outside the assigned zone."
-                );
-            }
-
-
-            if (
-                scope.scopeType ===
-                    "ward" &&
-                requestedZoneId !==
-                    scope.zoneId
+                scope.scopeType === "ward" &&
+                requestedZoneId !== scope.zoneId
             ) {
                 throw createScopeError(
                     "Requested zone is outside the assigned ward."
                 );
+            }
+
+            if (scope.scopeType === "division") {
+                const [zoneRows] = await db.execute(
+                    `
+                    SELECT 1
+                    FROM wards
+                    WHERE zone_id = ?
+                      AND division_id = ?
+                    LIMIT 1
+                    `,
+                    [requestedZoneId, scope.divisionId]
+                );
+
+                if (!zoneRows.length) {
+                    throw createScopeError(
+                        "Requested zone is outside the assigned division."
+                    );
+                }
             }
 
 
@@ -5837,6 +6932,7 @@ async function getWards(
                 SELECT
                     w.id,
                     w.zone_id,
+                    w.division_id,
                     w.ward_number,
                     w.ward_code,
                     w.ward_name,
@@ -5920,6 +7016,12 @@ module.exports = {
     createRoute,
     updateRoute,
     deleteRoute,
+    updateRouteAssignment,
+    removeRouteAssignment,
+    getRouteStopsForInspector,
+    createRouteStop,
+    updateRouteStop,
+    deleteRouteStop,
 
     getVehicles,
     createVehicle,

@@ -1,15 +1,40 @@
 const db = require("../config/db");
 
-
 /*
- * Profile requirements by role.
+ * =========================================================
+ * SWACHHITRA PROFILE CONTROLLER
+ * =========================================================
  *
- * The profile is entered by the authenticated user. It is never created
- * automatically by the login system.
+ * Scope rules for the current architecture:
+ *
+ * Deputy Commissioner
+ *     -> city-wide
+ *
+ * Assistant Commissioner
+ *     -> exactly one division
+ *     -> division can be selected during first profile provisioning
+ *     -> once a division is assigned, self-service profile edits cannot
+ *        change it; a higher supervisory workflow will be used later.
+ *
+ * Sanitary Inspector
+ *     -> exactly one division + one ward when assigned
+ *     -> jurisdiction is assigned by Assistant Commissioner
+ *     -> Inspector profile cannot create/change its own jurisdiction
+ *
+ * Driver / Citizen
+ *     -> retain the existing legacy zone + ward profile flow for now
+ *     -> division_id is derived from a mapped ward when available
+ *
+ * IMPORTANT:
+ * - This controller expects Part 1 database migration to be applied.
+ * - Existing zone/ward relationships are retained for compatibility.
+ * - The Inspector's new authoritative scope is division_id + ward_id.
  */
+
 const ROLE_RULES = {
     deputy_commissioner: {
         requiresEmployeeId: true,
+        requiresDivision: false,
         requiresZone: false,
         requiresWard: false,
         driverFields: false
@@ -17,20 +42,24 @@ const ROLE_RULES = {
 
     assistant_commissioner: {
         requiresEmployeeId: true,
-        requiresZone: true,
+        requiresDivision: true,
+        requiresZone: false,
         requiresWard: false,
         driverFields: false
     },
 
     sanitary_inspector: {
         requiresEmployeeId: true,
-        requiresZone: true,
-        requiresWard: true,
+        requiresDivision: false,
+        requiresZone: false,
+        requiresWard: false,
+        requiresInspectorScope: true,
         driverFields: false
     },
 
     driver: {
         requiresEmployeeId: true,
+        requiresDivision: false,
         requiresZone: true,
         requiresWard: true,
         driverFields: true
@@ -38,6 +67,7 @@ const ROLE_RULES = {
 
     citizen: {
         requiresEmployeeId: false,
+        requiresDivision: false,
         requiresZone: true,
         requiresWard: true,
         driverFields: false
@@ -59,11 +89,9 @@ function clean(value) {
 function positiveInteger(value) {
     const number = Number(value);
 
-    if (!Number.isInteger(number) || number <= 0) {
-        return null;
-    }
-
-    return number;
+    return Number.isInteger(number) && number > 0
+        ? number
+        : null;
 }
 
 
@@ -72,14 +100,90 @@ function isValidMobile(value) {
 }
 
 
+function createHttpError(message, statusCode = 400) {
+    const error = new Error(message);
+    error.statusCode = statusCode;
+    return error;
+}
+
+
+function sendError(res, fallbackMessage, error) {
+    console.error(fallbackMessage, error);
+
+    return res.status(error?.statusCode || 500).json({
+        success: false,
+        message: error?.statusCode
+            ? error.message
+            : fallbackMessage
+    });
+}
+
+
 /*
- * Resolve a zone supplied by the old/current profile form.
- *
- * The preferred input is zone_id.
- * The text fallback keeps the existing profile page usable until its
- * frontend is replaced with the new relational zone/ward selectors.
+ * ---------------------------------------------------------
+ * Division resolver
+ * ---------------------------------------------------------
  */
-async function resolveZone(connection, suppliedZoneId, zoneText) {
+async function resolveDivision(
+    connection,
+    suppliedDivisionId
+) {
+    const divisionId = positiveInteger(
+        suppliedDivisionId
+    );
+
+    if (!divisionId) {
+        return null;
+    }
+
+    const [rows] = await connection.execute(
+        `
+        SELECT
+            id,
+            division_code,
+            division_name,
+            office_location,
+            status
+        FROM divisions
+        WHERE id = ?
+        LIMIT 1
+        `,
+        [divisionId]
+    );
+
+    if (!rows.length) {
+        return {
+            error: "Selected division could not be found."
+        };
+    }
+
+    const division = rows[0];
+
+    if (division.status !== "active") {
+        return {
+            error: "Selected division is inactive."
+        };
+    }
+
+    return {
+        id: Number(division.id),
+        code: division.division_code,
+        name: division.division_name,
+        officeLocation: division.office_location
+    };
+}
+
+
+/*
+ * ---------------------------------------------------------
+ * Legacy zone resolver
+ * ---------------------------------------------------------
+ */
+async function resolveZone(
+    connection,
+    suppliedZoneId,
+    zoneText
+) {
     const zoneId = positiveInteger(suppliedZoneId);
 
     if (zoneId !== null) {
@@ -125,8 +229,8 @@ async function resolveZone(connection, suppliedZoneId, zoneText) {
         FROM zones
         WHERE status = 'active'
           AND (
-              LOWER(zone_name) = LOWER(?)
-              OR LOWER(zone_code) = LOWER(?)
+                LOWER(zone_name) = LOWER(?)
+                OR LOWER(zone_code) = LOWER(?)
           )
         LIMIT 1
         `,
@@ -148,12 +252,9 @@ async function resolveZone(connection, suppliedZoneId, zoneText) {
 
 
 /*
- * Resolve a ward.
- *
- * The preferred input is ward_id.
- * The text fallback accepts values such as:
- *   "Ward 8"
- *   "Ward 8 (Market & Commercial)"
+ * ---------------------------------------------------------
+ * Legacy ward resolver
+ * ---------------------------------------------------------
  */
 async function resolveWard(
     connection,
@@ -169,14 +270,25 @@ async function resolveWard(
             SELECT
                 w.id,
                 w.zone_id,
+                w.division_id,
                 w.ward_number,
                 w.ward_code,
                 w.ward_name,
+
                 z.zone_code,
-                z.zone_name
+                z.zone_name,
+
+                d.division_code,
+                d.division_name
+
             FROM wards w
+
             JOIN zones z
                 ON z.id = w.zone_id
+
+            LEFT JOIN divisions d
+                ON d.id = w.division_id
+
             WHERE w.id = ?
               AND w.status = 'active'
               AND z.status = 'active'
@@ -206,11 +318,14 @@ async function resolveWard(
         return {
             id: Number(ward.id),
             zoneId: Number(ward.zone_id),
+            divisionId: positiveInteger(ward.division_id),
             number: Number(ward.ward_number),
             code: ward.ward_code,
             name: ward.ward_name,
             zoneCode: ward.zone_code,
-            zoneName: ward.zone_name
+            zoneName: ward.zone_name,
+            divisionCode: ward.division_code,
+            divisionName: ward.division_name
         };
     }
 
@@ -236,27 +351,46 @@ async function resolveWard(
             SELECT
                 w.id,
                 w.zone_id,
+                w.division_id,
                 w.ward_number,
                 w.ward_code,
                 w.ward_name,
+
                 z.zone_code,
-                z.zone_name
+                z.zone_name,
+
+                d.division_code,
+                d.division_name
+
             FROM wards w
+
             JOIN zones z
                 ON z.id = w.zone_id
+
+            LEFT JOIN divisions d
+                ON d.id = w.division_id
+
             WHERE w.status = 'active'
               AND z.status = 'active'
               AND w.ward_number = ?
+              AND (
+                    ? IS NULL
+                    OR w.zone_id = ?
+              )
             ORDER BY
                 CASE
-                    WHEN ? IS NULL THEN 0
                     WHEN w.zone_id = ? THEN 0
                     ELSE 1
                 END,
                 w.id
             LIMIT 1
             `,
-            [numericNumber, expectedZoneId, expectedZoneId]
+            [
+                numericNumber,
+                expectedZoneId ?? null,
+                expectedZoneId ?? null,
+                expectedZoneId ?? null
+            ]
         );
     } else {
         [rows] = await connection.execute(
@@ -264,23 +398,44 @@ async function resolveWard(
             SELECT
                 w.id,
                 w.zone_id,
+                w.division_id,
                 w.ward_number,
                 w.ward_code,
                 w.ward_name,
+
                 z.zone_code,
-                z.zone_name
+                z.zone_name,
+
+                d.division_code,
+                d.division_name
+
             FROM wards w
+
             JOIN zones z
                 ON z.id = w.zone_id
+
+            LEFT JOIN divisions d
+                ON d.id = w.division_id
+
             WHERE w.status = 'active'
               AND z.status = 'active'
               AND (
-                  LOWER(w.ward_name) = LOWER(?)
-                  OR LOWER(w.ward_code) = LOWER(?)
+                    LOWER(w.ward_name) = LOWER(?)
+                    OR LOWER(w.ward_code) = LOWER(?)
               )
+              AND (
+                    ? IS NULL
+                    OR w.zone_id = ?
+              )
+            ORDER BY w.id
             LIMIT 1
             `,
-            [text, text]
+            [
+                text,
+                text,
+                expectedZoneId ?? null,
+                expectedZoneId ?? null
+            ]
         );
     }
 
@@ -305,24 +460,86 @@ async function resolveWard(
     return {
         id: Number(ward.id),
         zoneId: Number(ward.zone_id),
+        divisionId: positiveInteger(ward.division_id),
         number: Number(ward.ward_number),
         code: ward.ward_code,
         name: ward.ward_name,
         zoneCode: ward.zone_code,
-        zoneName: ward.zone_name
+        zoneName: ward.zone_name,
+        divisionCode: ward.division_code,
+        divisionName: ward.division_name
     };
 }
 
 
 /*
+ * ---------------------------------------------------------
+ * Role-aware profile completeness
+ * ---------------------------------------------------------
+ */
+function isProfileCompleteForRole(role, profile) {
+    if (!profile) {
+        return false;
+    }
+
+    const hasFullName = Boolean(
+        clean(profile.full_name)
+    );
+
+    if (!hasFullName) {
+        return false;
+    }
+
+    const rules = ROLE_RULES[role];
+
+    if (!rules) {
+        return false;
+    }
+
+    if (
+        rules.requiresEmployeeId &&
+        !clean(profile.employee_id)
+    ) {
+        return false;
+    }
+
+    if (
+        role === "assistant_commissioner" &&
+        !positiveInteger(profile.division_id)
+    ) {
+        return false;
+    }
+
+    if (
+        role === "sanitary_inspector" &&
+        (
+            !positiveInteger(profile.division_id) ||
+            !positiveInteger(profile.ward_id)
+        )
+    ) {
+        return false;
+    }
+
+    if (
+        role === "driver" ||
+        role === "citizen"
+    ) {
+        if (
+            !positiveInteger(profile.zone_id) ||
+            !positiveInteger(profile.ward_id)
+        ) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+
+/*
+ * ---------------------------------------------------------
  * GET /api/profile
- *
- * Returns the logged-in user's profile.
- *
- * An authenticated user without a profile gets:
- *   profile: null
- *
- * This allows the frontend to show the manual profile-completion page.
+ * ---------------------------------------------------------
  */
 async function getProfile(req, res) {
     try {
@@ -346,12 +563,21 @@ async function getProfile(req, res) {
                 p.city,
                 p.preferred_language,
                 p.notification_preference,
+
+                p.division_id,
                 p.zone_id,
                 p.ward_id,
+                p.scope_assigned_by,
+                p.scope_assigned_at,
+
                 p.license_number,
                 p.license_type,
                 p.vehicle_number,
                 p.jurisdiction,
+
+                d.division_code,
+                d.division_name,
+                d.office_location AS division_office_location,
 
                 z.zone_code,
                 z.zone_name,
@@ -364,6 +590,9 @@ async function getProfile(req, res) {
 
             LEFT JOIN user_profiles p
                 ON p.user_id = u.id
+
+            LEFT JOIN divisions d
+                ON d.id = p.division_id
 
             LEFT JOIN zones z
                 ON z.id = p.zone_id
@@ -390,6 +619,76 @@ async function getProfile(req, res) {
         const hasProfile =
             row.full_name !== null;
 
+        const profile = hasProfile
+            ? {
+                full_name: row.full_name,
+                mobile_number: row.mobile_number,
+                official_email: row.official_email,
+                employee_id: row.employee_id,
+                department: row.department,
+                designation: row.designation,
+                office_location: row.office_location,
+                working_shift: row.working_shift,
+                official_contact_number:
+                    row.official_contact_number,
+                address: row.address,
+                city: row.city,
+                preferred_language:
+                    row.preferred_language,
+                notification_preference:
+                    row.notification_preference,
+
+                division_id:
+                    row.division_id === null
+                        ? null
+                        : Number(row.division_id),
+
+                zone_id:
+                    row.zone_id === null
+                        ? null
+                        : Number(row.zone_id),
+
+                ward_id:
+                    row.ward_id === null
+                        ? null
+                        : Number(row.ward_id),
+
+                division:
+                    row.division_id === null
+                        ? null
+                        : {
+                            id: Number(row.division_id),
+                            code: row.division_code,
+                            name: row.division_name,
+                            office_location:
+                                row.division_office_location
+                        },
+
+                zone:
+                    row.zone_id === null
+                        ? null
+                        : row.zone_name,
+
+                assigned_ward:
+                    row.ward_id === null
+                        ? null
+                        : row.ward_name,
+
+                scope_assigned_by:
+                    row.scope_assigned_by === null
+                        ? null
+                        : Number(row.scope_assigned_by),
+
+                scope_assigned_at:
+                    row.scope_assigned_at,
+
+                license_number: row.license_number,
+                license_type: row.license_type,
+                vehicle_number: row.vehicle_number,
+                jurisdiction: row.jurisdiction
+            }
+            : null;
+
         return res.json({
             success: true,
 
@@ -399,69 +698,53 @@ async function getProfile(req, res) {
                 role: row.role
             },
 
-            profileComplete: hasProfile,
+            profileComplete:
+                isProfileCompleteForRole(
+                    row.role,
+                    profile
+                ),
 
-            profile: hasProfile
-                ? {
-                    full_name: row.full_name,
-                    mobile_number: row.mobile_number,
-                    official_email: row.official_email,
-                    employee_id: row.employee_id,
-                    department: row.department,
-                    designation: row.designation,
-                    office_location: row.office_location,
-                    working_shift: row.working_shift,
-                    official_contact_number:
-                        row.official_contact_number,
-                    address: row.address,
-                    city: row.city,
-                    preferred_language:
-                        row.preferred_language,
-                    notification_preference:
-                        row.notification_preference,
-
-                    zone_id: row.zone_id === null
-                        ? null
-                        : Number(row.zone_id),
-
-                    ward_id: row.ward_id === null
-                        ? null
-                        : Number(row.ward_id),
-
-                    zone: row.zone_id === null
-                        ? null
-                        : row.zone_name,
-
-                    assigned_ward: row.ward_id === null
-                        ? null
-                        : row.ward_name,
-
-                    license_number: row.license_number,
-                    license_type: row.license_type,
-                    vehicle_number: row.vehicle_number,
-                    jurisdiction: row.jurisdiction
-                }
-                : null,
+            profile,
 
             scope: {
-                zone: row.zone_id === null
-                    ? null
-                    : {
-                        id: Number(row.zone_id),
-                        code: row.zone_code,
-                        name: row.zone_name
-                    },
+                division:
+                    row.division_id === null
+                        ? null
+                        : {
+                            id: Number(row.division_id),
+                            code: row.division_code,
+                            name: row.division_name
+                        },
 
-                ward: row.ward_id === null
-                    ? null
-                    : {
-                        id: Number(row.ward_id),
-                        number: Number(row.ward_number),
-                        code: row.ward_code,
-                        name: row.ward_name
-                    }
+                zone:
+                    row.zone_id === null
+                        ? null
+                        : {
+                            id: Number(row.zone_id),
+                            code: row.zone_code,
+                            name: row.zone_name
+                        },
+
+                ward:
+                    row.ward_id === null
+                        ? null
+                        : {
+                            id: Number(row.ward_id),
+                            number: Number(row.ward_number),
+                            code: row.ward_code,
+                            name: row.ward_name
+                        },
+
+                assigned_by:
+                    row.scope_assigned_by === null
+                        ? null
+                        : Number(row.scope_assigned_by),
+
+                assigned_at:
+                    row.scope_assigned_at
             }
         });
+
     } catch (error) {
         console.error(
             "Profile read error:",
@@ -477,50 +760,77 @@ async function getProfile(req, res) {
 
 
 /*
+ * ---------------------------------------------------------
  * GET /api/profile/reference-data
+ * ---------------------------------------------------------
  *
- * Supplies active zones and wards for the profile form.
+ * Returns:
+ * - divisions for Assistant Commissioner provisioning
+ * - legacy zones/wards for Driver/Citizen compatibility
+ *
+ * Inspector scope is NOT offered as editable reference data.
  */
 async function getReferenceData(req, res) {
     try {
-        const [
-            [zoneRows],
-            [wardRows]
-        ] = await Promise.all([
-            db.execute(
-                `
-                SELECT
-                    id,
-                    zone_code,
-                    zone_name
-                FROM zones
-                WHERE status = 'active'
-                ORDER BY zone_name
-                `
-            ),
+        const [divisionRows] = await db.execute(
+            `
+            SELECT
+                id,
+                division_code,
+                division_name,
+                office_location
+            FROM divisions
+            WHERE status = 'active'
+            ORDER BY division_name
+            `
+        );
 
-            db.execute(
-                `
-                SELECT
-                    w.id,
-                    w.zone_id,
-                    w.ward_number,
-                    w.ward_code,
-                    w.ward_name
-                FROM wards w
-                JOIN zones z
-                    ON z.id = w.zone_id
-                WHERE w.status = 'active'
-                  AND z.status = 'active'
-                ORDER BY
-                    z.zone_name,
-                    w.ward_number
-                `
-            )
-        ]);
+        const [zoneRows] = await db.execute(
+            `
+            SELECT
+                id,
+                zone_code,
+                zone_name
+            FROM zones
+            WHERE status = 'active'
+            ORDER BY zone_name
+            `
+        );
+
+        const [wardRows] = await db.execute(
+            `
+            SELECT
+                w.id,
+                w.zone_id,
+                w.division_id,
+                w.ward_number,
+                w.ward_code,
+                w.ward_name
+            FROM wards w
+            JOIN zones z
+                ON z.id = w.zone_id
+            WHERE w.status = 'active'
+              AND z.status = 'active'
+            ORDER BY
+                w.division_id IS NULL,
+                w.division_id,
+                z.zone_name,
+                w.ward_number
+            `
+        );
 
         return res.json({
             success: true,
+
+            divisions: divisionRows.map(
+                division => ({
+                    id: Number(division.id),
+                    code: division.division_code,
+                    name: division.division_name,
+                    office_location:
+                        division.office_location
+                })
+            ),
 
             zones: zoneRows.map(zone => ({
                 id: Number(zone.id),
@@ -531,11 +841,16 @@ async function getReferenceData(req, res) {
             wards: wardRows.map(ward => ({
                 id: Number(ward.id),
                 zone_id: Number(ward.zone_id),
+                division_id:
+                    ward.division_id === null
+                        ? null
+                        : Number(ward.division_id),
                 number: Number(ward.ward_number),
                 code: ward.ward_code,
                 name: ward.ward_name
             }))
         });
+
     } catch (error) {
         console.error(
             "Profile reference-data error:",
@@ -552,12 +867,18 @@ async function getReferenceData(req, res) {
 
 
 /*
+ * ---------------------------------------------------------
  * POST /api/profile
+ * ---------------------------------------------------------
  *
- * Saves or updates the authenticated user's profile.
+ * Saves personal/official information.
  *
- * The authenticated user's ID always comes from req.currentUser.
- * It is never accepted from the request body.
+ * Important scope behavior:
+ * - Assistant Commissioner: can select division only on initial
+ *   provisioning. An existing division cannot be self-changed.
+ * - Sanitary Inspector: zone/ward/division are NEVER accepted as a
+ *   self-service assignment. Existing authoritative scope is preserved.
+ * - Driver/Citizen: existing zone + ward behavior is retained.
  */
 async function saveProfile(req, res) {
     const body = req.body || {};
@@ -574,13 +895,8 @@ async function saveProfile(req, res) {
         body.employee_id ?? body.employeeId
     );
 
-    const department = clean(
-        body.department
-    );
-
-    const designation = clean(
-        body.designation
-    );
+    const department = clean(body.department);
+    const designation = clean(body.designation);
 
     const officeLocation = clean(
         body.office_location ?? body.officeLocation
@@ -595,13 +911,8 @@ async function saveProfile(req, res) {
         body.officialContactNumber
     );
 
-    const address = clean(
-        body.address
-    );
-
-    const city = clean(
-        body.city
-    );
+    const address = clean(body.address);
+    const city = clean(body.city);
 
     const preferredLanguage = clean(
         body.preferred_language ??
@@ -614,46 +925,35 @@ async function saveProfile(req, res) {
     );
 
     const licenseNumber = clean(
-        body.license_number ??
-        body.licenseNumber
+        body.license_number ?? body.licenseNumber
     );
 
     const licenseType = clean(
-        body.license_type ??
-        body.licenseType
+        body.license_type ?? body.licenseType
     );
 
     const vehicleNumber = clean(
-        body.vehicle_number ??
-        body.vehicleNumber
+        body.vehicle_number ?? body.vehicleNumber
     );
 
-    const jurisdiction = clean(
-        body.jurisdiction
-    );
+    const jurisdiction = clean(body.jurisdiction);
 
     const zoneIdInput =
-        body.zone_id ??
-        body.zoneId;
+        body.zone_id ?? body.zoneId;
 
     const wardIdInput =
-        body.ward_id ??
-        body.wardId;
+        body.ward_id ?? body.wardId;
 
-    /*
-     * Compatibility with the current profile form:
-     * it currently sends "zone" and "assignedWard" as text.
-     */
-    const zoneText = clean(
-        body.zone
-    );
+    const divisionIdInput =
+        body.division_id ?? body.divisionId;
+
+    const zoneText = clean(body.zone);
 
     const wardText = clean(
         body.assigned_ward ??
         body.assignedWard ??
         body.ward
     );
-
 
     try {
         const [userRows] = await db.execute(
@@ -688,14 +988,7 @@ async function saveProfile(req, res) {
             });
         }
 
-
-        /*
-         * Validate basic identity fields.
-         */
-        if (
-            !fullName ||
-            fullName.length > 120
-        ) {
+        if (!fullName || fullName.length > 120) {
             return res.status(400).json({
                 success: false,
                 message:
@@ -742,8 +1035,7 @@ async function saveProfile(req, res) {
         ) {
             return res.status(400).json({
                 success: false,
-                message:
-                    "Employee ID is required."
+                message: "Employee ID is required."
             });
         }
 
@@ -780,10 +1072,6 @@ async function saveProfile(req, res) {
             });
         }
 
-
-        /*
-         * Validate request-supplied relational IDs.
-         */
         const suppliedZoneId =
             zoneIdInput === "" ||
             zoneIdInput === null ||
@@ -798,6 +1086,13 @@ async function saveProfile(req, res) {
                 ? null
                 : positiveInteger(wardIdInput);
 
+        const suppliedDivisionId =
+            divisionIdInput === "" ||
+            divisionIdInput === null ||
+            divisionIdInput === undefined
+                ? null
+                : positiveInteger(divisionIdInput);
+
         if (
             (
                 zoneIdInput !== "" &&
@@ -810,149 +1105,261 @@ async function saveProfile(req, res) {
                 wardIdInput !== null &&
                 wardIdInput !== undefined &&
                 suppliedWardId === null
+            ) ||
+            (
+                divisionIdInput !== "" &&
+                divisionIdInput !== null &&
+                divisionIdInput !== undefined &&
+                suppliedDivisionId === null
             )
         ) {
             return res.status(400).json({
                 success: false,
                 message:
-                    "Zone and ward IDs must be valid integers."
+                    "Division, zone and ward IDs must be valid positive integers."
             });
         }
 
-
-        const connection =
-            await db.getConnection();
+        let connection;
 
         try {
+            connection = await db.getConnection();
             await connection.beginTransaction();
 
+            /*
+             * Lock the current profile row if one exists. This prevents two
+             * simultaneous profile updates from making incompatible scope
+             * decisions for the same account.
+             */
+            const [existingRows] = await connection.execute(
+                `
+                SELECT
+                    user_id,
+                    full_name,
+                    employee_id,
+                    division_id,
+                    zone_id,
+                    ward_id,
+                    scope_assigned_by,
+                    scope_assigned_at,
+                    license_number,
+                    license_type,
+                    vehicle_number
+                FROM user_profiles
+                WHERE user_id = ?
+                LIMIT 1
+                FOR UPDATE
+                `,
+                [user.id]
+            );
+
+            const existingProfile =
+                existingRows[0] || null;
+
+            let divisionId = null;
+            let zoneId = null;
+            let wardId = null;
 
             /*
-             * Resolve the role's scope.
-             *
-             * Deputy Commissioner:
-             *   Entire city → no zone / ward.
-             *
-             * Assistant Commissioner:
-             *   Zone only.
-             *
-             * Sanitary Inspector / Driver / Citizen:
-             *   Zone + ward.
+             * -----------------------------------------------------
+             * Assistant Commissioner
+             * -----------------------------------------------------
              */
-            let zone = null;
-            let ward = null;
+            if (user.role === "assistant_commissioner") {
+                if (
+                    existingProfile &&
+                    positiveInteger(
+                        existingProfile.division_id
+                    )
+                ) {
+                    divisionId = Number(
+                        existingProfile.division_id
+                    );
 
-            if (
+                    if (
+                        suppliedDivisionId !== null &&
+                        Number(suppliedDivisionId) !== divisionId
+                    ) {
+                        throw createHttpError(
+                            "Your assigned division cannot be changed from the profile page. A higher supervisory account must reassign it.",
+                            403
+                        );
+                    }
+                } else {
+                    if (!suppliedDivisionId) {
+                        throw createHttpError(
+                            "An assigned division is required for an Assistant Commissioner.",
+                            400
+                        );
+                    }
+
+                    const division = await resolveDivision(
+                        connection,
+                        suppliedDivisionId
+                    );
+
+                    if (division?.error) {
+                        throw createHttpError(
+                            division.error,
+                            400
+                        );
+                    }
+
+                    divisionId = division.id;
+                }
+
+                /*
+                 * Assistant Commissioners are no longer represented as
+                 * ward-scoped accounts. Legacy zone/ward values are cleared
+                 * so they cannot accidentally restrict or expand access.
+                 */
+                zoneId = null;
+                wardId = null;
+            }
+
+            /*
+             * -----------------------------------------------------
+             * Sanitary Inspector
+             * -----------------------------------------------------
+             *
+             * Never accept scope from the Inspector's profile form.
+             */
+            else if (user.role === "sanitary_inspector") {
+                const hasScopeInput =
+                    suppliedDivisionId !== null ||
+                    suppliedZoneId !== null ||
+                    suppliedWardId !== null ||
+                    Boolean(zoneText) ||
+                    Boolean(wardText);
+
+                if (hasScopeInput) {
+                    throw createHttpError(
+                        "Sanitary Inspector jurisdiction is assigned by the Assistant Commissioner and cannot be changed from this profile.",
+                        403
+                    );
+                }
+
+                if (existingProfile) {
+                    divisionId = positiveInteger(
+                        existingProfile.division_id
+                    );
+
+                    wardId = positiveInteger(
+                        existingProfile.ward_id
+                    );
+
+                    zoneId = positiveInteger(
+                        existingProfile.zone_id
+                    );
+
+                    if (divisionId && wardId) {
+                        const [scopeRows] =
+                            await connection.execute(
+                                `
+                                SELECT
+                                    w.id,
+                                    w.division_id,
+                                    w.zone_id,
+                                    d.status AS division_status,
+                                    z.status AS zone_status,
+                                    w.status AS ward_status
+                                FROM wards w
+                                JOIN divisions d
+                                    ON d.id = w.division_id
+                                JOIN zones z
+                                    ON z.id = w.zone_id
+                                WHERE w.id = ?
+                                  AND w.division_id = ?
+                                LIMIT 1
+                                `,
+                                [wardId, divisionId]
+                            );
+
+                        if (!scopeRows.length) {
+                            throw createHttpError(
+                                "The Inspector's assigned division and ward are inconsistent. Ask the Assistant Commissioner to correct the jurisdiction.",
+                                409
+                            );
+                        }
+
+                        const scope = scopeRows[0];
+
+                        if (
+                            scope.ward_status !== "active" ||
+                            scope.division_status !== "active"
+                        ) {
+                            throw createHttpError(
+                                "The Inspector's assigned division or ward is inactive.",
+                                409
+                            );
+                        }
+
+                        if (!zoneId) {
+                            zoneId = Number(
+                                scope.zone_id
+                            );
+                        }
+                    }
+                }
+            }
+
+            /*
+             * -----------------------------------------------------
+             * Driver / Citizen legacy scope
+             * -----------------------------------------------------
+             */
+            else if (
                 rules.requiresWard
             ) {
-                ward = await resolveWard(
+                if (!suppliedWardId && !wardText) {
+                    throw createHttpError(
+                        "Ward assignment is required.",
+                        400
+                    );
+                }
+
+                const resolvedWard = await resolveWard(
                     connection,
                     suppliedWardId,
                     wardText,
                     suppliedZoneId
                 );
 
-                if (ward?.error) {
-                    await connection.rollback();
-
-                    return res.status(400).json({
-                        success: false,
-                        message: ward.error
-                    });
+                if (resolvedWard?.error) {
+                    throw createHttpError(
+                        resolvedWard.error,
+                        400
+                    );
                 }
 
-                if (!ward) {
-                    await connection.rollback();
-
-                    return res.status(400).json({
-                        success: false,
-                        message:
-                            "Ward assignment is required."
-                    });
+                if (!resolvedWard) {
+                    throw createHttpError(
+                        "Ward assignment is required.",
+                        400
+                    );
                 }
 
-                zone = await resolveZone(
-                    connection,
-                    suppliedZoneId,
-                    zoneText
-                );
+                wardId = resolvedWard.id;
+                zoneId = resolvedWard.zoneId;
+                divisionId = resolvedWard.divisionId;
 
-                if (zone?.error) {
-                    await connection.rollback();
-
-                    return res.status(400).json({
-                        success: false,
-                        message: zone.error
-                    });
+                if (!zoneId) {
+                    throw createHttpError(
+                        "The selected ward does not have a valid zone mapping.",
+                        400
+                    );
                 }
-
-                /*
-                 * The ward is authoritative for its own zone.
-                 * When a zone was explicitly supplied, it must match.
-                 */
-                if (
-                    zone &&
-                    Number(zone.id) !==
-                        Number(ward.zoneId)
-                ) {
-                    await connection.rollback();
-
-                    return res.status(400).json({
-                        success: false,
-                        message:
-                            "Selected ward does not belong to the selected zone."
-                    });
-                }
-
-                if (!zone) {
-                    zone = {
-                        id: ward.zoneId,
-                        code: ward.zoneCode,
-                        name: ward.zoneName
-                    };
-                }
-
-            } else if (
-                rules.requiresZone
-            ) {
-                zone = await resolveZone(
-                    connection,
-                    suppliedZoneId,
-                    zoneText
-                );
-
-                if (zone?.error) {
-                    await connection.rollback();
-
-                    return res.status(400).json({
-                        success: false,
-                        message: zone.error
-                    });
-                }
-
-                if (!zone) {
-                    await connection.rollback();
-
-                    return res.status(400).json({
-                        success: false,
-                        message:
-                            "Zone assignment is required."
-                    });
-                }
-
-                ward = null;
-
-            } else {
-                zone = null;
-                ward = null;
             }
 
-
             /*
-             * Driver-specific information.
-             *
-             * For non-driver roles these fields are not stored.
+             * Deputy Commissioner is city-wide.
              */
+            else {
+                divisionId = null;
+                zoneId = null;
+                wardId = null;
+            }
+
             const profileEmployeeId =
                 rules.requiresEmployeeId
                     ? employeeId
@@ -973,12 +1380,31 @@ async function saveProfile(req, res) {
                     ? vehicleNumber
                     : null;
 
+            /*
+             * If the Inspector has not yet been assigned, keep all scope
+             * columns NULL. This deliberately makes profileComplete false.
+             * The Assistant Commissioner can assign the scope later.
+             */
+            if (
+                user.role === "sanitary_inspector" &&
+                (!divisionId || !wardId)
+            ) {
+                divisionId = null;
+                zoneId = null;
+                wardId = null;
+            }
 
             /*
-             * official_email always comes from the authenticated
-             * users table. A client cannot change the login email
-             * through profile editing.
+             * Scope audit fields are modified only by the supervisor
+             * assignment controller, never by this self-service profile
+             * endpoint.
              */
+            const preservedScopeAssignedBy =
+                existingProfile?.scope_assigned_by ?? null;
+
+            const preservedScopeAssignedAt =
+                existingProfile?.scope_assigned_at ?? null;
+
             await connection.execute(
                 `
                 INSERT INTO user_profiles
@@ -997,8 +1423,11 @@ async function saveProfile(req, res) {
                     city,
                     preferred_language,
                     notification_preference,
+                    division_id,
                     zone_id,
                     ward_id,
+                    scope_assigned_by,
+                    scope_assigned_at,
                     license_number,
                     license_type,
                     vehicle_number,
@@ -1006,84 +1435,31 @@ async function saveProfile(req, res) {
                 )
                 VALUES
                 (
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )
                 ON DUPLICATE KEY UPDATE
-                    full_name =
-                        VALUES(full_name),
-
-                    mobile_number =
-                        VALUES(mobile_number),
-
-                    official_email =
-                        VALUES(official_email),
-
-                    employee_id =
-                        VALUES(employee_id),
-
-                    department =
-                        VALUES(department),
-
-                    designation =
-                        VALUES(designation),
-
-                    office_location =
-                        VALUES(office_location),
-
-                    working_shift =
-                        VALUES(working_shift),
-
-                    official_contact_number =
-                        VALUES(official_contact_number),
-
-                    address =
-                        VALUES(address),
-
-                    city =
-                        VALUES(city),
-
-                    preferred_language =
-                        VALUES(preferred_language),
-
-                    notification_preference =
-                        VALUES(notification_preference),
-
-                    zone_id =
-                        VALUES(zone_id),
-
-                    ward_id =
-                        VALUES(ward_id),
-
-                    license_number =
-                        VALUES(license_number),
-
-                    license_type =
-                        VALUES(license_type),
-
-                    vehicle_number =
-                        VALUES(vehicle_number),
-
-                    jurisdiction =
-                        VALUES(jurisdiction)
+                    full_name = VALUES(full_name),
+                    mobile_number = VALUES(mobile_number),
+                    official_email = VALUES(official_email),
+                    employee_id = VALUES(employee_id),
+                    department = VALUES(department),
+                    designation = VALUES(designation),
+                    office_location = VALUES(office_location),
+                    working_shift = VALUES(working_shift),
+                    official_contact_number = VALUES(official_contact_number),
+                    address = VALUES(address),
+                    city = VALUES(city),
+                    preferred_language = VALUES(preferred_language),
+                    notification_preference = VALUES(notification_preference),
+                    division_id = VALUES(division_id),
+                    zone_id = VALUES(zone_id),
+                    ward_id = VALUES(ward_id),
+                    scope_assigned_by = VALUES(scope_assigned_by),
+                    scope_assigned_at = VALUES(scope_assigned_at),
+                    license_number = VALUES(license_number),
+                    license_type = VALUES(license_type),
+                    vehicle_number = VALUES(vehicle_number),
+                    jurisdiction = VALUES(jurisdiction)
                 `,
                 [
                     user.id,
@@ -1100,8 +1476,11 @@ async function saveProfile(req, res) {
                     city,
                     preferredLanguage,
                     notificationPreference,
-                    zone?.id ?? null,
-                    ward?.id ?? null,
+                    divisionId,
+                    zoneId,
+                    wardId,
+                    preservedScopeAssignedBy,
+                    preservedScopeAssignedAt,
                     profileLicenseNumber,
                     profileLicenseType,
                     profileVehicleNumber,
@@ -1109,14 +1488,17 @@ async function saveProfile(req, res) {
                 ]
             );
 
-
             /*
-             * Keep the separate drivers table synchronized when a
-             * Driver completes or updates their profile.
+             * Driver profile -> drivers table synchronization remains intact.
              */
-            if (
-                user.role === "driver"
-            ) {
+            if (user.role === "driver") {
+                if (!wardId) {
+                    throw createHttpError(
+                        "Driver ward assignment is required.",
+                        400
+                    );
+                }
+
                 await connection.execute(
                     `
                     INSERT INTO drivers
@@ -1130,38 +1512,15 @@ async function saveProfile(req, res) {
                         license_type,
                         assigned_ward_id
                     )
-                    VALUES
-                    (
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?
-                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE
-                        employee_id =
-                            VALUES(employee_id),
-
-                        full_name =
-                            VALUES(full_name),
-
-                        mobile_number =
-                            VALUES(mobile_number),
-
-                        email =
-                            VALUES(email),
-
-                        license_number =
-                            VALUES(license_number),
-
-                        license_type =
-                            VALUES(license_type),
-
-                        assigned_ward_id =
-                            VALUES(assigned_ward_id)
+                        employee_id = VALUES(employee_id),
+                        full_name = VALUES(full_name),
+                        mobile_number = VALUES(mobile_number),
+                        email = VALUES(email),
+                        license_number = VALUES(license_number),
+                        license_type = VALUES(license_type),
+                        assigned_ward_id = VALUES(assigned_ward_id)
                     `,
                     [
                         user.id,
@@ -1171,107 +1530,76 @@ async function saveProfile(req, res) {
                         user.email,
                         profileLicenseNumber,
                         profileLicenseType,
-                        ward?.id ?? null
+                        wardId
                     ]
                 );
             }
 
-
             await connection.commit();
 
+            const responseProfile = {
+                full_name: fullName,
+                mobile_number: mobileNumber,
+                official_email: user.email,
+                employee_id: profileEmployeeId,
+                department,
+                designation,
+                office_location: officeLocation,
+                working_shift: workingShift,
+                official_contact_number:
+                    officialContactNumber,
+                address,
+                city,
+                preferred_language: preferredLanguage,
+                notification_preference:
+                    notificationPreference,
+
+                division_id: divisionId,
+                zone_id: zoneId,
+                ward_id: wardId,
+
+                license_number: profileLicenseNumber,
+                license_type: profileLicenseType,
+                vehicle_number: profileVehicleNumber,
+                jurisdiction,
+
+                scope_assigned_by:
+                    preservedScopeAssignedBy
+                        ? Number(preservedScopeAssignedBy)
+                        : null,
+                scope_assigned_at:
+                    preservedScopeAssignedAt
+            };
 
             return res.json({
                 success: true,
-
-                message:
-                    "Profile saved successfully.",
-
-                profile: {
-                    full_name: fullName,
-                    mobile_number: mobileNumber,
-                    official_email: user.email,
-                    employee_id:
-                        profileEmployeeId,
-                    department,
-                    designation,
-                    office_location:
-                        officeLocation,
-                    working_shift:
-                        workingShift,
-                    official_contact_number:
-                        officialContactNumber,
-                    address,
-                    city,
-                    preferred_language:
-                        preferredLanguage,
-                    notification_preference:
-                        notificationPreference,
-
-                    zone_id:
-                        zone?.id ?? null,
-
-                    ward_id:
-                        ward?.id ?? null,
-
-                    zone:
-                        zone?.name ?? null,
-
-                    assigned_ward:
-                        ward?.name ?? null,
-
-                    license_number:
-                        profileLicenseNumber,
-
-                    license_type:
-                        profileLicenseType,
-
-                    vehicle_number:
-                        profileVehicleNumber,
-
-                    jurisdiction
-                }
+                message: "Profile saved successfully.",
+                profileComplete:
+                    isProfileCompleteForRole(
+                        user.role,
+                        responseProfile
+                    ),
+                profile: responseProfile
             });
 
         } catch (error) {
-            await connection.rollback();
-            throw error;
+            if (connection) {
+                await connection.rollback();
+            }
 
+            throw error;
         } finally {
-            connection.release();
+            if (connection) {
+                connection.release();
+            }
         }
 
     } catch (error) {
-        console.error(
-            "Profile save error:",
+        return sendError(
+            res,
+            "Unable to save profile.",
             error
         );
-
-        if (
-            error.code === "ER_DUP_ENTRY"
-        ) {
-            return res.status(409).json({
-                success: false,
-                message:
-                    "Employee ID is already in use."
-            });
-        }
-
-        if (
-            error.code === "ER_NO_REFERENCED_ROW_2" ||
-            error.code === "ER_ROW_IS_REFERENCED_2"
-        ) {
-            return res.status(400).json({
-                success: false,
-                message:
-                    "The selected zone or ward is no longer valid."
-            });
-        }
-
-        return res.status(500).json({
-            success: false,
-            message:
-                "Unable to save profile."
-        });
     }
 }
 
@@ -1279,5 +1607,6 @@ async function saveProfile(req, res) {
 module.exports = {
     getProfile,
     getReferenceData,
-    saveProfile
+    saveProfile,
+    isProfileCompleteForRole
 };

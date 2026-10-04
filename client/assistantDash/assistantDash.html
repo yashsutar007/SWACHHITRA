@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="SWACHHITRA Assistant Commissioner supervisory dashboard"
+    >
+
+    <title>SWACHHITRA | Assistant Commissioner</title>
+
+    <base href="/assistantDash/">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    >
+
+    <link rel="stylesheet" href="./assistantDash.css">
+</head>
+
+<body>
+
+<div class="assistant-app">
+
+    <div
+        class="mobile-backdrop"
+        id="mobileBackdrop"
+        aria-hidden="true"
+    ></div>
+
+    <!-- =========================================================
+         SIDEBAR
+         ========================================================= -->
+    <aside
+        class="sidebar"
+        id="sidebar"
+        aria-label="Assistant Commissioner navigation"
+    >
+
+        <div class="sidebar-brand-section">
+
+            <button
+                class="sidebar-brand"
+                id="sidebarBrandButton"
+                type="button"
+                data-tab="overview"
+                aria-label="Go to overview"
+            >
+                <div class="sidebar-logo">
+                    <img
+                        src="/assets/logo.png"
+                        alt="SWACHHITRA Logo"
+                    >
+                </div>
+
+                <div class="sidebar-brand-text">
+                    <strong>SWACHHITRA</strong>
+                    <span>
+                        Smart Waste Collection &amp;
+                        Route Management System
+                    </span>
+                </div>
+            </button>
+
+            <div class="sidebar-role">
+                <span
+                    class="role-indicator"
+                    aria-hidden="true"
+                ></span>
+
+                <div>
+                    <span class="role-label">ROLE:</span>
+                    <strong>ASSISTANT COMMISSIONER</strong>
+                </div>
+            </div>
+
+        </div>
+
+        <nav class="sidebar-navigation">
+
+            <div class="navigation-group">
+                <span class="navigation-title">Supervision</span>
+
+                <button
+                    class="navigation-item active"
+                    id="nav-btn-overview"
+                    data-tab="overview"
+                    type="button"
+                >
+                    <span class="navigation-item-left">
+                        <span class="navigation-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <rect x="3.5" y="3.5" width="7" height="7" rx="1.4"></rect>
+                                <rect x="13.5" y="3.5" width="7" height="7" rx="1.4"></rect>
+                                <rect x="3.5" y="13.5" width="7" height="7" rx="1.4"></rect>
+                                <rect x="13.5" y="13.5" width="7" height="7" rx="1.4"></rect>
+                            </svg>
+                        </span>
+                        <span>Overview</span>
+                    </span>
+                    <span class="navigation-active-dot"></span>
+                </button>
+
+                <button
+                    class="navigation-item"
+                    id="nav-btn-wards"
+                    data-tab="wards"
+                    type="button"
+                >
+                    <span class="navigation-item-left">
+                        <span class="navigation-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M4 5.5 9.5 3 14.5 5.5 20 3v15.5L14.5 21 9.5 18.5 4 21z"></path>
+                                <path d="M9.5 3v15.5"></path>
+                                <path d="M14.5 5.5V21"></path>
+                            </svg>
+                        </span>
+                        <span>Wards</span>
+                    </span>
+                    <span
+                        class="navigation-count"
+                        id="wardNavCount"
+                    >—</span>
+                </button>
+
+                <button
+                    class="navigation-item"
+                    id="nav-btn-inspectors"
+                    data-tab="inspectors"
+                    type="button"
+                >
+                    <span class="navigation-item-left">
+                        <span class="navigation-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <circle cx="9" cy="8" r="3"></circle>
+                                <path d="M3.5 20c.4-3.1 2.1-5 5.5-5s5.1 1.9 5.5 5"></path>
+                                <circle cx="17.5" cy="9" r="2.2"></circle>
+                                <path d="M15.2 15.4c2.5-.1 4.4 1.5 5 4.6"></path>
+                            </svg>
+                        </span>
+                        <span>Inspectors</span>
+                    </span>
+                    <span
+                        class="navigation-count"
+                        id="inspectorNavCount"
+                    >—</span>
+                </button>
+            </div>
+
+            <div class="navigation-group">
+                <span class="navigation-title">Account</span>
+
+                <button
+                    class="navigation-item"
+                    id="nav-btn-profile"
+                    data-tab="profile"
+                    type="button"
+                >
+                    <span class="navigation-item-left">
+                        <span class="navigation-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <circle cx="12" cy="8" r="3.2"></circle>
+                                <path d="M5 20c.6-3.8 2.9-5.8 7-5.8s6.4 2 7 5.8"></path>
+                            </svg>
+                        </span>
+                        <span>Profile</span>
+                    </span>
+                </button>
+            </div>
+
+        </nav>
+
+        <div class="sidebar-footer">
+            <div
+                class="current-scope-card"
+                id="currentScopeCard"
+            >
+                <span class="scope-card-label">ASSIGNED DIVISION</span>
+                <strong id="assignedDivisionName">Loading…</strong>
+                <span id="assignedDivisionLocation">—</span>
+            </div>
+
+            <button
+                type="button"
+                class="logout-button"
+                id="logoutButton"
+            >
+                <span class="logout-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M10 4H5.5A1.5 1.5 0 0 0 4 5.5v13A1.5 1.5 0 0 0 5.5 20H10"></path>
+                        <path d="M14 8l4 4-4 4"></path>
+                        <path d="M18 12H9"></path>
+                    </svg>
+                </span>
+                <span>Logout</span>
+            </button>
+        </div>
+
+    </aside>
+
+
+    <!-- =========================================================
+         MAIN AREA
+         ========================================================= -->
+    <main class="main-shell">
+
+        <header class="topbar">
+            <div class="topbar-left">
+                <button
+                    type="button"
+                    class="mobile-menu-button"
+                    id="mobileMenuButton"
+                    aria-label="Open navigation"
+                    aria-expanded="false"
+                >
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+
+                <button
+                    type="button"
+                    class="sidebar-collapse-button"
+                    id="sidebarToggleButton"
+                    aria-label="Collapse sidebar"
+                    aria-expanded="true"
+                >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M15 6l-6 6 6 6"></path>
+                    </svg>
+                </button>
+
+                <div class="topbar-title-block">
+                    <span class="topbar-eyebrow">ZONE SUPERVISION</span>
+                    <h1 id="pageTitle">Assistant Commissioner</h1>
+                </div>
+            </div>
+
+            <div class="topbar-right">
+                <div class="system-status" id="systemStatus">
+                    <span class="status-dot" aria-hidden="true"></span>
+                    <span id="systemStatusText">Connecting…</span>
+                </div>
+
+                <div class="header-user-block">
+                    <span class="header-role">ASSISTANT COMMISSIONER</span>
+                    <strong id="headerAssistantName">Loading…</strong>
+                    <span id="headerAssistantDivision">—</span>
+                </div>
+
+                <button
+                    type="button"
+                    class="header-icon-button"
+                    id="headerLogoutButton"
+                    aria-label="Logout"
+                    title="Logout"
+                >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M10 4H5.5A1.5 1.5 0 0 0 4 5.5v13A1.5 1.5 0 0 0 5.5 20H10"></path>
+                        <path d="M14 8l4 4-4 4"></path>
+                        <path d="M18 12H9"></path>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+
+        <div class="page-content">
+
+            <div
+                class="page-message"
+                id="pageMessage"
+                aria-live="polite"
+                role="status"
+            ></div>
+
+            <!-- =====================================================
+                 OVERVIEW
+                 ===================================================== -->
+            <section
+                class="tab-panel active"
+                id="panel-overview"
+                data-panel="overview"
+            >
+
+                <div class="section-heading">
+                    <div>
+                        <span class="eyebrow">OPERATIONAL OVERVIEW</span>
+                        <h2>Division supervision</h2>
+                        <p id="overviewSubtitle">
+                            Monitor wards, sanitary inspectors and current operational activity within your assigned division.
+                        </p>
+                    </div>
+
+                    <div class="scope-badge" id="overviewDivisionBadge">
+                        Division —
+                    </div>
+                </div>
+
+                <div class="kpi-grid">
+
+                    <article class="kpi-card">
+                        <div class="kpi-card-topline">
+                            <span class="kpi-label">WARDS</span>
+                            <span class="kpi-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24">
+                                    <path d="M4 5.5 9.5 3 14.5 5.5 20 3v15.5L14.5 21 9.5 18.5 4 21z"></path>
+                                    <path d="M9.5 3v15.5"></path>
+                                    <path d="M14.5 5.5V21"></path>
+                                </svg>
+                            </span>
+                        </div>
+                        <strong id="kpiWardCount">—</strong>
+                        <span>Active wards in division</span>
+                    </article>
+
+                    <article class="kpi-card">
+                        <div class="kpi-card-topline">
+                            <span class="kpi-label">INSPECTORS</span>
+                            <span class="kpi-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24">
+                                    <circle cx="9" cy="8" r="3"></circle>
+                                    <path d="M3.5 20c.4-3.1 2.1-5 5.5-5s5.1 1.9 5.5 5"></path>
+                                    <circle cx="17.5" cy="9" r="2.2"></circle>
+                                    <path d="M15.2 15.4c2.5-.1 4.4 1.5 5 4.6"></path>
+                                </svg>
+                            </span>
+                        </div>
+                        <strong id="kpiInspectorCount">—</strong>
+                        <span>Inspector assignments</span>
+                    </article>
+
+                    <article class="kpi-card">
+                        <div class="kpi-card-topline">
+                            <span class="kpi-label">ACTIVE ROUTES</span>
+                            <span class="kpi-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24">
+                                    <circle cx="5" cy="6" r="2"></circle>
+                                    <circle cx="19" cy="18" r="2"></circle>
+                                    <path d="M7 6h3.2c2.1 0 3.8 1.7 3.8 3.8v4.4A3.8 3.8 0 0 0 17.8 18H17"></path>
+                                </svg>
+                            </span>
+                        </div>
+                        <strong id="kpiActiveRouteCount">—</strong>
+                        <span>Scheduled / active operational routes</span>
+                    </article>
+
+                    <article class="kpi-card">
+                        <div class="kpi-card-topline">
+                            <span class="kpi-label">COMPLAINTS</span>
+                            <span class="kpi-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24">
+                                    <path d="M5 5.5A2.5 2.5 0 0 1 7.5 3h9A2.5 2.5 0 0 1 19 5.5v8A2.5 2.5 0 0 1 16.5 16H11l-4.5 4v-4h-1A2.5 2.5 0 0 1 3 13.5v-8z"></path>
+                                    <path d="M8 8h8"></path>
+                                    <path d="M8 11.5h5"></path>
+                                </svg>
+                            </span>
+                        </div>
+                        <strong id="kpiOpenComplaintCount">—</strong>
+                        <span>Open / in-progress complaints</span>
+                    </article>
+
+                </div>
+
+                <div class="overview-grid">
+
+                    <section class="panel-card">
+                        <div class="panel-card-header">
+                            <div>
+                                <span class="eyebrow">JURISDICTION</span>
+                                <h3>Division</h3>
+                            </div>
+                        </div>
+
+                        <div class="division-summary" id="divisionSummary">
+                            <div class="summary-row">
+                                <span>Division</span>
+                                <strong id="overviewDivisionName">Loading…</strong>
+                            </div>
+                            <div class="summary-row">
+                                <span>Code</span>
+                                <strong id="overviewDivisionCode">—</strong>
+                            </div>
+                            <div class="summary-row">
+                                <span>Office</span>
+                                <strong id="overviewDivisionOffice">—</strong>
+                            </div>
+                            <div class="summary-row">
+                                <span>Status</span>
+                                <strong id="overviewDivisionStatus">—</strong>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="panel-card">
+                        <div class="panel-card-header">
+                            <div>
+                                <span class="eyebrow">SUPERVISION</span>
+                                <h3>Inspector coverage</h3>
+                            </div>
+                            <button
+                                type="button"
+                                class="text-button"
+                                data-tab="inspectors"
+                            >
+                                Manage inspectors
+                            </button>
+                        </div>
+
+                        <div
+                            class="coverage-list"
+                            id="overviewInspectorCoverage"
+                        >
+                            <div class="empty-state compact">
+                                Loading inspector coverage…
+                            </div>
+                        </div>
+                    </section>
+
+                </div>
+
+            </section>
+
+
+            <!-- =====================================================
+                 WARDS
+                 ===================================================== -->
+            <section
+                class="tab-panel"
+                id="panel-wards"
+                data-panel="wards"
+                hidden
+            >
+                <div class="section-heading">
+                    <div>
+                        <span class="eyebrow">DIVISION JURISDICTION</span>
+                        <h2>Wards</h2>
+                        <p>
+                            Active wards belonging to your assigned division.
+                        </p>
+                    </div>
+                </div>
+
+                <section class="panel-card">
+                    <div class="panel-card-header table-toolbar">
+                        <div>
+                            <span class="eyebrow">WARD REGISTER</span>
+                            <h3 id="wardsHeading">Division wards</h3>
+                        </div>
+                        <div class="table-toolbar-right">
+                            <span
+                                class="data-status"
+                                id="wardsStatus"
+                            >
+                                Loading…
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="table-wrap">
+                        <table class="data-table" id="wardsTable">
+                            <thead>
+                                <tr>
+                                    <th>Ward</th>
+                                    <th>Code</th>
+                                    <th>Boundary</th>
+                                    <th>Inspectors</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="wardsTableBody">
+                                <tr>
+                                    <td colspan="5" class="table-empty">
+                                        Loading wards…
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </section>
+
+
+            <!-- =====================================================
+                 INSPECTORS
+                 ===================================================== -->
+            <section
+                class="tab-panel"
+                id="panel-inspectors"
+                data-panel="inspectors"
+                hidden
+            >
+                <div class="section-heading">
+                    <div>
+                        <span class="eyebrow">INSPECTOR SUPERVISION</span>
+                        <h2>Sanitary Inspectors</h2>
+                        <p>
+                            Assign or reassign Sanitary Inspectors to wards within your division.
+                        </p>
+                    </div>
+                </div>
+
+                <section class="panel-card">
+                    <div class="panel-card-header table-toolbar">
+                        <div>
+                            <span class="eyebrow">INSPECTOR REGISTER</span>
+                            <h3>Inspector assignments</h3>
+                        </div>
+                        <div class="table-toolbar-right">
+                            <span
+                                class="data-status"
+                                id="inspectorsStatus"
+                            >
+                                Loading…
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="table-wrap">
+                        <table class="data-table" id="inspectorsTable">
+                            <thead>
+                                <tr>
+                                    <th>Inspector</th>
+                                    <th>Employee ID</th>
+                                    <th>Assigned Ward</th>
+                                    <th>Scope</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inspectorsTableBody">
+                                <tr>
+                                    <td colspan="5" class="table-empty">
+                                        Loading inspectors…
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </section>
+
+
+            <!-- =====================================================
+                 PROFILE
+                 ===================================================== -->
+            <section
+                class="tab-panel"
+                id="panel-profile"
+                data-panel="profile"
+                hidden
+            >
+                <div class="section-heading">
+                    <div>
+                        <span class="eyebrow">ACCOUNT</span>
+                        <h2>Profile</h2>
+                        <p>
+                            View the Assistant Commissioner's account and assigned division.
+                        </p>
+                    </div>
+                </div>
+
+                <section class="panel-card profile-preview-card">
+                    <div class="profile-preview-grid">
+                        <div class="summary-row">
+                            <span>Name</span>
+                            <strong id="profilePreviewName">—</strong>
+                        </div>
+                        <div class="summary-row">
+                            <span>Email</span>
+                            <strong id="profilePreviewEmail">—</strong>
+                        </div>
+                        <div class="summary-row">
+                            <span>Employee ID</span>
+                            <strong id="profilePreviewEmployeeId">—</strong>
+                        </div>
+                        <div class="summary-row">
+                            <span>Designation</span>
+                            <strong id="profilePreviewDesignation">—</strong>
+                        </div>
+                        <div class="summary-row">
+                            <span>Department</span>
+                            <strong id="profilePreviewDepartment">—</strong>
+                        </div>
+                        <div class="summary-row">
+                            <span>Division</span>
+                            <strong id="profilePreviewDivision">—</strong>
+                        </div>
+                    </div>
+
+                    <div class="profile-action-row">
+                        <button
+                            type="button"
+                            class="secondary-button"
+                            id="openProfileButton"
+                        >
+                            Open profile
+                        </button>
+                    </div>
+                </section>
+            </section>
+
+        </div>
+    </main>
+
+
+    <!-- =========================================================
+         ASSIGN INSPECTOR MODAL
+         ========================================================= -->
+    <div
+        class="modal-overlay"
+        id="assignInspectorModal"
+        aria-hidden="true"
+        hidden
+    >
+        <section
+            class="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="assignInspectorModalTitle"
+        >
+            <div class="modal-header">
+                <div>
+                    <span class="eyebrow">JURISDICTION ASSIGNMENT</span>
+                    <h2 id="assignInspectorModalTitle">Assign Inspector</h2>
+                    <p id="assignInspectorModalSubtitle">
+                        Select a ward within your assigned division.
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    class="modal-close-button"
+                    id="closeAssignInspectorModal"
+                    aria-label="Close"
+                >
+                    ×
+                </button>
+            </div>
+
+            <form
+                id="assignInspectorForm"
+                novalidate
+            >
+                <input
+                    type="hidden"
+                    id="assignmentInspectorId"
+                    name="inspector_id"
+                >
+
+                <div class="modal-body">
+
+                    <div class="assignment-inspector-summary">
+                        <span class="summary-label">SANITARY INSPECTOR</span>
+                        <strong id="assignmentInspectorName">—</strong>
+                        <span id="assignmentInspectorEmployeeId">—</span>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="assignmentWardSelect">
+                            Assign Ward
+                            <span class="required">*</span>
+                        </label>
+                        <select
+                            id="assignmentWardSelect"
+                            name="ward_id"
+                            required
+                        >
+                            <option value="">Select ward</option>
+                        </select>
+                        <small>
+                            Only wards in your assigned division are available.
+                        </small>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="assignmentReason">
+                            Reason
+                        </label>
+                        <textarea
+                            id="assignmentReason"
+                            name="reason"
+                            rows="4"
+                            maxlength="500"
+                            placeholder="Optional administrative reason for this assignment or reassignment."
+                        ></textarea>
+                    </div>
+
+                    <div
+                        class="modal-message"
+                        id="assignInspectorMessage"
+                        aria-live="polite"
+                        role="status"
+                    ></div>
+
+                </div>
+
+                <div class="modal-footer">
+                    <button
+                        type="button"
+                        class="secondary-button"
+                        id="cancelAssignInspectorButton"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        class="primary-button"
+                        id="saveInspectorAssignmentButton"
+                    >
+                        Save Assignment
+                    </button>
+                </div>
+            </form>
+        </section>
+    </div>
+
+
+    <div
+        class="toast"
+        id="toast"
+        aria-live="polite"
+        aria-atomic="true"
+    ></div>
+
+</div>
+
+<script src="./assistantDash.js"></script>
+</body>
+</html>

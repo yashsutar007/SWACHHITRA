@@ -3283,3 +3283,313 @@ a {
         grid-template-columns: 1fr;
     }
 }
+
+
+/* =========================================================
+   STEP 31 — ROUTE ASSIGNMENT + STOP MANAGEMENT
+========================================================= */
+
+.route-stop-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 11px 13px;
+  border: 1px solid #dbe6d6;
+  border-radius: 10px;
+  background: #f5f9f1;
+}
+
+.route-stop-info strong {
+  color: var(--olive-dark);
+  font-size: 13px;
+}
+
+.route-stop-info span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.route-action-button.stop-action {
+  color: #365d2d;
+  border-color: #c9d9c0;
+  background: #f3f8ed;
+}
+
+.route-action-button.stop-action:hover {
+  background: #eaf4de;
+  border-color: #afc79f;
+}
+
+
+.route-planner-shell {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 8px;
+}
+
+.route-planner-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.planner-tool-button {
+  min-height: 34px;
+}
+
+.planner-tool-button.active {
+  color: #ffffff;
+  border-color: var(--olive-700);
+  background: var(--olive-700);
+}
+
+.planner-tool-button:disabled {
+  opacity: .48;
+  cursor: not-allowed;
+}
+
+.planner-tool-button.danger-outline {
+  color: var(--danger);
+}
+
+.route-planner-status {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  padding: 8px 11px;
+  border: 1px solid #dbe6d6;
+  border-radius: 9px;
+  color: var(--muted);
+  background: #f7faf5;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.route-planner-status[data-tone="success"] {
+  color: #275d2f;
+  border-color: #c7dec0;
+  background: #edf8ea;
+}
+
+.route-planner-status[data-tone="warning"] {
+  color: #805c17;
+  border-color: #ead8a9;
+  background: #fff8df;
+}
+
+.route-planning-map {
+  width: 100%;
+  height: 390px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #edf3e9;
+}
+
+.route-selected-point-status {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 11px;
+  border: 1px solid #dde7da;
+  border-radius: 9px;
+  color: var(--muted);
+  background: #fafcf9;
+  font-size: 12px;
+}
+
+.route-selected-point-status[data-selected="true"] {
+  color: #2c6534;
+  border-color: #c7dec0;
+  background: #f0f8ed;
+}
+
+.planning-stop-marker {
+  transform: scale(1.04);
+}
+
+.route-stop-modal-card {
+  width: min(860px, 100%);
+}
+
+.route-stop-manager {
+  padding: 18px 20px 20px;
+}
+
+.route-stop-manager-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.route-stop-manager-head > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.route-stop-manager-head strong {
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.route-stop-manager-head span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.route-stop-form {
+  padding: 16px 0;
+}
+
+.route-stop-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.route-stop-list {
+  display: grid;
+  gap: 8px;
+  max-height: 390px;
+  overflow: auto;
+}
+
+.route-stop-item {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fbfcfa;
+}
+
+.route-stop-number {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--olive-700);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.route-stop-item-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.route-stop-item-main strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.route-stop-item-main span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.route-stop-coordinate {
+  color: var(--olive-dark) !important;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px !important;
+}
+
+.route-stop-item-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.route-stop-item-actions button {
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--olive-dark);
+  background: #fff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.route-stop-item-actions button.danger {
+  color: var(--danger);
+}
+
+.route-stop-marker {
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--olive-700);
+  box-shadow: 0 4px 12px rgba(18, 39, 13, .24);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.road-route-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  color: #2f6332;
+  background: #e5f5e5;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.road-route-status.warning {
+  color: #8a6117;
+  background: #fff1cf;
+}
+
+/* Sidebar/main transition is intentionally smooth for the full-screen capture mode. */
+.sidebar,
+.main-area {
+  transition: transform .22s ease, margin-left .22s ease, width .22s ease;
+}
+
+@media (max-width: 700px) {
+  .route-stop-item {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .route-stop-item-actions {
+    grid-column: 2;
+  }
+
+  .route-planner-toolbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .route-planning-map {
+    height: 340px;
+  }
+
+  .route-stop-manager-head,
+  .route-stop-form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
