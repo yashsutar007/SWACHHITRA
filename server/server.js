@@ -6,6 +6,9 @@ require("dotenv").config({
     path: path.join(__dirname, "../.env")
 });
 
+const db = require("./config/db");
+const MySQLSessionStore = require("./config/mysqlSessionStore");
+
 const authRoutes = require("./routes/authRoutes");
 const profileRoutes = require("./routes/profileRoutes");
 const inspectorRoutes = require("./routes/inspectorRoutes");
@@ -18,37 +21,103 @@ const {
 
 const app = express();
 const PORT = Number(process.env.PORT || 5000);
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 if (!process.env.SESSION_SECRET) {
     throw new Error("SESSION_SECRET is required in .env");
 }
 
+if (IS_PRODUCTION && process.env.SESSION_SECRET.length < 32) {
+    throw new Error("Production SESSION_SECRET must be at least 32 characters long.");
+}
+
+if (IS_PRODUCTION && !String(process.env.APP_ORIGIN || "").trim()) {
+    throw new Error("APP_ORIGIN is required in production.");
+}
+
+const trustProxy = process.env.TRUST_PROXY;
+if (IS_PRODUCTION) {
+    app.set("trust proxy", trustProxy === undefined ? 1 : Number(trustProxy));
+}
+
 app.disable("x-powered-by");
+app.set("etag", false);
+
+// ---------------------------------------------------------
+// Security headers
+// ---------------------------------------------------------
+app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    res.setHeader("X-DNS-Prefetch-Control", "off");
+    res.setHeader("Permissions-Policy", "geolocation=(self), camera=(), microphone=()");
+
+    if (IS_PRODUCTION) {
+        res.setHeader(
+            "Strict-Transport-Security",
+            "max-age=31536000; includeSubDomains"
+        );
+    }
+
+    if (req.path.startsWith("/api/")) {
+        res.setHeader(
+            "Cache-Control",
+            "no-store, no-cache, must-revalidate, private"
+        );
+        res.setHeader("Pragma", "no-cache");
+    }
+
+    return next();
+});
 
 // ---------------------------------------------------------
 // Request body parsing
 // ---------------------------------------------------------
-app.use(express.json());
+app.use(
+    express.json({
+        limit: "1mb",
+        strict: true
+    })
+);
 app.use(
     express.urlencoded({
-        extended: true
+        extended: true,
+        limit: "100kb",
+        parameterLimit: 200
     })
 );
 
 // ---------------------------------------------------------
-// Session
+// Persistent session store
 // ---------------------------------------------------------
+const sessionTtlHours = Number(process.env.SESSION_TTL_HOURS || 8);
+const sessionTtlMs = Number.isFinite(sessionTtlHours) && sessionTtlHours > 0
+    ? Math.min(sessionTtlHours, 24 * 30) * 60 * 60 * 1000
+    : 8 * 60 * 60 * 1000;
+
+const sessionStore = new MySQLSessionStore(db, {
+    tableName: "sessions",
+    ttlMs: sessionTtlMs
+});
+
 app.use(
     session({
-        name: "swachhitra.sid",
+        name: IS_PRODUCTION
+            ? "__Host-swachhitra.sid"
+            : "swachhitra.sid",
         secret: process.env.SESSION_SECRET,
+        store: sessionStore,
         resave: false,
         saveUninitialized: false,
+        rolling: true,
+        proxy: IS_PRODUCTION,
         cookie: {
             httpOnly: true,
             sameSite: "lax",
-            secure: process.env.NODE_ENV === "production",
-            maxAge: 1000 * 60 * 60 * 8
+            secure: IS_PRODUCTION,
+            maxAge: sessionTtlMs,
+            path: "/"
         }
     })
 );
@@ -109,11 +178,6 @@ app.get(
 // ---------------------------------------------------------
 // Protected Assistant Commissioner dashboard
 // ---------------------------------------------------------
-// Both entry URLs serve the same protected HTML directly.
-// There is intentionally NO redirect between the two forms.
-// The dashboard HTML uses a <base href="/assistantDash/"> so that
-// relative asset paths such as ./assistantDash.css and ./assistantDash.js
-// work correctly whether the browser URL has a trailing slash or not.
 app.get(
     ["/assistantDash", "/assistantDash/"],
     requirePageRole("assistant_commissioner"),
@@ -129,11 +193,6 @@ app.get(
 
 // ---------------------------------------------------------
 // Direct protected dashboard HTML entry points
-//
-// The dashboard route above protects /inspectorDash and /assistantDash,
-// but express.static() can also serve the HTML files directly by filename.
-// Keep those HTML files behind the same role checks.
-// CSS, JS and image assets remain publicly readable and contain no secrets.
 // ---------------------------------------------------------
 app.get(
     "/inspectorDash/inspectorDash.html",
@@ -163,10 +222,6 @@ app.get(
 
 // ---------------------------------------------------------
 // Static frontend assets
-//
-// Keep this AFTER all protected page routes. This allows CSS, JS and
-// public image assets to remain directly readable while protected HTML
-// entry points are handled by authenticated routes above.
 // ---------------------------------------------------------
 app.use(
     express.static(
@@ -187,8 +242,6 @@ app.use("/api/assistant", assistantRoutes);
 // ---------------------------------------------------------
 app.get("/api/health", async (req, res) => {
     try {
-        const db = require("./config/db");
-
         await db.execute("SELECT 1");
 
         return res.json({
@@ -222,6 +275,22 @@ app.use((req, res, next) => {
 });
 
 // ---------------------------------------------------------
+// Controlled API error handler
+// ---------------------------------------------------------
+app.use((error, req, res, next) => {
+    console.error("Unhandled request error:", error);
+
+    if (req.path.startsWith("/api/")) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error."
+        });
+    }
+
+    return next(error);
+});
+
+// ---------------------------------------------------------
 // Page 404 handler
 // ---------------------------------------------------------
 app.use((req, res) => {
@@ -230,11 +299,24 @@ app.use((req, res) => {
     );
 });
 
-// ---------------------------------------------------------
-// Start server
-// ---------------------------------------------------------
-app.listen(PORT, () => {
-    console.log(
-        `SWACHHITRA running at http://localhost:${PORT}`
-    );
+async function startServer() {
+    await sessionStore.ensureTable();
+    sessionStore.startCleanup();
+
+    const server = app.listen(PORT, () => {
+        console.log(
+            `SWACHHITRA running at http://localhost:${PORT}`
+        );
+    });
+
+    server.requestTimeout = 30 * 1000;
+    server.headersTimeout = 15 * 1000;
+    server.keepAliveTimeout = 5 * 1000;
+
+    return server;
+}
+
+startServer().catch(error => {
+    console.error("SWACHHITRA failed to start:", error);
+    process.exit(1);
 });

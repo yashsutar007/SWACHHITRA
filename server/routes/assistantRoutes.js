@@ -70,13 +70,17 @@ router.get(
 // Request body:
 // {
 //     "ward_id": 123,
-//     "reason": "Operational reassignment"
+//     "reason": "Operational reassignment",
+//     "operational_area": {
+//         "polygon": [[lat, lng], [lat, lng], [lat, lng]]
+//     }
 // }
 //
 // The division is NOT accepted from the browser. The
 // controller derives it from the authenticated Assistant
 // Commissioner's own scope and verifies that the selected ward
-// belongs to that division.
+// belongs to that division. The selected polygon must also be
+// completely contained inside the ward planning boundary.
 // ---------------------------------------------------------
 router.put(
     "/inspectors/:id/scope",

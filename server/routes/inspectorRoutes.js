@@ -25,6 +25,7 @@ const {
 
     getAssignments,
     getCollections,
+    getCollectionIntegrity,
     getComplaints,
     updateComplaint,
     getNotifications,
@@ -34,6 +35,10 @@ const {
 } = require("../controllers/inspectorController");
 
 const { requireRole } = require("../middleware/authMiddleware");
+const {
+    ensureInspectorCsrfToken,
+    requireInspectorMutationSecurity
+} = require("../middleware/inspectorSecurityMiddleware");
 
 const router = express.Router();
 
@@ -73,6 +78,19 @@ const requireInspectorWrite = requireRole(
     ...INSPECTOR_WRITE_ROLES
 );
 
+// CSRF token endpoint for the authenticated Inspector dashboard.
+// It is read-only from the application perspective and never exposes
+// database data. The token is bound to the current session.
+router.get(
+    "/security/csrf-token",
+    ensureInspectorCsrfToken
+);
+
+const inspectorWriteSecurity = [
+    requireInspectorWrite,
+    requireInspectorMutationSecurity
+];
+
 // ---------------------------------------------------------
 // Read-only operational views
 // ---------------------------------------------------------
@@ -82,9 +100,14 @@ router.get("/vehicles", getVehicles);
 router.get("/drivers", getDrivers);
 router.get("/assignments", getAssignments);
 router.get("/collections", getCollections);
+router.get("/collections/integrity", getCollectionIntegrity);
 router.get("/complaints", getComplaints);
 router.get("/notifications", getNotifications);
-router.put("/notifications/read", markNotificationsRead);
+router.put(
+    "/notifications/read",
+    requireInspectorMutationSecurity,
+    markNotificationsRead
+);
 router.get("/zones", getZones);
 router.get("/wards", getWards);
 
@@ -93,31 +116,31 @@ router.get("/wards", getWards);
 // ---------------------------------------------------------
 router.post(
     "/routes",
-    requireInspectorWrite,
+    ...inspectorWriteSecurity,
     createRoute
 );
 
 router.put(
     "/routes/:id",
-    requireInspectorWrite,
+    ...inspectorWriteSecurity,
     updateRoute
 );
 
 router.delete(
     "/routes/:id",
-    requireInspectorWrite,
+    ...inspectorWriteSecurity,
     deleteRoute
 );
 
 router.put(
     "/routes/:id/assignment",
-    requireInspectorWrite,
+    ...inspectorWriteSecurity,
     updateRouteAssignment
 );
 
 router.delete(
     "/routes/:id/assignment",
-    requireInspectorWrite,
+    ...inspectorWriteSecurity,
     removeRouteAssignment
 );
 
@@ -131,19 +154,19 @@ router.get(
 
 router.post(
     "/routes/:id/stops",
-    requireInspectorWrite,
+    ...inspectorWriteSecurity,
     createRouteStop
 );
 
 router.put(
     "/routes/:id/stops/:stopId",
-    requireInspectorWrite,
+    ...inspectorWriteSecurity,
     updateRouteStop
 );
 
 router.delete(
     "/routes/:id/stops/:stopId",
-    requireInspectorWrite,
+    ...inspectorWriteSecurity,
     deleteRouteStop
 );
 
@@ -152,19 +175,19 @@ router.delete(
 // ---------------------------------------------------------
 router.post(
     "/vehicles",
-    requireInspectorWrite,
+    ...inspectorWriteSecurity,
     createVehicle
 );
 
 router.put(
     "/vehicles/:id",
-    requireInspectorWrite,
+    ...inspectorWriteSecurity,
     updateVehicle
 );
 
 router.delete(
     "/vehicles/:id",
-    requireInspectorWrite,
+    ...inspectorWriteSecurity,
     deleteVehicle
 );
 
@@ -173,19 +196,19 @@ router.delete(
 // ---------------------------------------------------------
 router.post(
     "/drivers",
-    requireInspectorWrite,
+    ...inspectorWriteSecurity,
     createDriver
 );
 
 router.put(
     "/drivers/:id",
-    requireInspectorWrite,
+    ...inspectorWriteSecurity,
     updateDriver
 );
 
 router.delete(
     "/drivers/:id",
-    requireInspectorWrite,
+    ...inspectorWriteSecurity,
     deleteDriver
 );
 
@@ -196,7 +219,7 @@ router.delete(
 // ---------------------------------------------------------
 router.put(
     "/complaints/:id",
-    requireInspectorWrite,
+    ...inspectorWriteSecurity,
     updateComplaint
 );
 

@@ -275,7 +275,7 @@
                 </div>
 
                 <div class="current-zone-information">
-                    <span>CURRENT ZONE</span>
+                    <span>CURRENT SCOPE</span>
                     <strong id="currentZoneText">Loading...</strong>
                 </div>
 
@@ -419,7 +419,7 @@
                         </strong>
 
                         <small id="headerInspectorZone">
-                            Loading zone...
+                            Loading scope...
                         </small>
 
                     </span>
@@ -1467,25 +1467,17 @@
                             name="status"
                         >
                             <option value="available">Available</option>
-                            <option value="en_route">En Route</option>
-                            <option value="collecting">Collecting</option>
-                            <option value="delayed">Delayed</option>
                             <option value="maintenance">Maintenance</option>
                             <option value="inactive">Inactive</option>
                         </select>
-                    </label>
-
-                    <label class="form-grid-full">
-                        Vehicle Image URL / Path (Optional)
-                        <input
-                            name="image_path"
-                            maxlength="255"
-                            placeholder="/assets/vehicles/trk-024.jpg"
+                        <small
+                            class="modal-help"
+                            id="vehicleStatusHelp"
                         >
-                        <small class="modal-help">
-                            The database stores this path/URL. Actual file upload will be added in the media-upload phase.
+                            Available, Maintenance, and Inactive are manual fleet states. En Route, Collecting, and Delayed are controlled by route execution.
                         </small>
                     </label>
+
 
                 </div>
 
@@ -1624,14 +1616,14 @@
                     </label>
 
                     <label>
-                        Zone
-                        <select
-                            name="zone_id"
-                            id="driverZoneSelect"
-                            required
+                        Assigned Division
+                        <input
+                            id="driverDivisionDisplay"
+                            type="text"
+                            value="Loading..."
+                            readonly
                         >
-                            <option value="">Select Zone</option>
-                        </select>
+                        <small class="modal-help">Division is fixed by the authenticated Assistant Commissioner assignment.</small>
                     </label>
 
                     <label>
@@ -1640,9 +1632,11 @@
                             name="assigned_ward_id"
                             id="driverWardSelect"
                             required
+                            disabled
                         >
-                            <option value="">Select Ward</option>
+                            <option value="">Assigned Ward</option>
                         </select>
+                        <small class="modal-help">Ward is fixed by the authenticated Inspector scope.</small>
                     </label>
 
                     <label class="form-grid-full">
@@ -1764,30 +1758,30 @@
 
 
                     <label>
-                        Zone
-                        <select
-                            name="zone_id"
-                            id="routeZoneSelect"
-                            required
+                        Assigned Division
+                        <input
+                            id="routeDivisionDisplay"
+                            type="text"
+                            value="Loading..."
+                            readonly
                         >
-                            <option value="">
-                                Select Zone
-                            </option>
-                        </select>
+                        <small class="modal-help">Division is fixed by your operational scope.</small>
                     </label>
 
 
                     <label>
-                        Ward
+                        Assigned Ward
                         <select
                             name="ward_id"
                             id="routeWardSelect"
                             required
+                            disabled
                         >
                             <option value="">
-                                Select Ward
+                                Assigned Ward
                             </option>
                         </select>
+                        <small class="modal-help">Ward is fixed by your operational scope.</small>
                     </label>
 
 
@@ -1929,30 +1923,30 @@
 
 
                     <label>
-                        Zone
-                        <select
-                            name="zone_id"
-                            id="editRouteZoneSelect"
-                            required
+                        Assigned Division
+                        <input
+                            id="editRouteDivisionDisplay"
+                            type="text"
+                            value="Loading..."
+                            readonly
                         >
-                            <option value="">
-                                Select Zone
-                            </option>
-                        </select>
+                        <small class="modal-help">Division is fixed by your operational scope.</small>
                     </label>
 
 
                     <label>
-                        Ward
+                        Assigned Ward
                         <select
                             name="ward_id"
                             id="editRouteWardSelect"
                             required
+                            disabled
                         >
                             <option value="">
-                                Select Ward
+                                Assigned Ward
                             </option>
                         </select>
+                        <small class="modal-help">Ward is fixed by your operational scope.</small>
                     </label>
 
 

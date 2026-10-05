@@ -1,5 +1,15 @@
 const db = require("../config/db");
 
+const {
+    DEVELOPMENT_OPERATIONAL_BOUNDARIES,
+    extractPolygonCoordinates,
+    normalizePolygonPoints,
+    polygonContainedInPolygon,
+    toGeoJsonPolygon,
+    getOfficialWardBoundary,
+    getDivisionPlanningBoundary
+} = require("../utils/geography");
+
 /*
  * =========================================================
  * SWACHHITRA
@@ -24,7 +34,9 @@ const db = require("../config/db");
  * - zone_id is mirrored from the selected ward during Inspector
  *   scope assignment so the current Inspector module remains
  *   compatible during the migration period.
- * - No geographic polygon is fabricated here.
+ * - Assistant-selected Inspector operational polygons are stored separately
+ *   from the ward master/boundary tables. The division still comes only from
+ *   the authenticated Assistant Commissioner's profile.
  */
 
 const ROLE = "assistant_commissioner";
@@ -361,7 +373,12 @@ async function getOverview(req, res) {
                 division_id: scope.divisionId,
                 division_code: scope.divisionCode,
                 division_name: scope.divisionName,
-                office_location: scope.officeLocation
+                office_location: scope.officeLocation,
+                planning_boundary:
+                    getDivisionPlanningBoundary(
+                        scope.divisionId,
+                        scope.divisionCode
+                    )
             },
 
             overview: {
@@ -437,6 +454,7 @@ async function getWards(req, res) {
                 w.ward_code,
                 w.ward_name,
                 w.status,
+                wb.boundary_geojson,
                 CASE
                     WHEN wb.ward_id IS NULL THEN 0
                     ELSE 1
@@ -461,7 +479,12 @@ async function getWards(req, res) {
             division: {
                 id: scope.divisionId,
                 code: scope.divisionCode,
-                name: scope.divisionName
+                name: scope.divisionName,
+                planning_boundary:
+                    getDivisionPlanningBoundary(
+                        scope.divisionId,
+                        scope.divisionCode
+                    )
             },
             wards: rows.map(row => ({
                 id: Number(row.id),
@@ -473,7 +496,33 @@ async function getWards(req, res) {
                 code: row.ward_code,
                 name: row.ward_name,
                 has_official_boundary:
-                    Boolean(Number(row.has_boundary))
+                    Boolean(Number(row.has_boundary)),
+                planning_boundary:
+                    (() => {
+                        const officialPolygon =
+                            extractPolygonCoordinates(
+                                row.boundary_geojson
+                            );
+
+                        if (officialPolygon.length >= 3) {
+                            return {
+                                source: "official",
+                                polygon: officialPolygon
+                            };
+                        }
+
+                        const developmentPolygon =
+                            DEVELOPMENT_OPERATIONAL_BOUNDARIES[
+                                String(row.ward_code || "").toUpperCase()
+                            ];
+
+                        return developmentPolygon
+                            ? {
+                                source: "development",
+                                polygon: developmentPolygon
+                            }
+                            : null;
+                    })()
             }))
         });
 
@@ -535,7 +584,11 @@ async function getInspectors(req, res) {
                 CASE
                     WHEN wb.ward_id IS NULL THEN 0
                     ELSE 1
-                END AS ward_has_official_boundary
+                END AS ward_has_official_boundary,
+
+                ioa.boundary_geojson AS operational_area_geojson,
+                ioa.source AS operational_area_source,
+                ioa.assigned_at AS operational_area_assigned_at
 
             FROM users u
 
@@ -551,6 +604,11 @@ async function getInspectors(req, res) {
             LEFT JOIN ward_boundaries wb
                 ON wb.ward_id = w.id
                AND wb.is_official = 1
+
+            LEFT JOIN inspector_operational_areas ioa
+                ON ioa.inspector_user_id = u.id
+               AND ioa.division_id = p.division_id
+               AND ioa.ward_id = p.ward_id
 
             WHERE u.role = ?
               AND u.status = 'active'
@@ -606,6 +664,23 @@ async function getInspectors(req, res) {
                         Boolean(Number(row.ward_has_official_boundary))
                 },
 
+                operational_area:
+                    (() => {
+                        const polygon =
+                            extractPolygonCoordinates(
+                                row.operational_area_geojson
+                            );
+
+                        return polygon.length >= 3
+                            ? {
+                                source: row.operational_area_source || "assistant_selected",
+                                polygon,
+                                assigned_at:
+                                    row.operational_area_assigned_at || null
+                            }
+                            : null;
+                    })(),
+
                 assignment_state:
                     row.ward_id === null
                         ? "unassigned"
@@ -644,6 +719,10 @@ async function assignInspectorScope(req, res) {
     const inspectorUserId = positiveInteger(req.params?.id);
     const wardId = positiveInteger(req.body?.ward_id);
     const reason = clean(req.body?.reason);
+    const operationalArea =
+        normalizePolygonPoints(
+            req.body?.operational_area?.polygon
+        );
 
     if (!inspectorUserId) {
         return res.status(400).json({
@@ -656,6 +735,13 @@ async function assignInspectorScope(req, res) {
         return res.status(400).json({
             success: false,
             message: "ward_id is required."
+        });
+    }
+
+    if (!operationalArea) {
+        return res.status(400).json({
+            success: false,
+            message: "A valid operational area polygon with at least 3 distinct points is required."
         });
     }
 
@@ -836,6 +922,64 @@ async function assignInspectorScope(req, res) {
             );
         }
 
+        const divisionPlanningBoundary =
+            getDivisionPlanningBoundary(
+                scope.divisionId,
+                scope.divisionCode
+            );
+
+        if (!divisionPlanningBoundary) {
+            throw createError(
+                `No operational planning envelope is configured for ${scope.divisionName}.`,
+                409
+            );
+        }
+
+        if (!polygonContainedInPolygon(
+            operationalArea,
+            divisionPlanningBoundary.polygon
+        )) {
+            throw createError(
+                `The selected Inspector area must remain completely inside the ${scope.divisionName} operational planning area.`,
+                400
+            );
+        }
+
+        /*
+         * If an authoritative ward boundary becomes available later,
+         * enforce the selected area against it as well. The current
+         * development database has no official ward GeoJSON, so the
+         * development ward polygon is intentionally NOT used here.
+         */
+        const officialWardBoundary =
+            await getOfficialWardBoundary(
+                Number(ward.id),
+                connection
+            );
+
+        if (
+            officialWardBoundary &&
+            !polygonContainedInPolygon(
+                operationalArea,
+                officialWardBoundary.polygon
+            )
+        ) {
+            throw createError(
+                `The selected Inspector area must remain completely inside the verified boundary of Ward ${Number(ward.ward_number)}.`,
+                400
+            );
+        }
+
+        const operationalAreaGeoJson =
+            toGeoJsonPolygon(operationalArea);
+
+        if (!operationalAreaGeoJson) {
+            throw createError(
+                "The selected operational area could not be converted to valid GeoJSON.",
+                400
+            );
+        }
+
         /*
          * Store the old scope in the audit record before updating.
          */
@@ -871,6 +1015,35 @@ async function assignInspectorScope(req, res) {
                 ward.zone_id,
                 scope.userId,
                 inspectorUserId
+            ]
+        );
+
+        await connection.execute(
+            `
+            INSERT INTO inspector_operational_areas (
+                inspector_user_id,
+                division_id,
+                ward_id,
+                boundary_geojson,
+                source,
+                assigned_by,
+                assigned_at
+            )
+            VALUES (?, ?, ?, ?, 'assistant_selected', ?, CURRENT_TIMESTAMP)
+            ON DUPLICATE KEY UPDATE
+                division_id = VALUES(division_id),
+                ward_id = VALUES(ward_id),
+                boundary_geojson = VALUES(boundary_geojson),
+                source = VALUES(source),
+                assigned_by = VALUES(assigned_by),
+                assigned_at = CURRENT_TIMESTAMP
+            `,
+            [
+                inspectorUserId,
+                scope.divisionId,
+                ward.id,
+                operationalAreaGeoJson,
+                scope.userId
             ]
         );
 
@@ -917,7 +1090,7 @@ async function assignInspectorScope(req, res) {
             [
                 inspectorUserId,
                 "Operational jurisdiction assigned",
-                `You have been assigned to ${ward.division_name} - ${ward.ward_name}.`,
+                `You have been assigned to ${ward.division_name} - ${ward.ward_name} with a custom operational collection area selected by your Assistant Commissioner.`,
                 "scope_assignment",
                 "high"
             ]
@@ -959,6 +1132,10 @@ async function assignInspectorScope(req, res) {
                     user_id: scope.userId,
                     full_name: scope.fullName,
                     employee_id: scope.employeeId
+                },
+                operational_area: {
+                    source: "assistant_selected",
+                    polygon: operationalArea
                 }
             }
         });

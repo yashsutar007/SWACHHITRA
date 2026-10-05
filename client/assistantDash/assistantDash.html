@@ -25,6 +25,12 @@
         rel="stylesheet"
     >
 
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        crossorigin=""
+    >
+
     <link rel="stylesheet" href="./assistantDash.css">
 </head>
 
@@ -480,7 +486,7 @@
                             </thead>
                             <tbody id="wardsTableBody">
                                 <tr>
-                                    <td colspan="5" class="table-empty">
+                                    <td colspan="6" class="table-empty">
                                         Loading wards…
                                     </td>
                                 </tr>
@@ -505,7 +511,7 @@
                         <span class="eyebrow">INSPECTOR SUPERVISION</span>
                         <h2>Sanitary Inspectors</h2>
                         <p>
-                            Assign or reassign Sanitary Inspectors to wards within your division.
+                            Assign or reassign Sanitary Inspectors to wards and define their operational working area within your division.
                         </p>
                     </div>
                 </div>
@@ -533,13 +539,14 @@
                                     <th>Inspector</th>
                                     <th>Employee ID</th>
                                     <th>Assigned Ward</th>
+                                    <th>Operational Area</th>
                                     <th>Scope</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody id="inspectorsTableBody">
                                 <tr>
-                                    <td colspan="5" class="table-empty">
+                                    <td colspan="6" class="table-empty">
                                         Loading inspectors…
                                     </td>
                                 </tr>
@@ -633,7 +640,7 @@
                     <span class="eyebrow">JURISDICTION ASSIGNMENT</span>
                     <h2 id="assignInspectorModalTitle">Assign Inspector</h2>
                     <p id="assignInspectorModalSubtitle">
-                        Select a ward within your assigned division.
+                        Select a ward within your assigned division, then draw the Inspector's operational working area on the map.
                     </p>
                 </div>
 
@@ -649,6 +656,7 @@
 
             <form
                 id="assignInspectorForm"
+                class="assignment-form"
                 novalidate
             >
                 <input
@@ -678,8 +686,79 @@
                             <option value="">Select ward</option>
                         </select>
                         <small>
-                            Only wards in your assigned division are available.
+                            Only wards in your assigned division are available. The Assistant Commissioner can then draw the Inspector's specific operational working area.
                         </small>
+                    </div>
+
+                    <div class="assignment-map-section">
+                        <div class="assignment-map-header">
+                            <div>
+                                <span class="summary-label">INSPECTOR OPERATIONAL AREA</span>
+                                <strong>Select the working area for this Inspector</strong>
+                                <small>The map opens on the broader Divisional Office working area around Gandhi Maidan. Draw a smaller polygon for this Inspector's actual field area. The Assistant Commissioner owns this assignment; the Inspector cannot change it.</small>
+                            </div>
+                        </div>
+
+                        <div class="assignment-map-toolbar">
+                            <button
+                                type="button"
+                                class="secondary-button planner-tool-button"
+                                id="assignmentSelectAreaButton"
+                            >
+                                Select Area
+                            </button>
+
+                            <button
+                                type="button"
+                                class="secondary-button planner-tool-button"
+                                id="assignmentFinishAreaButton"
+                                disabled
+                            >
+                                Finish Area
+                            </button>
+
+                            <button
+                                type="button"
+                                class="secondary-button planner-tool-button"
+                                id="assignmentUndoPointButton"
+                                disabled
+                            >
+                                Undo Last Point
+                            </button>
+
+                            <button
+                                type="button"
+                                class="secondary-button planner-tool-button danger-outline"
+                                id="assignmentClearAreaButton"
+                            >
+                                Clear Area
+                            </button>
+                        </div>
+
+                        <div
+                            id="assignmentMapStatus"
+                            class="assignment-map-status"
+                            data-tone="neutral"
+                        >
+                            Select a ward to load the division operational map.
+                        </div>
+
+                        <div class="assignment-map-hint">
+                            The dashed boundary is the Assistant Commissioner's current development working envelope. Your selected Inspector area must remain inside it.
+                        </div>
+
+                        <div
+                            id="assignmentMap"
+                            class="assignment-map"
+                        ></div>
+
+                        <div
+                            id="assignmentAreaSummary"
+                            class="assignment-area-summary"
+                            data-selected="false"
+                        >
+                            No Inspector area selected yet.
+                        </div>
                     </div>
 
                     <div class="form-field">
@@ -717,7 +796,7 @@
                         class="primary-button"
                         id="saveInspectorAssignmentButton"
                     >
-                        Save Assignment
+                        Save Ward &amp; Area
                     </button>
                 </div>
             </form>
@@ -734,6 +813,10 @@
 
 </div>
 
-<script src="./assistantDash.js"></script>
+<script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    crossorigin=""
+></script>
+<script src="./assistantDash.js?v=20261004-part17-geography2"></script>
 </body>
 </html>

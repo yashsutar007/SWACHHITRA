@@ -7,12 +7,12 @@ document.addEventListener("DOMContentLoaded", () => {
     "use strict";
 
     /*
-     * No fake operational coordinates are used.
-     * Maps fall back to a neutral India view until real database
-     * coordinates are available.
+     * Local rendering fallback only. Real route/area coordinates from
+     * the database always override this position after dashboard load.
+     * This prevents the Inspector from ever opening on a country-wide view.
      */
-    const DEFAULT_MAP_CENTER = [20.5937, 78.9629];
-    const DEFAULT_MAP_ZOOM = 5;
+    const DEFAULT_MAP_CENTER = [16.7050, 74.2433];
+    const DEFAULT_MAP_ZOOM = 13;
 
     /* =========================================================
        DOM
@@ -196,12 +196,7 @@ const activeRoutesList =
             "driverForm"
         );
 
-    const driverZoneSelect =
-        document.getElementById(
-            "driverZoneSelect"
-        );
-
-    const driverWardSelect =
+     const driverWardSelect =
         document.getElementById(
             "driverWardSelect"
         );
@@ -622,11 +617,70 @@ const activeRoutesList =
     }
 
 
+const ROUTE_STATUS_TRANSITIONS_CLIENT = {
+    scheduled: ["scheduled", "starting", "active", "delayed", "cancelled"],
+    starting: ["starting", "active", "delayed", "cancelled"],
+    active: ["active", "delayed", "completed", "cancelled"],
+    delayed: ["delayed", "active", "completed", "cancelled"],
+    completed: ["completed"],
+    cancelled: ["cancelled"]
+};
+
+function configureRouteStatusSelect(select, currentStatus) {
+    if (!select) {
+        return;
+    }
+
+    const current = currentStatus || "scheduled";
+    const allowed =
+        ROUTE_STATUS_TRANSITIONS_CLIENT[current] || [current];
+
+    const labels = {
+        scheduled: "Scheduled",
+        starting: "Starting",
+        active: "Active",
+        delayed: "Delayed",
+        completed: "Completed",
+        cancelled: "Cancelled"
+    };
+
+    select.innerHTML = allowed
+        .map(status =>
+            `<option value="${status}">${labels[status] || status}</option>`
+        )
+        .join("");
+
+    select.value = current;
+    select.disabled = ["completed", "cancelled"].includes(current);
+    select.title = select.disabled
+        ? `Route status ${labels[current] || current} is terminal and cannot be changed.`
+        : `Valid next states from ${labels[current] || current} are shown.`;
+}
+
 function normalizeRoute(raw) {
     const zone = raw?.zone || {};
+    const division = raw?.division || {};
     const ward = raw?.ward || {};
     const vehicle = raw?.vehicle || null;
     const driver = raw?.driver || null;
+
+    const divisionName =
+        division.name ||
+        overviewScope.divisionName ||
+        (division.id || overviewScope.divisionId
+            ? `Division ${division.id || overviewScope.divisionId}`
+            : "Assigned Division");
+
+    const wardLabel =
+        ward.number !== null &&
+        ward.number !== undefined
+            ? `Ward ${ward.number}`
+            : ward.name ||
+              overviewScope.wardName ||
+              (overviewScope.wardNumber !== null &&
+               overviewScope.wardNumber !== undefined
+                ? `Ward ${overviewScope.wardNumber}`
+                : "Assigned Ward");
 
     return {
         databaseId:
@@ -641,6 +695,7 @@ function normalizeRoute(raw) {
         status: raw?.status || "scheduled",
 
         zone,
+        division,
         ward,
 
         planningArea:
@@ -648,16 +703,12 @@ function normalizeRoute(raw) {
             null,
 
         zoneLabel:
-            [
-                zone.name,
-                ward.number !== null &&
-                ward.number !== undefined
-                    ? `Ward ${ward.number}`
-                    : ward.name
-            ]
-                .filter(Boolean)
-                .join(" • ") ||
-            "Assigned area",
+            `${divisionName} • ${wardLabel}`,
+
+        divisionLabel:
+            divisionName,
+
+        wardLabel,
 
         totalStops:
             Number(raw?.totalStops || 0),
@@ -764,10 +815,6 @@ function normalizeVehicle(raw) {
 
         make:
             raw?.make ||
-            "",
-
-        imagePath:
-            raw?.imagePath ||
             "",
 
         capacityTons,
@@ -1054,36 +1101,125 @@ function normalizeCollection(raw) {
        API
     ========================================================= */
 
-    async function apiRequest(
-        url,
-        options = {}
-    ) {
-        const response =
-            await fetch(
-                url,
-                {
-                    credentials:
-                        "same-origin",
-                    ...options,
-                    headers: {
-                        ...(options.headers || {}),
-                        ...(options.body
-                            ? {
-                                "Content-Type":
-                                    "application/json"
-                            }
-                            : {})
-                    }
+    let inspectorCsrfToken = null;
+
+    function isMutatingMethod(method) {
+        return new Set([
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+        ]).has(String(method || "GET").toUpperCase());
+    }
+
+    async function loadInspectorCsrfToken(forceRefresh = false) {
+        if (inspectorCsrfToken && !forceRefresh) {
+            return inspectorCsrfToken;
+        }
+
+        const response = await fetch(
+            "/api/inspector/security/csrf-token",
+            {
+                credentials: "same-origin",
+                cache: "no-store",
+                headers: {
+                    Accept: "application/json"
                 }
-            );
+            }
+        );
 
         let result = {};
 
         try {
-            result =
-                await response.json();
+            result = await response.json();
         } catch {
             result = {};
+        }
+
+        if (response.status === 401) {
+            window.location.href = "/login";
+            throw new Error("Authentication required.");
+        }
+
+        if (!response.ok || !result.success || !result.csrfToken) {
+            throw new Error(
+                result.message ||
+                "Unable to establish a secure Inspector session."
+            );
+        }
+
+        inspectorCsrfToken = String(result.csrfToken);
+        return inspectorCsrfToken;
+    }
+
+    async function apiRequest(
+        url,
+        options = {}
+    ) {
+        const method = String(options.method || "GET").toUpperCase();
+        const headers = {
+            ...(options.headers || {}),
+            ...(options.body
+                ? {
+                    "Content-Type":
+                        "application/json"
+                }
+                : {})
+        };
+
+        if (isMutatingMethod(method)) {
+            headers["X-CSRF-Token"] =
+                await loadInspectorCsrfToken();
+        }
+
+        let response = await fetch(
+            url,
+            {
+                credentials: "same-origin",
+                cache: method === "GET"
+                    ? "no-store"
+                    : "no-store",
+                ...options,
+                method,
+                headers
+            }
+        );
+
+        let result = {};
+
+        try {
+            result = await response.json();
+        } catch {
+            result = {};
+        }
+
+        // A rotated/expired CSRF token is recoverable without sending the
+        // user's mutation twice. Fetch a fresh token and retry exactly once.
+        if (
+            response.status === 403 &&
+            result.code === "CSRF_TOKEN_INVALID" &&
+            isMutatingMethod(method)
+        ) {
+            inspectorCsrfToken = null;
+            headers["X-CSRF-Token"] =
+                await loadInspectorCsrfToken(true);
+
+            response = await fetch(
+                url,
+                {
+                    credentials: "same-origin",
+                    cache: "no-store",
+                    ...options,
+                    method,
+                    headers
+                }
+            );
+
+            try {
+                result = await response.json();
+            } catch {
+                result = {};
+            }
         }
 
         if (response.status === 401) {
@@ -1099,6 +1235,13 @@ function normalizeCollection(raw) {
             throw new Error(
                 result.message ||
                 "You are not authorized to perform this operation."
+            );
+        }
+
+        if (response.status === 429) {
+            throw new Error(
+                result.message ||
+                "Too many requests. Please wait and try again."
             );
         }
 
@@ -1129,12 +1272,50 @@ function normalizeCollection(raw) {
             const profile =
                 result.profile || {};
             const scope = result.scope || {};
-            const zone = scope.zone?.name ||
-                "Assigned Area";
-            const ward = scope.ward?.name || null;
-            const scopeLabel = ward
-                ? `${zone} • ${ward}`
-                : zone;
+
+            if (!overviewScope || !Object.keys(overviewScope).length) {
+                overviewScope = {
+                    ...scope,
+                    divisionId:
+                        scope.divisionId ??
+                        scope.division?.id ??
+                        null,
+                    divisionName:
+                        scope.divisionName ??
+                        scope.division?.name ??
+                        "Assigned Division",
+                    wardId:
+                        scope.wardId ??
+                        scope.ward?.id ??
+                        null,
+                    wardNumber:
+                        scope.wardNumber ??
+                        scope.ward?.number ??
+                        null,
+                    wardName:
+                        scope.wardName ??
+                        scope.ward?.name ??
+                        "Assigned Ward"
+                };
+            }
+
+            const divisionName =
+                scope.divisionName ||
+                scope.division?.name ||
+                overviewScope.divisionName ||
+                "Assigned Division";
+
+            const ward =
+                scope.wardName ||
+                scope.ward?.name ||
+                (scope.wardNumber !== null &&
+                 scope.wardNumber !== undefined
+                    ? `Ward ${scope.wardNumber}`
+                    : overviewScope.wardName ||
+                      "Assigned Ward");
+
+            const scopeLabel =
+                `${divisionName} • ${ward}`;
 
             const name =
                 profile.full_name ||
@@ -1343,59 +1524,44 @@ async function loadDashboardData() {
                 ".map-footer > span"
             );
 
-        const zoneName =
-            overviewScope.zoneName ||
-            "Assigned Area";
+        const divisionName =
+            overviewScope.divisionName ||
+            (overviewScope.divisionId
+                ? `Division ${overviewScope.divisionId}`
+                : "Assigned Division");
 
         const scopedWardNumber =
             overviewScope.wardNumber;
 
-        const wardNumbers = [
-            ...new Set(
-                routes
-                    .map(
-                        route =>
-                            route.wardNumber
-                    )
-                    .filter(
-                        value =>
-                            value !==
-                                undefined &&
-                            value !==
-                                null
-                    )
-            )
-        ];
-
-        const effectiveWardNumbers =
-            scopedWardNumber !== null &&
-            scopedWardNumber !== undefined
-                ? [scopedWardNumber]
-                : wardNumbers;
+        const wardName =
+            overviewScope.wardName ||
+            (scopedWardNumber !== null &&
+             scopedWardNumber !== undefined
+                ? `Ward ${scopedWardNumber}`
+                : "Assigned Ward");
 
         const wardText =
-            effectiveWardNumbers.length
-                ? `Ward${effectiveWardNumbers.length > 1 ? "s" : ""} ${effectiveWardNumbers.join(", ")}`
-                : "Assigned wards";
+            scopedWardNumber !== null &&
+            scopedWardNumber !== undefined
+                ? `Ward ${scopedWardNumber}`
+                : wardName;
 
-        const zoneText =
-            wardNumbers.length
-                ? `${zoneName} • ${wardText}`
-                : zoneName;
+        const scopeText =
+            `${divisionName} • ${wardText}`;
 
         if (assignedZone) {
             assignedZone.textContent =
-                zoneText;
+                scopeText;
         }
 
         if (currentZoneText) {
             currentZoneText.textContent =
-                zoneText;
+                scopeText;
         }
 
         if (mapSubtitle) {
             mapSubtitle.textContent =
-                `${zoneName} / ${wardText}`;
+                scopeText;
         }
 
         if (mapFooter) {
@@ -2318,11 +2484,11 @@ function renderCollections() {
 
 
 async function loadRouteFormOptions() {
-    const zoneSelect =
-        document.getElementById("routeZoneSelect");
-
     const wardSelect =
         document.getElementById("routeWardSelect");
+
+    const divisionDisplay =
+        document.getElementById("routeDivisionDisplay");
 
     const vehicleSelect =
         document.getElementById("routeVehicleSelect");
@@ -2330,37 +2496,64 @@ async function loadRouteFormOptions() {
     const driverSelect =
         document.getElementById("routeDriverSelect");
 
-    if (!zoneSelect || !wardSelect || !vehicleSelect || !driverSelect) {
+    if (
+        !wardSelect ||
+        !divisionDisplay ||
+        !vehicleSelect ||
+        !driverSelect
+    ) {
         return;
     }
 
-    const [zonesResult, wardsResult, vehiclesResult, driversResult] =
+    const [scopeResult, vehiclesResult, driversResult] =
         await Promise.all([
-            apiRequest("/api/inspector/zones"),
             apiRequest("/api/inspector/wards"),
             apiRequest("/api/inspector/vehicles"),
             apiRequest("/api/inspector/drivers")
         ]);
 
-    const zones = zonesResult.zones || [];
-    const wards = wardsResult.wards || [];
+    const wards = scopeResult.wards || [];
     const vehicles = vehiclesResult.vehicles || [];
     const drivers = driversResult.drivers || [];
 
-    setSelectOptions(
-        zoneSelect,
-        zones.map(zone => ({
-            value: zone.id,
-            label: `${zone.code} - ${zone.name}`
-        })),
-        "Select Zone"
+    const scopeDivision =
+        overviewScope.divisionName ||
+        (overviewScope.divisionId
+            ? `Division ${overviewScope.divisionId}`
+            : "Assigned Division");
+
+    divisionDisplay.value =
+        scopeDivision;
+    divisionDisplay.setAttribute(
+        "aria-label",
+        `Assigned division: ${scopeDivision}`
     );
+
+    const assignedWard =
+        wards.find(ward =>
+            Number(ward.id) ===
+            Number(overviewScope.wardId)
+        ) || wards[0] || null;
 
     setSelectOptions(
         wardSelect,
-        [],
-        "Select Ward"
+        assignedWard
+            ? [{
+                value: assignedWard.id,
+                label: `Ward ${assignedWard.number} - ${assignedWard.name}`
+            }]
+            : [],
+        "No assigned ward",
+        assignedWard?.id || ""
     );
+
+    wardSelect.disabled = true;
+    wardSelect.setAttribute("aria-readonly", "true");
+    wardSelect.title =
+        "Ward is assigned by the Assistant Commissioner.";
+
+    const targetWardId =
+        Number(assignedWard?.id || overviewScope.wardId || 0);
 
     setSelectOptions(
         vehicleSelect,
@@ -2376,111 +2569,21 @@ async function loadRouteFormOptions() {
         "No vehicle"
     );
 
+    const availableDrivers =
+        drivers.filter(driver =>
+            driver.status === "available" &&
+            (!driver.ward?.id ||
+                Number(driver.ward.id) === Number(targetWardId))
+        );
+
     setSelectOptions(
         driverSelect,
-        [],
+        availableDrivers.map(driver => ({
+            value: driver.databaseId,
+            label: `${driver.fullName} (${driver.employeeId || "No employee ID"})`
+        })),
         "No driver"
     );
-
-    async function populateWards(zoneId) {
-        if (!zoneId) {
-            setSelectOptions(wardSelect, [], "Select Ward");
-            setSelectOptions(driverSelect, [], "No driver");
-            return;
-        }
-
-        const result =
-            await apiRequest(
-                `/api/inspector/wards?zone_id=${encodeURIComponent(zoneId)}`
-            );
-
-        const nextWards = result.wards || [];
-
-        setSelectOptions(
-            wardSelect,
-            nextWards.map(ward => ({
-                value: ward.id,
-                label: `Ward ${ward.number} - ${ward.name}`
-            })),
-            "Select Ward"
-        );
-
-        setSelectOptions(
-            driverSelect,
-            [],
-            "No driver"
-        );
-    }
-
-    async function populateDriversForWard(wardId) {
-        if (!wardId) {
-            setSelectOptions(driverSelect, [], "No driver");
-            return;
-        }
-
-        const result =
-            await apiRequest(
-                "/api/inspector/drivers"
-            );
-
-        const availableDrivers =
-            (result.drivers || [])
-                .filter(driver =>
-                    driver.status === "available" &&
-                    (!driver.ward?.id ||
-                        Number(driver.ward.id) === Number(wardId))
-                );
-
-        setSelectOptions(
-            driverSelect,
-            availableDrivers.map(driver => ({
-                value: driver.databaseId,
-                label: `${driver.fullName} (${driver.employeeId || "No employee ID"})`
-            })),
-            "No driver"
-        );
-    }
-
-    zoneSelect.onchange = async () => {
-        try {
-            await populateWards(
-                Number(zoneSelect.value)
-            );
-        } catch (error) {
-            console.error("Unable to load wards:", error);
-            showToast(error.message || "Unable to load wards.");
-        }
-    };
-
-    wardSelect.onchange = async () => {
-        try {
-            await populateDriversForWard(
-                Number(wardSelect.value)
-            );
-        } catch (error) {
-            console.error("Unable to load route drivers:", error);
-            showToast(error.message || "Unable to load route drivers.");
-        }
-    };
-
-    if (wards.length === 1) {
-        setSelectOptions(
-            wardSelect,
-            wards.map(ward => ({
-                value: ward.id,
-                label: `Ward ${ward.number} - ${ward.name}`
-            })),
-            "Select Ward"
-        );
-
-        try {
-            await populateDriversForWard(
-                Number(wards[0].id)
-            );
-        } catch (error) {
-            console.error("Unable to load route drivers:", error);
-        }
-    }
 }
 
     function switchTab(tabId) {
@@ -2846,9 +2949,10 @@ closeNotificationDrawer?.addEventListener(
                 </span>
 
                 <span>
-                    Zone:
+                    Ward:
                     ${escapeHTML(
-                        vehicle.zone
+                        vehicle.ward ||
+                        "Assigned ward"
                     )}
                 </span>
 
@@ -3051,6 +3155,27 @@ closeNotificationDrawer?.addEventListener(
                 Number(stop.latitude),
                 Number(stop.longitude)
             ]);
+    }
+
+    function getRouteOperationalPoints(route) {
+        const points = getRoutePoints(route);
+
+        if (Array.isArray(route?.planningArea?.polygon)) {
+            route.planningArea.polygon.forEach(point => {
+                if (
+                    Array.isArray(point) &&
+                    Number.isFinite(Number(point[0])) &&
+                    Number.isFinite(Number(point[1]))
+                ) {
+                    points.push([
+                        Number(point[0]),
+                        Number(point[1])
+                    ]);
+                }
+            });
+        }
+
+        return points;
     }
 
     function getRouteColor(route) {
@@ -3335,7 +3460,7 @@ closeNotificationDrawer?.addEventListener(
             });
 
             routes.forEach(route => {
-                points.push(...getRoutePoints(route));
+                points.push(...getRouteOperationalPoints(route));
             });
 
             if (points.length) {
@@ -3353,7 +3478,7 @@ closeNotificationDrawer?.addEventListener(
             );
 
             const routePoints =
-                routes.flatMap(getRoutePoints);
+                routes.flatMap(getRouteOperationalPoints);
 
             const vehiclePoints =
                 trucks
@@ -3589,16 +3714,22 @@ function renderActiveRoutes() {
                                     Plan Stops (${Number(route.totalStops || 0)})
                                 </button>
 
-                                <button
-                                    type="button"
-                                    class="route-action-button danger"
-                                    data-route-action="cancel"
-                                    data-route-id="${Number(
-                                        route.databaseId
-                                    )}"
-                                >
-                                    Cancel Route
-                                </button>
+                                ${
+                                    ["completed", "cancelled"].includes(route.status)
+                                        ? ""
+                                        : `
+                                            <button
+                                                type="button"
+                                                class="route-action-button danger"
+                                                data-route-action="cancel"
+                                                data-route-id="${Number(
+                                                    route.databaseId
+                                                )}"
+                                            >
+                                                Cancel Route
+                                            </button>
+                                        `
+                                }
 
                             </div>
 
@@ -3647,24 +3778,11 @@ function renderVehiclePairings() {
                     vehicle.assignment ||
                     null;
 
-                const image =
-                    vehicle.imagePath
-                        ? `
-                            <img
-                                src="${escapeHTML(
-                                    vehicle.imagePath
-                                )}"
-                                alt="${escapeHTML(
-                                    vehicle.id
-                                )}"
-                                loading="lazy"
-                            >
-                        `
-                        : `
-                            <span class="vehicle-image-placeholder">
-                                🚛
-                            </span>
-                        `;
+                const vehicleVisual = `
+                    <span class="vehicle-image-placeholder" aria-hidden="true">
+                        🚛
+                    </span>
+                `;
 
                 return `
                     <article class="pairing-card card-shell">
@@ -3677,11 +3795,11 @@ function renderVehiclePairings() {
                             </span>
 
                             <span class="duty-state ${
-                                vehicle.status ===
-                                "delayed"
+                                vehicle.status === "delayed"
                                     ? "delayed"
-                                    : vehicle.status !==
-                                      "available"
+                                    : ["en_route", "collecting"].includes(
+                                        vehicle.status
+                                    )
                                         ? "active"
                                         : ""
                             }">
@@ -3697,7 +3815,7 @@ function renderVehiclePairings() {
                             <div class="person-panel">
 
                                 <div class="vehicle-preview">
-                                    ${image}
+                                    ${vehicleVisual}
                                 </div>
 
                                 <div class="person-top">
@@ -3873,21 +3991,38 @@ function renderVehiclePairings() {
                                 Edit Vehicle
                             </button>
 
-                            <button
-                                type="button"
-                                class="management-action-button danger"
-                                data-fleet-action="deactivate-vehicle"
-                                data-vehicle-id="${Number(
-                                    vehicle.databaseId
-                                )}"
-                                ${
-                                    vehicle.assignment
-                                        ? "disabled title=\"Cancel or reassign the active route first.\""
-                                        : ""
-                                }
-                            >
-                                Deactivate
-                            </button>
+                            ${
+                                vehicle.status === "inactive"
+                                    ? `
+                                        <button
+                                            type="button"
+                                            class="management-action-button"
+                                            data-fleet-action="activate-vehicle"
+                                            data-vehicle-id="${Number(
+                                                vehicle.databaseId
+                                            )}"
+                                        >
+                                            Activate
+                                        </button>
+                                    `
+                                    : `
+                                        <button
+                                            type="button"
+                                            class="management-action-button danger"
+                                            data-fleet-action="deactivate-vehicle"
+                                            data-vehicle-id="${Number(
+                                                vehicle.databaseId
+                                            )}"
+                                            ${
+                                                vehicle.assignment
+                                                    ? "disabled title=\"Cancel or reassign the active route first.\""
+                                                    : ""
+                                            }
+                                        >
+                                            Deactivate
+                                        </button>
+                                    `
+                            }
 
                         </div>
 
@@ -4107,21 +4242,38 @@ function renderDriverRegistry() {
                                     Edit Driver
                                 </button>
 
-                                <button
-                                    type="button"
-                                    class="management-action-button danger"
-                                    data-fleet-action="deactivate-driver"
-                                    data-driver-id="${Number(
-                                        driver.databaseId
-                                    )}"
-                                    ${
-                                        canDeactivate
-                                            ? ""
-                                            : "disabled title=\"Complete or cancel the driver's active route first.\""
-                                    }
-                                >
-                                    Deactivate
-                                </button>
+                                ${
+                                    driver.status === "inactive"
+                                        ? `
+                                            <button
+                                                type="button"
+                                                class="management-action-button"
+                                                data-fleet-action="activate-driver"
+                                                data-driver-id="${Number(
+                                                    driver.databaseId
+                                                )}"
+                                            >
+                                                Activate
+                                            </button>
+                                        `
+                                        : `
+                                            <button
+                                                type="button"
+                                                class="management-action-button danger"
+                                                data-fleet-action="deactivate-driver"
+                                                data-driver-id="${Number(
+                                                    driver.databaseId
+                                                )}"
+                                                ${
+                                                    canDeactivate
+                                                        ? ""
+                                                        : "disabled title=\"Complete or cancel the driver's active route first.\""
+                                                }
+                                            >
+                                                Deactivate
+                                            </button>
+                                        `
+                                }
 
                             </div>
 
@@ -4467,16 +4619,15 @@ function findRouteById(
 }
 
 async function loadEditRouteFormOptions(
-    selectedZoneId = "",
     selectedWardId = "",
     selectedVehicleId = "",
     selectedDriverId = ""
 ) {
-    const zoneSelect =
-        document.getElementById("editRouteZoneSelect");
-
     const wardSelect =
         document.getElementById("editRouteWardSelect");
+
+    const divisionDisplay =
+        document.getElementById("editRouteDivisionDisplay");
 
     const vehicleSelect =
         document.getElementById("editRouteVehicleSelect");
@@ -4484,76 +4635,59 @@ async function loadEditRouteFormOptions(
     const driverSelect =
         document.getElementById("editRouteDriverSelect");
 
-    if (!zoneSelect || !wardSelect || !vehicleSelect || !driverSelect) {
+    if (
+        !wardSelect ||
+        !divisionDisplay ||
+        !vehicleSelect ||
+        !driverSelect
+    ) {
         return;
     }
 
-    const [zonesResult, vehiclesResult, driversResult] =
+    const [wardsResult, vehiclesResult, driversResult] =
         await Promise.all([
-            apiRequest("/api/inspector/zones"),
+            apiRequest("/api/inspector/wards"),
             apiRequest("/api/inspector/vehicles"),
             apiRequest("/api/inspector/drivers")
         ]);
 
-    const zones = zonesResult.zones || [];
+    const wards = wardsResult.wards || [];
     const vehicles = vehiclesResult.vehicles || [];
     const drivers = driversResult.drivers || [];
 
+    const divisionName =
+        overviewScope.divisionName ||
+        (overviewScope.divisionId
+            ? `Division ${overviewScope.divisionId}`
+            : "Assigned Division");
+
+    divisionDisplay.value = divisionName;
+
+    const selectedWard =
+        wards.find(ward =>
+            Number(ward.id) ===
+            Number(selectedWardId || overviewScope.wardId)
+        ) || wards[0] || null;
+
     setSelectOptions(
-        zoneSelect,
-        zones.map(zone => ({
-            value: zone.id,
-            label: `${zone.code} - ${zone.name}`
-        })),
-        "Select Zone",
-        selectedZoneId
+        wardSelect,
+        selectedWard
+            ? [{
+                value: selectedWard.id,
+                label: `Ward ${selectedWard.number} - ${selectedWard.name}`
+            }]
+            : [],
+        "No assigned ward",
+        selectedWard?.id || ""
     );
 
-    async function loadWardsAndDrivers(zoneId, wardId = "", driverId = "") {
-        if (!zoneId) {
-            setSelectOptions(wardSelect, [], "Select Ward");
-            setSelectOptions(driverSelect, [], "No driver");
-            return;
-        }
+    wardSelect.disabled = true;
+    wardSelect.setAttribute("aria-readonly", "true");
+    wardSelect.title =
+        "Ward is assigned by the Assistant Commissioner.";
 
-        const wardsResult =
-            await apiRequest(
-                `/api/inspector/wards?zone_id=${encodeURIComponent(zoneId)}`
-            );
-
-        const wards = wardsResult.wards || [];
-
-        setSelectOptions(
-            wardSelect,
-            wards.map(ward => ({
-                value: ward.id,
-                label: `Ward ${ward.number} - ${ward.name}`
-            })),
-            "Select Ward",
-            wardId
-        );
-
-        const targetWardId =
-            Number(wardId || wardSelect.value || 0);
-
-        const scopedDrivers =
-            drivers.filter(driver =>
-                (driver.status === "available" ||
-                    Number(driver.databaseId) === Number(driverId)) &&
-                (!driver.ward?.id ||
-                    Number(driver.ward.id) === targetWardId)
-            );
-
-        setSelectOptions(
-            driverSelect,
-            scopedDrivers.map(driver => ({
-                value: driver.databaseId,
-                label: `${driver.fullName} (${driver.employeeId || "No employee ID"})`
-            })),
-            "No driver",
-            driverId
-        );
-    }
+    const targetWardId =
+        Number(selectedWard?.id || overviewScope.wardId || 0);
 
     const routeVehicleOptions =
         vehicles.filter(vehicle =>
@@ -4573,37 +4707,23 @@ async function loadEditRouteFormOptions(
         selectedVehicleId
     );
 
-    await loadWardsAndDrivers(
-        Number(selectedZoneId),
-        Number(selectedWardId),
-        Number(selectedDriverId)
+    const scopedDrivers =
+        drivers.filter(driver =>
+            (driver.status === "available" ||
+                Number(driver.databaseId) === Number(selectedDriverId)) &&
+            (!driver.ward?.id ||
+                Number(driver.ward.id) === Number(targetWardId))
+        );
+
+    setSelectOptions(
+        driverSelect,
+        scopedDrivers.map(driver => ({
+            value: driver.databaseId,
+            label: `${driver.fullName} (${driver.employeeId || "No employee ID"})`
+        })),
+        "No driver",
+        selectedDriverId
     );
-
-    zoneSelect.onchange = async () => {
-        try {
-            await loadWardsAndDrivers(
-                Number(zoneSelect.value),
-                "",
-                ""
-            );
-        } catch (error) {
-            console.error("Unable to load edit-route options:", error);
-            showToast(error.message || "Unable to load route options.");
-        }
-    };
-
-    wardSelect.onchange = async () => {
-        try {
-            await loadWardsAndDrivers(
-                Number(zoneSelect.value),
-                Number(wardSelect.value),
-                ""
-            );
-        } catch (error) {
-            console.error("Unable to load edit-route drivers:", error);
-            showToast(error.message || "Unable to load route drivers.");
-        }
-    };
 }
 
 async function openEditRoute(routeId) {
@@ -4639,13 +4759,15 @@ async function openEditRoute(routeId) {
     }
 
     if (form.status) {
-        form.status.value = route.status || "scheduled";
+        configureRouteStatusSelect(
+            form.status,
+            route.status || "scheduled"
+        );
     }
 
     try {
         await loadEditRouteFormOptions(
-            route.zone?.id || "",
-            route.ward?.id || "",
+            route.ward?.id || overviewScope.wardId || "",
             currentVehicleId,
             currentDriverId
         );
@@ -4818,14 +4940,11 @@ addRouteForm?.addEventListener(
                 ""
             ).trim();
 
-        const zoneId =
-            Number(
-                data.zone_id
-            );
-
         const wardId =
             Number(
-                data.ward_id
+                document.getElementById("routeWardSelect")?.value ||
+                overviewScope.wardId ||
+                0
             );
 
         const vehicleId =
@@ -4854,9 +4973,6 @@ addRouteForm?.addEventListener(
         if (
             !routeCode ||
             !routeName ||
-            !Number.isInteger(
-                zoneId
-            ) ||
             !Number.isInteger(
                 wardId
             )
@@ -4905,8 +5021,6 @@ addRouteForm?.addEventListener(
                                     routeCode,
                                 route_name:
                                     routeName,
-                                zone_id:
-                                    zoneId,
                                 ward_id:
                                     wardId,
                                 vehicle_id:
@@ -4990,14 +5104,11 @@ editRouteForm?.addEventListener(
                 ""
             ).trim();
 
-        const zoneId =
-            Number(
-                data.zone_id
-            );
-
         const wardId =
             Number(
-                data.ward_id
+                document.getElementById("editRouteWardSelect")?.value ||
+                overviewScope.wardId ||
+                0
             );
 
         if (
@@ -5005,9 +5116,6 @@ editRouteForm?.addEventListener(
                 routeId
             ) ||
             !routeName ||
-            !Number.isInteger(
-                zoneId
-            ) ||
             !Number.isInteger(
                 wardId
             )
@@ -5041,8 +5149,6 @@ editRouteForm?.addEventListener(
                         JSON.stringify({
                             route_name:
                                 routeName,
-                            zone_id:
-                                zoneId,
                             ward_id:
                                 wardId,
                             status:
@@ -5137,107 +5243,53 @@ editRouteForm?.addEventListener(
     }
 
     async function loadDriverFormOptions(
-        selectedZoneId = "",
         selectedWardId = ""
     ) {
-        if (!driverZoneSelect || !driverWardSelect) {
+        if (!driverWardSelect) {
             return;
         }
 
-        const zonesResult =
-            await apiRequest(
-                "/api/inspector/zones"
-            );
+        const wardsResult =
+            await apiRequest("/api/inspector/wards");
 
-        const zones =
-            zonesResult.zones || [];
+        const wards =
+            wardsResult.wards || [];
+
+        const selectedWard =
+            wards.find(ward =>
+                Number(ward.id) ===
+                Number(selectedWardId || overviewScope.wardId)
+            ) || wards[0] || null;
 
         setSelectOptions(
-            driverZoneSelect,
-            zones.map(zone => ({
-                value: zone.id,
-                label: `${zone.code} - ${zone.name}`
-            })),
-            "Select Zone",
-            selectedZoneId
+            driverWardSelect,
+            selectedWard
+                ? [{
+                    value: selectedWard.id,
+                    label: `Ward ${selectedWard.number} - ${selectedWard.name}`
+                }]
+                : [],
+            "No assigned ward",
+            selectedWard?.id || ""
         );
 
-        const zoneId =
-            Number(
-                selectedZoneId ||
-                driverZoneSelect.value ||
-                0
-            );
+        driverWardSelect.disabled = true;
+        driverWardSelect.setAttribute("aria-readonly", "true");
+        driverWardSelect.title =
+            "Ward is assigned by the Assistant Commissioner.";
 
-        if (!zoneId) {
-            setSelectOptions(
-                driverWardSelect,
-                [],
-                "Select Ward"
-            );
-        } else {
-            const wardsResult =
-                await apiRequest(
-                    `/api/inspector/wards?zone_id=${encodeURIComponent(
-                        zoneId
-                    )}`
-                );
+        const driverDivisionDisplay =
+            document.getElementById("driverDivisionDisplay");
 
-            setSelectOptions(
-                driverWardSelect,
-                (wardsResult.wards || []).map(ward => ({
-                    value: ward.id,
-                    label: `Ward ${ward.number} - ${ward.name}`
-                })),
-                "Select Ward",
-                selectedWardId
-            );
+        const divisionName =
+            overviewScope.divisionName ||
+            (overviewScope.divisionId
+                ? `Division ${overviewScope.divisionId}`
+                : "Assigned Division");
+
+        if (driverDivisionDisplay) {
+            driverDivisionDisplay.value = divisionName;
         }
-
-        driverZoneSelect.onchange =
-            async () => {
-                const nextZoneId =
-                    Number(
-                        driverZoneSelect.value
-                    );
-
-                if (!nextZoneId) {
-                    setSelectOptions(
-                        driverWardSelect,
-                        [],
-                        "Select Ward"
-                    );
-                    return;
-                }
-
-                try {
-                    const result =
-                        await apiRequest(
-                            `/api/inspector/wards?zone_id=${encodeURIComponent(
-                                nextZoneId
-                            )}`
-                        );
-
-                    setSelectOptions(
-                        driverWardSelect,
-                        (result.wards || []).map(ward => ({
-                            value: ward.id,
-                            label: `Ward ${ward.number} - ${ward.name}`
-                        })),
-                        "Select Ward"
-                    );
-                } catch (error) {
-                    console.error(
-                        "Unable to load driver wards:",
-                        error
-                    );
-
-                    showToast(
-                        error.message ||
-                        "Unable to load wards."
-                    );
-                }
-            };
     }
 
     function getVehicleById(vehicleId) {
@@ -5306,11 +5358,26 @@ editRouteForm?.addEventListener(
             vehicle.make || "";
         form.capacity_tons.value =
             vehicle.capacityTons || "";
-        form.image_path.value =
-            vehicle.imagePath || "";
         form.status.value =
             vehicle.status || "available";
-        form.status.disabled = false;
+
+        const hasActiveAssignment =
+            Boolean(vehicle.assignment);
+
+        form.status.disabled =
+            hasActiveAssignment;
+
+        const vehicleStatusHelp =
+            document.getElementById(
+                "vehicleStatusHelp"
+            );
+
+        if (vehicleStatusHelp) {
+            vehicleStatusHelp.textContent =
+                hasActiveAssignment
+                    ? "Fleet status is controlled automatically by the current route assignment. Complete, cancel, or reassign the route before changing vehicle availability."
+                    : "Available, Maintenance, and Inactive are manual fleet states. Inactive vehicles remain visible and can be reactivated. En Route, Collecting, and Delayed are controlled by route execution.";
+        }
 
         openModal(vehicleModal);
     }
@@ -5396,8 +5463,7 @@ editRouteForm?.addEventListener(
 
         try {
             await loadDriverFormOptions(
-                driver.zone?.id || "",
-                driver.ward?.id || ""
+                driver.ward?.id || overviewScope.wardId || ""
             );
         } catch (error) {
             console.error(
@@ -5474,10 +5540,6 @@ editRouteForm?.addEventListener(
                     ).trim(),
                 capacity_tons:
                     Number(data.capacity_tons),
-                image_path:
-                    String(
-                        data.image_path || ""
-                    ).trim(),
                 status:
                     data.status || "available"
             };
@@ -5589,7 +5651,8 @@ editRouteForm?.addEventListener(
                     ).trim(),
                 assigned_ward_id:
                     Number(
-                        data.assigned_ward_id
+                        driverWardSelect?.value ||
+                        0
                     )
             };
 
@@ -5707,6 +5770,40 @@ editRouteForm?.addEventListener(
                 return;
             }
 
+            if (action === "activate-vehicle") {
+                try {
+                    const result =
+                        await apiRequest(
+                            `/api/inspector/vehicles/${vehicleId}`,
+                            {
+                                method: "PUT",
+                                body: JSON.stringify({
+                                    status: "available"
+                                })
+                            }
+                        );
+
+                    await loadDashboardData();
+
+                    showToast(
+                        result.message ||
+                        "Vehicle activated successfully."
+                    );
+                } catch (error) {
+                    console.error(
+                        "Vehicle activation failed:",
+                        error
+                    );
+
+                    showToast(
+                        error.message ||
+                        "Unable to activate vehicle."
+                    );
+                }
+
+                return;
+            }
+
             if (action === "deactivate-vehicle") {
                 if (button.disabled) {
                     return;
@@ -5714,7 +5811,7 @@ editRouteForm?.addEventListener(
 
                 const confirmed =
                     window.confirm(
-                        "Deactivate this vehicle? It will no longer appear in the active fleet."
+                        "Deactivate this vehicle? It will remain visible in the fleet registry and can be reactivated later."
                     );
 
                 if (!confirmed) {
@@ -5778,6 +5875,40 @@ editRouteForm?.addEventListener(
                 return;
             }
 
+            if (action === "activate-driver") {
+                try {
+                    const result =
+                        await apiRequest(
+                            `/api/inspector/drivers/${driverId}`,
+                            {
+                                method: "PUT",
+                                body: JSON.stringify({
+                                    status: "available"
+                                })
+                            }
+                        );
+
+                    await loadDashboardData();
+
+                    showToast(
+                        result.message ||
+                        "Driver activated successfully."
+                    );
+                } catch (error) {
+                    console.error(
+                        "Driver activation failed:",
+                        error
+                    );
+
+                    showToast(
+                        error.message ||
+                        "Unable to activate driver."
+                    );
+                }
+
+                return;
+            }
+
             if (action === "deactivate-driver") {
                 if (button.disabled) {
                     return;
@@ -5785,7 +5916,7 @@ editRouteForm?.addEventListener(
 
                 const confirmed =
                     window.confirm(
-                        "Deactivate this driver? The driver will no longer appear in the active driver registry."
+                        "Deactivate this driver? It will remain visible in the driver registry and can be reactivated later."
                     );
 
                 if (!confirmed) {
@@ -6302,7 +6433,7 @@ editRouteForm?.addEventListener(
             } else {
                 routePlanningMap.setView(
                     DEFAULT_MAP_CENTER,
-                    12
+                    DEFAULT_MAP_ZOOM
                 );
             }
         }
@@ -6409,6 +6540,16 @@ editRouteForm?.addEventListener(
 
         if (routeStopSubmitButton) {
             routeStopSubmitButton.textContent = "Add Stop";
+            const route = findRouteById(activeStopRouteId);
+            routeStopSubmitButton.disabled =
+                !routeStopsAreEditable(route);
+        }
+
+        if (routeAddStopButton) {
+            const route = findRouteById(activeStopRouteId);
+            routeAddStopButton.disabled =
+                !routeStopsAreEditable(route) ||
+                !routePlanningArea;
         }
 
         updateSelectedPointStatus();
@@ -6432,11 +6573,17 @@ editRouteForm?.addEventListener(
         );
     }
 
+    function routeStopsAreEditable(route) {
+        return route?.status === "scheduled";
+    }
+
+
     function renderRouteStopList(route) {
         if (!routeStopList) {
             return;
         }
 
+        const editable = routeStopsAreEditable(route);
         const stops =
             (route?.stops || [])
                 .slice()
@@ -6449,7 +6596,11 @@ editRouteForm?.addEventListener(
         if (!stops.length) {
             routeStopList.innerHTML = `
                 <div class="summary-empty">
-                    No stops added yet. Click Add Stops, then place your first collection point inside the highlighted assigned operational area.
+                    ${
+                        editable
+                            ? "No stops added yet. Click Add Stops, then place your first collection point inside the highlighted assigned operational area."
+                            : "No route stops are configured for this route. The route is read-only because it has already started or finished."
+                    }
                 </div>
             `;
             return;
@@ -6479,6 +6630,8 @@ editRouteForm?.addEventListener(
                                 type="button"
                                 data-stop-action="edit"
                                 data-stop-id="${Number(stop.id)}"
+                                ${editable ? "" : "disabled"}
+                                title="${editable ? "Edit stop" : "Route stops are read-only after the route starts."}"
                             >
                                 Edit
                             </button>
@@ -6487,6 +6640,8 @@ editRouteForm?.addEventListener(
                                 class="danger"
                                 data-stop-action="delete"
                                 data-stop-id="${Number(stop.id)}"
+                                ${editable ? "" : "disabled"}
+                                title="${editable ? "Delete stop" : "Route stops are read-only after the route starts."}"
                             >
                                 Delete
                             </button>
@@ -6534,6 +6689,30 @@ editRouteForm?.addEventListener(
 
         resetRouteStopForm();
         renderRouteStopList(route);
+
+        const editable = routeStopsAreEditable(route);
+
+        if (routeAddStopButton) {
+            routeAddStopButton.disabled = !editable || !routePlanningArea;
+            routeAddStopButton.title =
+                editable
+                    ? "Add collection stops inside the assigned operational area."
+                    : "Route stops are read-only after the route starts.";
+        }
+
+        if (routeStopSubmitButton) {
+            routeStopSubmitButton.disabled = !editable;
+        }
+
+        if (routePlanningStatus) {
+            setRoutePlanningStatus(
+                editable
+                    ? "The assigned operational area is fixed. Click Add Stops, then place collection points inside the highlighted boundary."
+                    : "This route is read-only. Route stops cannot be changed after the route starts.",
+                editable ? "success" : "warning"
+            );
+        }
+
         openModal(routeStopModal);
 
         setTimeout(async () => {
@@ -6543,7 +6722,14 @@ editRouteForm?.addEventListener(
     }
 
     function loadStopIntoForm(stop) {
+        const route = findRouteById(activeStopRouteId);
+
         if (!routeStopForm || !stop) {
+            return;
+        }
+
+        if (!routeStopsAreEditable(route)) {
+            showToast("Route stops are read-only after the route starts.");
             return;
         }
 
@@ -6605,6 +6791,11 @@ editRouteForm?.addEventListener(
             const route = findRouteById(
                 activeStopRouteId
             );
+
+            if (!routeStopsAreEditable(route)) {
+                showToast("Route stops are read-only after the route starts.");
+                return;
+            }
 
             routePlanningArea =
                 Array.isArray(route?.planningArea?.polygon)
@@ -6701,6 +6892,11 @@ editRouteForm?.addEventListener(
 
             const action = button.dataset.stopAction;
 
+            if (!routeStopsAreEditable(route)) {
+                showToast("Route stops are read-only after the route starts.");
+                return;
+            }
+
             if (action === "edit") {
                 loadStopIntoForm(stop);
                 return;
@@ -6761,6 +6957,13 @@ editRouteForm?.addEventListener(
                 );
 
             const routeId = Number(data.route_id);
+            const route = findRouteById(routeId);
+
+            if (!routeStopsAreEditable(route)) {
+                showToast("Route stops are read-only after the route starts.");
+                return;
+            }
+
             const stopOrder = Number(data.stop_order);
             const stopName = String(data.stop_name || "").trim();
             const address = String(data.address || "").trim();

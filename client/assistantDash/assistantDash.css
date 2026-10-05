@@ -1079,6 +1079,12 @@ a {
     background: #fff7df;
 }
 
+.boundary-pill.development {
+    color: #6b5427;
+    background: #fff9e8;
+}
+
+
 .assign-action-button {
     min-height: 32px;
     padding: 0 10px;
@@ -1161,9 +1167,11 @@ a {
     position: fixed;
     inset: 0;
     z-index: 2000;
-    display: grid;
-    place-items: center;
-    padding: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 12px;
     background: rgba(16, 27, 13, .48);
     backdrop-filter: blur(4px);
 }
@@ -1173,8 +1181,11 @@ a {
 }
 
 .modal-card {
-    width: min(560px, 100%);
-    max-height: min(760px, calc(100vh - 44px));
+    width: min(1500px, calc(100vw - 24px));
+    height: calc(100vh - 24px);
+    min-height: 0;
+    max-height: calc(100vh - 24px);
+    margin: 0 auto;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -1183,6 +1194,18 @@ a {
     background: #fff;
     box-shadow: 0 32px 90px rgba(9, 23, 7, .20);
 }
+
+/* The assignment modal contains a form which owns the scrolling region.
+   Without this flex layout the .modal-body cannot consume the available
+   viewport height, causing the footer to fall below the visible modal. */
+.modal-card > .assignment-form {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
 
 .modal-header {
     padding: 20px 22px 16px;
@@ -1227,9 +1250,14 @@ a {
 }
 
 .modal-body {
+    flex: 1 1 auto;
     min-height: 0;
+    overflow-x: hidden;
     overflow-y: auto;
-    padding: 20px 22px;
+    overscroll-behavior: contain;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 20px 30px 28px;
 }
 
 .assignment-inspector-summary {
@@ -1348,12 +1376,32 @@ a {
 }
 
 .modal-footer {
-    padding: 15px 22px;
+    flex: 0 0 auto;
+    position: relative;
+    padding: 15px 26px;
     display: flex;
     justify-content: flex-end;
     gap: 9px;
     border-top: 1px solid var(--line);
-    background: #fbfcfa;
+    background: rgba(251, 252, 250, .98);
+    box-shadow: 0 -8px 22px rgba(20, 44, 14, .04);
+}
+
+
+body.modal-open {
+    overflow: hidden;
+}
+
+.assignment-map-section {
+    flex: 0 0 auto;
+}
+
+.assignment-map-toolbar .planner-tool-button {
+    min-width: 118px;
+}
+
+.assignment-map-status {
+    min-height: 38px;
 }
 
 /* =========================================================
@@ -1512,11 +1560,16 @@ a {
     }
 
     .modal-overlay {
-        padding: 10px;
+        padding: 8px;
+        align-items: stretch;
+        overflow: hidden;
     }
 
     .modal-card {
-        max-height: calc(100vh - 20px);
+        width: calc(100vw - 16px);
+        height: calc(100vh - 16px);
+        max-height: calc(100vh - 16px);
+        min-height: 0;
         border-radius: 15px;
     }
 
@@ -1529,6 +1582,7 @@ a {
 
     .modal-footer {
         flex-direction: column-reverse;
+        position: relative;
     }
 
     .modal-footer button {
@@ -1550,5 +1604,168 @@ a {
         transition-duration: .01ms !important;
         animation-duration: .01ms !important;
         animation-iteration-count: 1 !important;
+    }
+}
+
+
+/* =========================================================
+   INSPECTOR OPERATIONAL AREA MAP
+   ========================================================= */
+
+.assignment-map-section {
+    margin-top: 18px;
+    padding: 14px;
+    border: 1px solid #e2e9dd;
+    border-radius: 13px;
+    background: #f9fbf7;
+}
+
+.assignment-map-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.assignment-map-header > div {
+    display: grid;
+    gap: 5px;
+}
+
+.assignment-map-header strong {
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.assignment-map-header small {
+    max-width: 560px;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.5;
+}
+
+.assignment-map-toolbar {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.planner-tool-button {
+    min-height: 34px;
+    padding: 0 11px;
+}
+
+.planner-tool-button.active {
+    color: #fff;
+    background: var(--olive-700);
+    border-color: var(--olive-700);
+}
+
+.danger-outline {
+    color: #8b3d32;
+    border-color: #efc8c1;
+}
+
+.assignment-map-status {
+    margin-top: 10px;
+    padding: 9px 10px;
+    border: 1px solid #e0e5dc;
+    border-radius: 9px;
+    color: var(--muted);
+    background: #fff;
+    font-size: 10px;
+    line-height: 1.45;
+}
+
+.assignment-map-status[data-tone="success"] {
+    color: #2f6d37;
+    border-color: #cce3c7;
+    background: #eff8ed;
+}
+
+.assignment-map-status[data-tone="warning"] {
+    color: #6b5427;
+    border-color: #ead8a9;
+    background: #fff9e8;
+}
+
+.assignment-map-status[data-tone="error"] {
+    color: #8b3d32;
+    border-color: #efc8c1;
+    background: #fff1ef;
+}
+
+.assignment-map {
+    width: 100%;
+    height: 360px;
+    margin-top: 10px;
+    overflow: hidden;
+    border: 1px solid #d7e0d2;
+    border-radius: 11px;
+    background: #eef3e9;
+}
+
+.assignment-map .leaflet-control-attribution {
+    font-size: 8px;
+}
+
+.assignment-map .leaflet-control-zoom a {
+    color: var(--ink-2);
+}
+
+.assignment-area-summary {
+    margin-top: 9px;
+    padding: 9px 10px;
+    border-radius: 9px;
+    color: var(--muted);
+    background: #fff;
+    font-size: 10px;
+    line-height: 1.45;
+}
+
+.assignment-area-summary[data-selected="true"] {
+    color: #2f6d37;
+    background: #eff8ed;
+}
+
+.assignment-map-hint {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.45;
+}
+
+.operational-area-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 4px 8px;
+    border-radius: var(--pill);
+    color: #2f6d37;
+    background: #edf7eb;
+    font-size: 9px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.operational-area-pill.missing {
+    color: #826329;
+    background: #fff7df;
+}
+
+@media (max-width: 620px) {
+    .assignment-map {
+        height: 360px;
+    }
+
+    .assignment-map-toolbar {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .assignment-map-toolbar button {
+        width: 100%;
     }
 }
