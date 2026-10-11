@@ -1,5 +1,7 @@
 const express = require("express");
 
+const { createInspectorAccount } = require("../controllers/assistantInspectorAccountController");
+
 const {
     getOverview,
     getWards,
@@ -160,6 +162,15 @@ router.put(
 router.get(
     "/inspectors",
     getInspectors
+);
+
+// Provision a scoped Inspector account. Role authorization is supplied by the
+// router-level Assistant Commissioner guard; mutations also require CSRF,
+// same-origin and rate-limit checks.
+router.post(
+    "/inspectors/accounts",
+    requireAssistantMutationSecurity,
+    createInspectorAccount
 );
 
 

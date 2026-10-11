@@ -1220,6 +1220,47 @@ a {
     overflow: hidden;
 }
 
+/* Compact account-provisioning modal uses the same Assistant dashboard design. */
+.account-modal-card {
+    width: min(620px, calc(100vw - 24px));
+    height: auto;
+    max-height: calc(100vh - 24px);
+}
+
+.modal-card > .account-form {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.account-guidance {
+    padding: 12px 14px;
+    border: 1px solid #dfe8d9;
+    border-radius: 10px;
+    color: var(--ink-2);
+    background: #f7faf4;
+    font-size: 11px;
+    line-height: 1.55;
+}
+
+.account-modal-card .modal-body {
+    padding: 18px 24px 22px;
+}
+
+@media (max-width: 560px) {
+    .account-modal-card .modal-header,
+    .account-modal-card .modal-body {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    .account-modal-card .modal-footer {
+        padding: 12px 16px;
+    }
+}
+
 
 .modal-header {
     padding: 20px 22px 16px;

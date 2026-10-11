@@ -13,7 +13,9 @@
     "check:deploy-config": "node scripts/check-deployment-config.js",
     "check:deploy-config:production": "node scripts/check-deployment-config.js --production",
     "test:deployment": "node tests/deployment-readiness.test.js",
-    "test:inspector": "node tests/inspector-regression.test.js"
+    "test:inspector": "node tests/inspector-regression.test.js",
+    "test:driver": "node tests/driver-regression.test.js",
+    "test:staff-account": "node tests/staff-account-provisioning.test.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.0",

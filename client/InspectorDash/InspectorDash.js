@@ -4222,6 +4222,41 @@ function renderDriverRegistry() {
                                 </button>
 
                                 ${
+                                    driver.userId
+                                        ? `
+                                            <button
+                                                type="button"
+                                                class="management-action-button"
+                                                disabled
+                                                title="This Driver already has a linked login account."
+                                            >
+                                                Login Linked
+                                            </button>
+                                        `
+                                        : driver.email && driver.email !== "—" && driver.status !== "inactive"
+                                            ? `
+                                                <button
+                                                    type="button"
+                                                    class="management-action-button"
+                                                    data-fleet-action="create-driver-account"
+                                                    data-driver-id="${Number(driver.databaseId)}"
+                                                >
+                                                    Create Login
+                                                </button>
+                                            `
+                                            : `
+                                                <button
+                                                    type="button"
+                                                    class="management-action-button"
+                                                    disabled
+                                                    title="Add a valid email and activate the Driver before creating a login."
+                                                >
+                                                    Create Login
+                                                </button>
+                                            `
+                                }
+
+                                ${
                                     driver.status === "inactive"
                                         ? `
                                             <button
@@ -5846,6 +5881,61 @@ editRouteForm?.addEventListener(
                 Number(
                     button.dataset.driverId
                 );
+
+            if (action === "create-driver-account") {
+                if (button.disabled) {
+                    return;
+                }
+
+                const driver = getDriverById(driverId);
+                if (!driver || driver.userId) {
+                    showToast("Refresh the Driver Registry and verify the account status.");
+                    return;
+                }
+
+                if (!driver.email || driver.email === "—") {
+                    showToast("Add a valid email to this Driver before creating a login.");
+                    return;
+                }
+
+                const confirmed = window.confirm(
+                    `Create a SWACHHITRA login for ${driver.fullName} (${driver.email})? The Driver will use Forgot Password to set a private password.`
+                );
+
+                if (!confirmed) {
+                    return;
+                }
+
+                button.disabled = true;
+                button.textContent = "Creating...";
+
+                try {
+                    const result = await apiRequest(
+                        `/api/inspector/drivers/${driverId}/account`,
+                        {
+                            method: "POST",
+                            body: JSON.stringify({})
+                        }
+                    );
+
+                    await loadDashboardData();
+                    showToast(
+                        result.message || "Driver login created and linked."
+                    );
+                } catch (error) {
+                    console.error("Driver login provisioning failed:", error);
+                    showToast(
+                        error.message || "Unable to create the Driver login."
+                    );
+                } finally {
+                    if (button.isConnected) {
+                        button.disabled = false;
+                        button.textContent = "Create Login";
+                    }
+                }
+
+                return;
+            }
 
             if (action === "edit-driver") {
                 await openEditDriverModal(

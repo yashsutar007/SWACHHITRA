@@ -911,7 +911,9 @@ async function getReferenceData(req, res) {
  *   provisioning. An existing division cannot be self-changed.
  * - Sanitary Inspector: zone/ward/division are NEVER accepted as a
  *   self-service assignment. Existing authoritative scope is preserved.
- * - Driver/Citizen: existing zone + ward behavior is retained.
+ * - Driver: identity, licence and jurisdiction are controlled by the
+ *   Inspector-managed Driver Registry, not self-service profile edits.
+ * - Citizen: address and ward data are managed through the Citizen module.
  */
 async function saveProfile(req, res) {
     const body = req.body || {};
@@ -1017,6 +1019,14 @@ async function saveProfile(req, res) {
                 success: false,
                 message:
                     "Citizen address and ward assignment must be saved through the Citizen module. Ward jurisdiction is derived from the selected map location and cannot be selected manually."
+            });
+        }
+
+        if (user.role === "driver") {
+            return res.status(403).json({
+                success: false,
+                message:
+                    "Driver identity, licence details and assigned Ward are managed through the Inspector's Driver Registry. Contact your assigned Inspector to update these details."
             });
         }
 
@@ -1196,6 +1206,32 @@ async function saveProfile(req, res) {
 
             const existingProfile =
                 existingRows[0] || null;
+
+            // Sanitary Inspector identity is provisioned by the Assistant
+            // Commissioner. Once those values exist, self-service profile
+            // requests cannot rename the official account or change its
+            // employee ID. Mobile/contact fields remain self-service.
+            if (user.role === "sanitary_inspector" && existingProfile) {
+                const assignedFullName = clean(existingProfile.full_name);
+                const assignedEmployeeId = clean(existingProfile.employee_id);
+
+                if (assignedFullName && fullName !== assignedFullName) {
+                    throw createHttpError(
+                        "Your official name is managed by the Assistant Commissioner. Contact them to request a correction.",
+                        403
+                    );
+                }
+
+                if (
+                    assignedEmployeeId &&
+                    String(employeeId || "").trim().toLowerCase() !== assignedEmployeeId.toLowerCase()
+                ) {
+                    throw createHttpError(
+                        "Your official employee ID is managed by the Assistant Commissioner. Contact them to request a correction.",
+                        403
+                    );
+                }
+            }
 
             let divisionId = null;
             let zoneId = null;
@@ -1528,53 +1564,6 @@ async function saveProfile(req, res) {
                     jurisdiction
                 ]
             );
-
-            /*
-             * Driver profile -> drivers table synchronization remains intact.
-             */
-            if (user.role === "driver") {
-                if (!wardId) {
-                    throw createHttpError(
-                        "Driver ward assignment is required.",
-                        400
-                    );
-                }
-
-                await connection.execute(
-                    `
-                    INSERT INTO drivers
-                    (
-                        user_id,
-                        employee_id,
-                        full_name,
-                        mobile_number,
-                        email,
-                        license_number,
-                        license_type,
-                        assigned_ward_id
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE
-                        employee_id = VALUES(employee_id),
-                        full_name = VALUES(full_name),
-                        mobile_number = VALUES(mobile_number),
-                        email = VALUES(email),
-                        license_number = VALUES(license_number),
-                        license_type = VALUES(license_type),
-                        assigned_ward_id = VALUES(assigned_ward_id)
-                    `,
-                    [
-                        user.id,
-                        profileEmployeeId,
-                        fullName,
-                        mobileNumber,
-                        user.email,
-                        profileLicenseNumber,
-                        profileLicenseType,
-                        wardId
-                    ]
-                );
-            }
 
             await connection.commit();
 

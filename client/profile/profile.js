@@ -482,6 +482,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 name: "full_name",
                 value: valueOrEmpty(profile.full_name),
                 required: true,
+                readonly: role === "sanitary_inspector" && Boolean(profile.full_name),
                 placeholder: "Enter your full name"
             }),
 
@@ -503,6 +504,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     name: "employee_id",
                     value: valueOrEmpty(profile.employee_id),
                     required: true,
+                    readonly: role === "sanitary_inspector" && Boolean(profile.employee_id),
                     placeholder: "Enter employee ID"
                 })
             );
@@ -830,9 +832,26 @@ document.addEventListener("DOMContentLoaded", async () => {
         /* -------------------------------------------------------------
          * 11. Role-specific guidance.
          * ------------------------------------------------------------- */
-        if (role === "deputy_commissioner") {
+        if (role === "driver") {
+            fieldsContainer.querySelectorAll("input, select, textarea").forEach(control => {
+                control.disabled = true;
+            });
+            if (submitButton) {
+                submitButton.hidden = true;
+                submitButton.disabled = true;
+            }
+            showMessage(
+                "Driver identity, licence details and assigned Ward are maintained by your Inspector. The Driver Dashboard will provide your route and collection workflow.",
+                "info"
+            );
+        } else if (role === "deputy_commissioner") {
             showMessage(
                 "Deputy Commissioner accounts use city-wide scope; division, zone and ward assignment are not required.",
+                "info"
+            );
+        } else if (role === "sanitary_inspector" && profile.division_id && profile.ward_id) {
+            showMessage(
+                "Your official name, employee ID and Ward jurisdiction are controlled by the Assistant Commissioner. Contact them to request an official correction; contact details may be updated here.",
                 "info"
             );
         } else if (
@@ -840,7 +859,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             !(profile.division_id && profile.ward_id)
         ) {
             showMessage(
-                "Personal profile information can be saved now. Your operational dashboard will become available after the Assistant Commissioner assigns your Division and Ward.",
+                "Personal contact information can be saved now. Your official identity and operational dashboard access are controlled by the Assistant Commissioner, who must assign your Division and Ward.",
                 "info"
             );
         } else if (

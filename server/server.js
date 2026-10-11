@@ -15,6 +15,7 @@ const inspectorRoutes = require("./routes/inspectorRoutes");
 const assistantRoutes = require("./routes/assistantRoutes");
 const deputyCommissionerRoutes = require("./routes/deputyCommissionerRoutes");
 const citizenRoutes = require("./routes/citizenRoutes");
+const driverRoutes = require("./routes/driverRoutes");
 
 const {
     requireAuth,
@@ -605,6 +606,7 @@ app.use("/api/inspector", inspectorRoutes);
 app.use("/api/assistant", assistantRoutes);
 app.use("/api/deputy", deputyCommissionerRoutes);
 app.use("/api/citizen", citizenRoutes);
+app.use("/api/driver", driverRoutes);
 
 // ---------------------------------------------------------
 // Health and readiness checks
@@ -640,6 +642,10 @@ const REQUIRED_RUNTIME_TABLES = [
     "wards",
     "routes",
     "route_assignments",
+    "route_stops",
+    "drivers",
+    "vehicles",
+    "inspector_operational_areas",
     "complaints",
     "citizen_account_security",
     "citizen_account_tokens",

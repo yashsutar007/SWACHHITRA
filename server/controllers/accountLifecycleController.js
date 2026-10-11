@@ -140,7 +140,7 @@ async function sendVerification(req, email, token) {
 async function sendPasswordReset(req, email, token) {
     const url = absoluteLink(req, "/resetPassword", token);
     const text = [
-        "A password reset was requested for your SWACHHITRA Citizen account.",
+        "A password reset was requested for your SWACHHITRA account.",
         "Choose a new password using this link:",
         url,
         "This link expires in 30 minutes and works only once. If you did not request a reset, ignore this message."
@@ -347,7 +347,7 @@ async function requestPasswordReset(req, res) {
             [email]
         );
         const user = rows[0];
-        if (user && user.role === "citizen" && user.status === "active") {
+        if (user && ["citizen", "driver", "sanitary_inspector", "assistant_commissioner", "deputy_commissioner"].includes(user.role) && user.status === "active") {
             const token = await issueTokenForUser(Number(user.id), "password_reset");
             try { await sendPasswordReset(req, user.email, token); }
             catch (error) { reportEmailDeliveryError(error, "Password reset"); }
@@ -360,12 +360,12 @@ async function requestPasswordReset(req, res) {
 
     const response = {
         success: true,
-        message: "If this address belongs to an active Citizen account, password reset instructions will be sent. Check Inbox and Spam/Junk.",
+        message: "If this address belongs to an eligible active SWACHHITRA account, password reset instructions will be sent. Check Inbox and Spam/Junk.",
         emailDeliveryMode: emailDeliveryMode()
     };
     if (developmentResetPath) {
         response.developmentResetPath = developmentResetPath;
-        response.message = "If this is an active Citizen account, use the local development password-reset link below. The link appears only for eligible accounts.";
+        response.message = "If this is an eligible active SWACHHITRA account, use the local development password-reset link below. The link appears only for eligible accounts.";
     } else if (response.emailDeliveryMode === "not_configured") {
         response.deliveryHelp = emailDeliveryHelp();
     } else if (response.emailDeliveryMode === "smtp") {
@@ -396,21 +396,39 @@ async function resetPassword(req, res) {
             [hashToken(token)]
         );
         const row = rows[0];
-        if (!row || row.role !== "citizen" || row.status !== "active") {
+        if (!row || !["citizen", "driver", "sanitary_inspector", "assistant_commissioner", "deputy_commissioner"].includes(row.role) || row.status !== "active") {
             await connection.rollback();
             return sendValidationError(res, "INVALID_OR_EXPIRED_TOKEN", "This reset link is invalid or expired. Request a new link.");
         }
 
         const passwordHash = await bcrypt.hash(password, 12);
-        await connection.execute(
-            "UPDATE users SET password_hash = ? WHERE id = ? AND role = 'citizen' AND status = 'active'",
-            [passwordHash, row.user_id]
+        const [passwordUpdate] = await connection.execute(
+            "UPDATE users SET password_hash = ? WHERE id = ? AND role = ? AND status = 'active'",
+            [passwordHash, row.user_id, row.role]
         );
-        const [securityUpdate] = await connection.execute(
-            "UPDATE citizen_account_security SET session_version = session_version + 1 WHERE user_id = ?",
-            [row.user_id]
-        );
-        if (securityUpdate.affectedRows !== 1) throw new Error("Citizen account security record is missing.");
+        if (passwordUpdate.affectedRows !== 1) {
+            await connection.rollback();
+            return sendValidationError(res, "INVALID_OR_EXPIRED_TOKEN", "This reset link is invalid or expired. Request a new link.");
+        }
+
+        if (row.role === "citizen") {
+            const [securityUpdate] = await connection.execute(
+                "UPDATE citizen_account_security SET session_version = session_version + 1 WHERE user_id = ?",
+                [row.user_id]
+            );
+            if (securityUpdate.affectedRows !== 1) throw new Error("Citizen account security record is missing.");
+        } else {
+            // The existing security table also stores session versions for Drivers.
+            // A Driver's email remains unverified/not applicable; only the version is used here.
+            await connection.execute(
+                `INSERT INTO citizen_account_security (user_id, email_verified_at, session_version)
+                 VALUES (?, NULL, 1)
+                 ON DUPLICATE KEY UPDATE
+                    session_version = session_version + 1,
+                    updated_at = CURRENT_TIMESTAMP(3)`,
+                [row.user_id]
+            );
+        }
         await connection.execute(
             "UPDATE citizen_account_tokens SET used_at = COALESCE(used_at, UTC_TIMESTAMP(3)) WHERE user_id = ? AND used_at IS NULL",
             [row.user_id]

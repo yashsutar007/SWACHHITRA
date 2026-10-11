@@ -141,6 +141,19 @@ document.addEventListener("DOMContentLoaded", () => {
         inspectorNavCount: el("inspectorNavCount"),
         inspectorsStatus: el("inspectorsStatus"),
         inspectorsTableBody: el("inspectorsTableBody"),
+        createInspectorAccountButton: el("createInspectorAccountButton"),
+        createInspectorAccountModal: el("createInspectorAccountModal"),
+        closeCreateInspectorAccountModal: el("closeCreateInspectorAccountModal"),
+        createInspectorAccountForm: el("createInspectorAccountForm"),
+        newInspectorFullName: el("newInspectorFullName"),
+        newInspectorEmployeeId: el("newInspectorEmployeeId"),
+        newInspectorEmail: el("newInspectorEmail"),
+        newInspectorMobile: el("newInspectorMobile"),
+        newInspectorWard: el("newInspectorWard"),
+        newInspectorReason: el("newInspectorReason"),
+        createInspectorAccountMessage: el("createInspectorAccountMessage"),
+        cancelCreateInspectorAccountButton: el("cancelCreateInspectorAccountButton"),
+        createInspectorAccountSubmit: el("createInspectorAccountSubmit"),
         operationNavCount: el("operationNavCount"),
         reportNavCount: el("reportNavCount"),
 
@@ -3974,6 +3987,113 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
 
+    function showCreateInspectorAccountMessage(message = "", type = "") {
+        if (!dom.createInspectorAccountMessage) return;
+        dom.createInspectorAccountMessage.textContent = String(message || "");
+        dom.createInspectorAccountMessage.className = "modal-message";
+        if (message) {
+            dom.createInspectorAccountMessage.classList.add("show");
+            if (type) dom.createInspectorAccountMessage.classList.add(type);
+        }
+    }
+
+    function populateInspectorAccountWardSelect() {
+        if (!dom.newInspectorWard) return;
+        const wards = (Array.isArray(state.wards) ? state.wards : []).filter(ward =>
+            Array.isArray(ward?.planning_boundary?.polygon) && ward.planning_boundary.polygon.length >= 3
+        );
+        const options = ['<option value="">Select a Ward with a configured boundary</option>'];
+        for (const ward of wards) {
+            options.push(`
+                <option value="${Number(ward.id)}">
+                    ${escapeHTML(`Ward ${ward.number} - ${ward.name}`)}
+                </option>
+            `);
+        }
+        if (!wards.length) {
+            options[0] = '<option value="">No active Wards with a usable boundary are available</option>';  
+        }
+        dom.newInspectorWard.innerHTML = options.join("");
+        dom.createInspectorAccountSubmit.disabled = wards.length === 0;
+    }
+
+    function openCreateInspectorAccountModal() {
+        if (!dom.createInspectorAccountModal) return;
+        dom.createInspectorAccountForm?.reset();
+        populateInspectorAccountWardSelect();
+        showCreateInspectorAccountMessage("");
+        dom.createInspectorAccountModal.hidden = false;
+        dom.createInspectorAccountModal.setAttribute("aria-hidden", "false");
+        document.body.classList.add("modal-open");
+        window.setTimeout(() => dom.newInspectorFullName?.focus(), 0);
+    }
+
+    function closeCreateInspectorAccountModal() {
+        if (!dom.createInspectorAccountModal) return;
+        dom.createInspectorAccountModal.hidden = true;
+        dom.createInspectorAccountModal.setAttribute("aria-hidden", "true");
+        document.body.classList.remove("modal-open");
+        dom.createInspectorAccountForm?.reset();
+        showCreateInspectorAccountMessage("");
+        if (dom.createInspectorAccountSubmit) {
+            dom.createInspectorAccountSubmit.disabled = false;
+            dom.createInspectorAccountSubmit.textContent = "Create Account";
+        }
+    }
+
+    async function saveInspectorAccount(event) {
+        event.preventDefault();
+        showCreateInspectorAccountMessage("");
+        if (!dom.createInspectorAccountForm?.checkValidity()) {
+            dom.createInspectorAccountForm?.reportValidity();
+            return;
+        }
+
+        const payload = {
+            full_name: String(dom.newInspectorFullName?.value || "").trim(),
+            employee_id: String(dom.newInspectorEmployeeId?.value || "").trim(),
+            email: String(dom.newInspectorEmail?.value || "").trim(),
+            mobile_number: String(dom.newInspectorMobile?.value || "").trim() || null,
+            ward_id: Number(dom.newInspectorWard?.value),
+            reason: String(dom.newInspectorReason?.value || "").trim() || null
+        };
+        if (!Number.isSafeInteger(payload.ward_id) || payload.ward_id <= 0) {
+            showCreateInspectorAccountMessage("Select an active Ward in your assigned Division.", "error");
+            dom.newInspectorWard?.focus();
+            return;
+        }
+
+        const button = dom.createInspectorAccountSubmit;
+        const originalText = button?.textContent || "Create Account";
+        if (button) {
+            button.disabled = true;
+            button.textContent = "Creating…";
+        }
+
+        try {
+            const result = await fetchJSON(`${API_BASE}/inspectors/accounts`, {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+            closeCreateInspectorAccountModal();
+            showToast(result.message || "Inspector login created successfully.");
+            await loadAll();
+        } catch (error) {
+            console.error("Inspector account provisioning failed:", error);
+            if (handleUnauthorized(error)) {
+                closeCreateInspectorAccountModal();
+                return;
+            }
+            showCreateInspectorAccountMessage(error.message || "Unable to create the Inspector account.", "error");
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+    }
+
+
     function renderInspectors() {
         const inspectors =
             Array.isArray(state.inspectors)
@@ -3997,7 +4117,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!inspectors.length) {
             dom.inspectorsTableBody.innerHTML = `
                 <tr>
-                    <td colspan="5" class="table-empty">
+                    <td colspan="6" class="table-empty">
                         No active Sanitary Inspectors are currently available to this division.
                     </td>
                 </tr>
@@ -6019,8 +6139,27 @@ document.addEventListener("DOMContentLoaded", () => {
                     return;
                 }
 
+                if (event.target === dom.createInspectorAccountModal) {
+                    closeCreateInspectorAccountModal();
+                    return;
+                }
+
                 if (event.target === dom.reviewChangeRequestModal) {
                     closeReviewChangeRequestModal();
+                    return;
+                }
+
+                if (event.target.closest("#createInspectorAccountButton")) {
+                    event.preventDefault();
+                    openCreateInspectorAccountModal();
+                    return;
+                }
+
+                if (
+                    event.target === dom.closeCreateInspectorAccountModal ||
+                    event.target === dom.cancelCreateInspectorAccountButton
+                ) {
+                    closeCreateInspectorAccountModal();
                     return;
                 }
 
@@ -6063,6 +6202,11 @@ document.addEventListener("DOMContentLoaded", () => {
         dom.assignInspectorForm?.addEventListener(
             "submit",
             saveInspectorAssignment
+        );
+
+        dom.createInspectorAccountForm?.addEventListener(
+            "submit",
+            saveInspectorAccount
         );
 
         dom.mobileMenuButton?.addEventListener(
@@ -6514,6 +6658,11 @@ document.addEventListener("DOMContentLoaded", () => {
                         !dom.createWardModal.hidden
                     ) {
                         closeCreateWardModal();
+                    } else if (
+                        dom.createInspectorAccountModal &&
+                        !dom.createInspectorAccountModal.hidden
+                    ) {
+                        closeCreateInspectorAccountModal();
                     } else if (
                         dom.assignInspectorModal &&
                         !dom.assignInspectorModal.hidden

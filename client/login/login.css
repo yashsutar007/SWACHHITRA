@@ -464,3 +464,12 @@ button:disabled {
     display: none;
 }
 
+
+
+.staff-access-note {
+    margin: 12px 0 0;
+    color: #687264;
+    font-size: 11px;
+    line-height: 1.5;
+    text-align: center;
+}

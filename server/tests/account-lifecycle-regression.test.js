@@ -56,6 +56,17 @@ async function main() {
         assert.match(controller, /used_at IS NULL AND t\.expires_at > UTC_TIMESTAMP\(3\)/);
     });
 
+    await test("Password reset is available to active users in approved roles without changing Citizen verification rules", async () => {
+        const controller = file("server/controllers/accountLifecycleController.js");
+        assert.match(controller, /\["citizen", "driver", "sanitary_inspector", "assistant_commissioner", "deputy_commissioner"\]\.includes\(user\.role\) && user\.status === "active"/);
+        assert.match(controller, /\["citizen", "driver", "sanitary_inspector", "assistant_commissioner", "deputy_commissioner"\]\.includes\(row\.role\) \|\| row\.status !== "active"/);
+        assert.match(controller, /WHERE id = \? AND role = \? AND status = 'active'/);
+        assert.match(controller, /INSERT INTO citizen_account_security \(user_id, email_verified_at, session_version\)[\s\S]*VALUES \(\?, NULL, 1\)[\s\S]*ON DUPLICATE KEY UPDATE[\s\S]*session_version = session_version \+ 1/);
+        assert.match(controller, /If this address belongs to an eligible active SWACHHITRA account/);
+        // Email verification remains restricted to Citizens.
+        assert.match(controller, /if \(!row \|\| row\.role !== "citizen" \|\| row\.status !== "active"\)/);
+    });
+
     await test("Login and middleware enforce email verification and session-version revocation", async () => {
         const auth = file("server/controllers/authController.js");
         const middleware = file("server/middleware/authMiddleware.js");
@@ -180,7 +191,7 @@ async function main() {
         });
         assert.equal(r.response.status, 200);
         assert.equal(r.body?.success, true);
-        assert.match(r.body?.message || "", /If this address belongs to an active Citizen account/i);
+        assert.match(r.body?.message || "", /If this address belongs to an eligible active SWACHHITRA account/i);
         assert.doesNotMatch(r.body?.message || "", /does not exist|unknown email/i);
     });
 

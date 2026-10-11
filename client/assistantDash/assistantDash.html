@@ -753,6 +753,11 @@
                             <h3>Inspector assignments</h3>
                         </div>
                         <div class="table-toolbar-right">
+                            <button
+                                type="button"
+                                class="primary-button compact-button"
+                                id="createInspectorAccountButton"
+                            >Create Inspector Login</button>
                             <span
                                 class="data-status"
                                 id="inspectorsStatus"
@@ -1428,6 +1433,86 @@
                     >
                         Save Boundary
                     </button>
+                </div>
+            </form>
+        </section>
+    </div>
+
+
+    <!-- =========================================================
+         CREATE INSPECTOR ACCOUNT MODAL
+         ========================================================= -->
+    <div
+        class="modal-overlay"
+        id="createInspectorAccountModal"
+        aria-hidden="true"
+        hidden
+    >
+        <section
+            class="modal-card account-modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="createInspectorAccountModalTitle"
+        >
+            <div class="modal-header">
+                <div>
+                    <span class="eyebrow">AUTHORIZED STAFF ONBOARDING</span>
+                    <h2 id="createInspectorAccountModalTitle">Create Inspector Login</h2>
+                    <p>Create a staff account and assign its initial Ward. The Inspector sets their own password.</p>
+                </div>
+                <button
+                    type="button"
+                    class="modal-close-button"
+                    id="closeCreateInspectorAccountModal"
+                    aria-label="Close"
+                >×</button>
+            </div>
+
+            <form id="createInspectorAccountForm" class="account-form" novalidate>
+                <div class="modal-body">
+                    <div class="account-guidance">
+                        The account is created for the authenticated Assistant Commissioner's Division. A password is never displayed to the creator; the Inspector must use Forgot Password with this email to set a private password.
+                    </div>
+
+                    <div class="form-field">
+                        <label for="newInspectorFullName">Full name <span class="required">*</span></label>
+                        <input id="newInspectorFullName" name="full_name" type="text" maxlength="120" autocomplete="name" required>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="newInspectorEmployeeId">Official employee ID <span class="required">*</span></label>
+                        <input id="newInspectorEmployeeId" name="employee_id" type="text" maxlength="60" autocomplete="off" required>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="newInspectorEmail">Official email / login email <span class="required">*</span></label>
+                        <input id="newInspectorEmail" name="email" type="email" maxlength="190" autocomplete="email" required>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="newInspectorMobile">Mobile number</label>
+                        <input id="newInspectorMobile" name="mobile_number" type="tel" maxlength="20" autocomplete="tel">
+                    </div>
+
+                    <div class="form-field">
+                        <label for="newInspectorWard">Initial Ward assignment <span class="required">*</span></label>
+                        <select id="newInspectorWard" name="ward_id" required>
+                            <option value="">Loading Wards…</option>
+                        </select>
+                        <small>Only active Wards in your assigned Division are available. A usable Ward boundary is required before an Inspector can be provisioned.</small>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="newInspectorReason">Assignment reason</label>
+                        <textarea id="newInspectorReason" name="reason" rows="3" maxlength="500" placeholder="Optional reason for assigning this Inspector to the selected Ward."></textarea>
+                    </div>
+
+                    <div class="modal-message" id="createInspectorAccountMessage" role="status" aria-live="polite"></div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="secondary-button" id="cancelCreateInspectorAccountButton">Cancel</button>
+                    <button type="submit" class="primary-button" id="createInspectorAccountSubmit">Create Account</button>
                 </div>
             </form>
         </section>

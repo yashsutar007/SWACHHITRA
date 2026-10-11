@@ -33,6 +33,7 @@ const {
 } = require("../controllers/inspectorController");
 
 const { getCollectionIntegrity } = require("../controllers/inspectorCollectionIntegrityController");
+const { createDriverLoginAccount } = require("../controllers/driverAccountController");
 const { requireRole } = require("../middleware/authMiddleware");
 const {
     ensureInspectorCsrfToken,
@@ -130,6 +131,7 @@ router.put("/vehicles/:id", requireInspectorWrite, requireInspectorMutationSecur
 router.delete("/vehicles/:id", requireInspectorWrite, requireInspectorMutationSecurity, deleteVehicle);
 
 // Driver mutations.
+router.post("/drivers/:id/account", requireInspectorWrite, requireInspectorMutationSecurity, createDriverLoginAccount);
 router.post("/drivers", requireInspectorWrite, requireInspectorMutationSecurity, createDriver);
 router.put("/drivers/:id", requireInspectorWrite, requireInspectorMutationSecurity, updateDriver);
 router.delete("/drivers/:id", requireInspectorWrite, requireInspectorMutationSecurity, deleteDriver);

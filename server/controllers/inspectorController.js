@@ -4658,6 +4658,7 @@ async function updateDriver(
                 `
                 SELECT
                     d.id,
+                    d.user_id,
                     d.employee_id,
                     d.full_name,
                     d.mobile_number,
@@ -4753,6 +4754,16 @@ async function updateDriver(
                 return res.status(400).json({
                     success: false,
                     message: "Enter a valid email address."
+                });
+            }
+
+            const currentEmail = String(existing.email || "").trim().toLowerCase();
+            const nextEmail = String(value || "").trim().toLowerCase();
+
+            if (existing.user_id && currentEmail !== nextEmail) {
+                return res.status(409).json({
+                    success: false,
+                    message: "This Driver has a linked login. The Registry email cannot be changed independently because it would separate the Registry from the login account."
                 });
             }
 
