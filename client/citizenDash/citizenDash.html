@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SWACHHITRA Citizen Portal for Ward-based sanitation complaints and tracking">
+    <title>SWACHHITRA | Citizen Portal</title>
+    <link rel="stylesheet" href="/citizenDash/citizenDash.css">
+    <script src="/citizenDash/citizenDash.js" defer></script>
+</head>
+<body class="citizen-body">
+<div class="citizen-app" id="citizenApp">
+    <aside class="citizen-sidebar" id="citizenSidebar" aria-label="Citizen navigation">
+        <div class="sidebar-brand-section">
+            <a class="sidebar-brand" href="/citizenDash" aria-label="SWACHHITRA citizen home">
+                <span class="sidebar-logo"><img src="/assets/logo.png" alt=""></span>
+                <span class="sidebar-brand-text"><strong>SWACHHITRA</strong><span>Citizen Services</span></span>
+            </a>
+            <div class="sidebar-role">
+                <span class="role-indicator" aria-hidden="true"></span>
+                <div><span class="role-label">SIGNED IN AS</span><strong>Citizen</strong></div>
+            </div>
+        </div>
+
+        <nav class="sidebar-navigation">
+            <div class="navigation-group">
+                <span class="navigation-title">MY SERVICES</span>
+                <a class="navigation-item active" href="#overview" data-section="overview">
+                    <span class="navigation-item-left">
+                        <span class="navigation-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect></svg></span>
+                        <span>Overview</span>
+                    </span>
+                </a>
+                <a class="navigation-item" href="#reportComplaint" data-section="reportComplaint">
+                    <span class="navigation-item-left">
+                        <span class="navigation-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path><circle cx="12" cy="12" r="9"></circle></svg></span>
+                        <span>Report an issue</span>
+                    </span>
+                </a>
+                <a class="navigation-item" href="#myComplaints" data-section="myComplaints">
+                    <span class="navigation-item-left">
+                        <span class="navigation-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5h11a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"></path><path d="M3 16V4a2 2 0 0 1 2-2h11M10 10h7M10 14h7M10 18h4"></path></svg></span>
+                        <span>My complaints</span>
+                    </span>
+                    <span class="navigation-count muted-count" id="sidebarComplaintCount">0</span>
+                </a>
+            </div>
+
+            <div class="navigation-group">
+                <span class="navigation-title">ACCOUNT</span>
+                <a class="navigation-item" href="#accountArea" data-section="accountArea">
+                    <span class="navigation-item-left">
+                        <span class="navigation-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg></span>
+                        <span>Profile &amp; Ward</span>
+                    </span>
+                </a>
+                <a class="navigation-item" href="/citizenDash/profile">
+                    <span class="navigation-item-left">
+                        <span class="navigation-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11Z"></path><circle cx="12" cy="10" r="2.2"></circle></svg></span>
+                        <span>Update address</span>
+                    </span>
+                </a>
+            </div>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="current-zone-card">
+                <span class="current-zone-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11Z"></path><circle cx="12" cy="10" r="2.2"></circle></svg></span>
+                <div class="current-zone-information"><span>YOUR SERVICE WARD</span><strong id="sidebarWardName">Confirming…</strong></div>
+                <span class="zone-online-dot" aria-label="Account active"></span>
+            </div>
+            <button id="logoutButton" class="logout-link" type="button">
+                <span class="logout-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5M15 12H3"></path><path d="M12 3h6a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3h-6"></path></svg></span>
+                Log out securely
+            </button>
+        </div>
+    </aside>
+
+    <button id="sidebarBackdrop" class="sidebar-backdrop" type="button" aria-label="Close navigation"></button>
+
+    <main class="citizen-main-area">
+        <header class="top-header">
+            <button id="sidebarToggle" class="sidebar-toggle-button" type="button" aria-label="Toggle navigation" aria-expanded="true">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            </button>
+            <div class="header-context"><span class="header-context-eyebrow">SWACHHITRA PORTAL</span><strong>Citizen workspace</strong></div>
+            <div class="header-right">
+                <div class="complaint-search-wrap">
+                    <label class="global-search" for="complaintSearch">
+                        <span class="search-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"></circle><path d="m16 16 4.5 4.5"></path></svg></span>
+                        <input id="complaintSearch" type="search" placeholder="Search complaints by reference, type, or details…" autocomplete="off" aria-label="Search complaints" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="complaintSearchSuggestions">
+                    </label>
+                    <div id="complaintSearchSuggestions" class="complaint-search-suggestions" role="listbox" aria-label="Matching complaints" hidden></div>
+                </div>
+                <span class="system-status"><span class="system-status-dot"></span>Service portal</span>
+                <span class="header-separator" aria-hidden="true"></span>
+                <div class="header-user" aria-label="Signed in Citizen">
+                    <span class="header-avatar" id="headerAvatar">C</span>
+                    <span class="header-user-details"><strong id="headerUserName">Citizen</strong><small id="headerUserEmail">Your account</small></span>
+                </div>
+            </div>
+        </header>
+
+        <div class="page-content" id="pageContent">
+            <div id="dashboardNotice" class="notice" role="status" aria-live="polite"></div>
+
+            <section class="overview-banner" id="overview">
+                <div class="overview-copy">
+                    <span class="shift-pill"><span></span> CITIZEN ACCOUNT ACTIVE</span>
+                    <p class="section-eyebrow">WELCOME TO YOUR SERVICE DESK</p>
+                    <h1 id="welcomeTitle">Welcome to SWACHHITRA</h1>
+                    <p>Report sanitation issues, track their status, and keep your neighbourhood cleaner. Each complaint is routed using the Ward confirmed on your residential profile.</p>
+                    <div class="overview-actions">
+                        <a href="#reportComplaint" class="primary-button link-button"><span aria-hidden="true">＋</span> Report an issue</a>
+                        <a href="#myComplaints" class="secondary-button link-button"><span aria-hidden="true">▤</span> Track complaints</a>
+                    </div>
+                </div>
+                <div class="assigned-zone"><span>YOUR OPERATIONAL WARD</span><strong id="heroWardName">Confirming Ward…</strong><small id="heroDivisionName">Division will appear here</small></div>
+            </section>
+
+            <section class="kpi-section" aria-label="Complaint summary">
+                <article class="kpi-card">
+                    <div class="kpi-header"><span>ALL COMPLAINTS</span><span class="kpi-icon"><svg viewBox="0 0 24 24"><path d="M8 5h11a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"></path><path d="M3 16V4a2 2 0 0 1 2-2h11M10 10h7M10 14h7"></path></svg></span></div>
+                    <div class="kpi-main-line"><strong class="kpi-number" id="statTotal">—</strong><span class="status-pill neutral">Submitted</span></div>
+                    <p class="kpi-description">Complaints submitted from your account.</p>
+                </article>
+                <article class="kpi-card">
+                    <div class="kpi-header"><span>OPEN</span><span class="kpi-icon amber"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span></div>
+                    <div class="kpi-main-line"><strong class="kpi-number" id="statOpen">—</strong><span class="status-pill amber">Awaiting action</span></div>
+                    <p class="kpi-description">Received and waiting for operational action.</p>
+                </article>
+                <article class="kpi-card">
+                    <div class="kpi-header"><span>IN PROGRESS</span><span class="kpi-icon blue"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.35-5.65L4 8.7"></path><path d="M4 4v4.7h4.7M12 8v4l3 2"></path></svg></span></div>
+                    <div class="kpi-main-line"><strong class="kpi-number" id="statProgress">—</strong><span class="status-pill blue">Being handled</span></div>
+                    <p class="kpi-description">Issues currently being worked on.</p>
+                </article>
+                <article class="kpi-card">
+                    <div class="kpi-header"><span>RESOLVED</span><span class="kpi-icon green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="m8 12 2.5 2.5L16.5 9"></path></svg></span></div>
+                    <div class="kpi-main-line"><strong class="kpi-number" id="statResolved">—</strong><span class="status-pill green">Completed</span></div>
+                    <p class="kpi-description">Sanitation issues marked as resolved.</p>
+                </article>
+            </section>
+
+            <section class="citizen-layout-grid">
+                <article class="card-shell account-summary-card" id="accountArea">
+                    <div class="card-heading-row bordered">
+                        <div><p class="section-eyebrow">ACCOUNT &amp; JURISDICTION</p><h2>Your profile and Ward</h2><p>Used for Ward-based complaint routing.</p></div>
+                        <span class="kpi-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg></span>
+                    </div>
+                    <dl class="summary-list">
+                        <div><dt>Account email</dt><dd id="citizenEmail">—</dd></div>
+                        <div><dt>Mobile number</dt><dd id="citizenMobile">—</dd></div>
+                        <div><dt>Residential address</dt><dd id="citizenAddress">—</dd></div>
+                        <div><dt>PIN code</dt><dd id="citizenPin">—</dd></div>
+                    </dl>
+                    <div class="jurisdiction-panel">
+                        <div class="jurisdiction-marker"><svg viewBox="0 0 24 24"><path d="M12 21s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11Z"></path><circle cx="12" cy="10" r="2.2"></circle></svg></div>
+                        <div><span>SERVER-CONFIRMED SERVICE WARD</span><strong id="wardName">Not confirmed</strong><small id="wardDivision">Division unavailable</small></div>
+                    </div>
+                    <div id="wardBoundarySource" class="boundary-source"></div>
+                    <a href="/citizenDash/profile" class="secondary-button link-button full-width">Update residential profile <span aria-hidden="true">↗</span></a>
+                </article>
+
+                <article class="card-shell complaint-create-card" id="reportComplaint">
+                    <div class="card-heading-row bordered">
+                        <div><p class="section-eyebrow">NEW SERVICE REQUEST</p><h2>Report a sanitation issue</h2><p>Your complaint is recorded against your confirmed Ward.</p></div>
+                        <span class="kpi-icon amber"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path><circle cx="12" cy="12" r="9"></circle></svg></span>
+                    </div>
+                    <div class="routing-notice"><span aria-hidden="true">⌖</span><p><strong id="complaintWardNotice">Ward will be confirmed from your profile.</strong><small>Ward routing is decided by the server. You cannot select or override it here.</small></p></div>
+                    <form id="complaintForm" novalidate>
+                        <div class="form-field">
+                            <label for="complaintType">Issue category <span class="required-star">*</span></label>
+                            <select id="complaintType" name="complaint_type" required>
+                                <option value="">Select the closest category</option>
+                                <option>Missed Waste Collection</option>
+                                <option>Illegal Dumping</option>
+                                <option>Overflowing Public Bin</option>
+                                <option>Street Litter / Dirty Area</option>
+                                <option>Blocked Drain</option>
+                                <option>Bulk Waste</option>
+                                <option>Other</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label for="complaintLocation">Issue location / landmark</label>
+                            <input id="complaintLocation" name="location_text" maxlength="255" placeholder="Leave blank to use your profile address">
+                            <small>Enter a street or landmark within your service Ward. Your profile address is used if left blank.</small>
+                        </div>
+                        <div class="form-field">
+                            <label for="complaintDescription">Describe the issue <span class="required-star">*</span></label>
+                            <textarea id="complaintDescription" name="description" rows="5" minlength="15" maxlength="2500" required placeholder="Describe what happened, where it is visible, and any helpful details…"></textarea>
+                            <div class="field-footnote"><small>15–2,500 characters. Do not include passwords or other sensitive details.</small><span id="descriptionCount">0 / 2500</span></div>
+                        </div>
+                        <div class="form-actions">
+                            <button class="secondary-button" type="reset">Clear form</button>
+                            <button id="submitComplaintButton" class="primary-button" type="submit"><span aria-hidden="true">➤</span> Submit complaint</button>
+                        </div>
+                    </form>
+                    <p class="small-disclaimer">Submission requires an active Sanitary Inspector assigned to your Ward. If no Inspector is assigned, the system will tell you and will not silently create an unrouted complaint.</p>
+                </article>
+            </section>
+
+            <section class="card-shell complaints-workspace" id="myComplaints">
+                <div class="complaints-heading">
+                    <div><p class="section-eyebrow">STATUS &amp; FOLLOW-UP</p><h2>My complaints</h2><p>Track your submissions by reference code. Only complaints created by your account appear here.</p></div>
+                    <button id="refreshComplaintsButton" class="secondary-button" type="button"><span aria-hidden="true">↻</span> Refresh</button>
+                </div>
+                <div class="complaint-toolbar">
+                    <div class="filter-tabs" role="group" aria-label="Filter complaints by status">
+                        <button class="filter-tab active" type="button" data-status-filter="all">All <span id="filterCountAll">0</span></button>
+                        <button class="filter-tab" type="button" data-status-filter="open">Open <span id="filterCountOpen">0</span></button>
+                        <button class="filter-tab" type="button" data-status-filter="in_progress">In progress <span id="filterCountProgress">0</span></button>
+                        <button class="filter-tab" type="button" data-status-filter="resolved">Resolved <span id="filterCountResolved">0</span></button>
+                        <button class="filter-tab" type="button" data-status-filter="cancelled">Cancelled <span id="filterCountCancelled">0</span></button>
+                    </div>
+                    <span id="complaintsUpdatedAt" class="refresh-timestamp">Your latest submissions</span>
+                </div>
+                <div id="complaintsList" class="complaints-list" aria-live="polite">
+                    <div class="loading-state"><span class="loading-spinner" aria-hidden="true"></span><p>Loading your complaints…</p></div>
+                </div>
+            </section>
+
+            <footer class="citizen-footer"><span>SWACHHITRA</span> · Smarter routes. Cleaner cities. <span class="footer-separator">|</span> Citizen services are scoped to your confirmed operational Ward.</footer>
+        </div>
+    </main>
+</div>
+</body>
+</html>

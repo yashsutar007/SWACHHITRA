@@ -1,0 +1,47 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Create a Citizen account for SWACHHITRA">
+    <title>SWACHHITRA | Citizen Sign Up</title>
+    <link rel="stylesheet" href="/citizenDash/citizenDash.css">
+</head>
+<body class="auth-body">
+    <main class="auth-shell">
+        <section class="auth-brand">
+            <img src="/assets/logo.png" alt="SWACHHITRA logo" class="auth-logo">
+            <p class="eyebrow">SWACHHITRA · CITIZEN SERVICES</p>
+            <h1>Create your account.</h1>
+            <p class="muted-light">Create one account to maintain your home address and receive Ward-specific sanitation services.</p>
+            <div class="brand-rule"></div>
+            <p class="muted-light small">Ward assignment is determined by a location pin and saved operational boundaries, not by a manually selected Ward.</p>
+        </section>
+
+        <section class="auth-card">
+            <p class="eyebrow">NEW CITIZEN ACCOUNT</p>
+            <h2>Sign up</h2>
+            <p class="subheading">Verify your email address before signing in and setting up your service Ward.</p>
+
+            <form id="citizenRegisterForm" novalidate>
+                <label for="email">Email address</label>
+                <input id="email" name="email" type="email" required maxlength="190" autocomplete="email" placeholder="you@example.com">
+
+                <label for="password">Password</label>
+                <input id="password" name="password" type="password" required minlength="12" maxlength="72" autocomplete="new-password" placeholder="At least 12 characters">
+                <p class="field-hint">Use at least 12 characters. Passwords are never stored as plain text.</p>
+
+                <label for="confirmPassword">Confirm password</label>
+                <input id="confirmPassword" name="confirm_password" type="password" required minlength="12" maxlength="72" autocomplete="new-password" placeholder="Enter the same password again">
+
+                <p id="registerMessage" class="notice" role="status" aria-live="polite"></p>
+                <button id="registerButton" class="button-primary" type="submit">Create account</button>
+            </form>
+
+            <p class="auth-footer">Already registered? <a href="/login">Sign in</a></p>
+        </section>
+    </main>
+    <script src="/citizenDash/citizenRegister.js" defer></script>
+</body>
+</html>

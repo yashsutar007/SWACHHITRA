@@ -929,6 +929,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                  */
                 if (Boolean(result.profileComplete)) {
                     const dashboardPathByRole = {
+                        deputy_commissioner: "/deputyCommissionerDash/",
                         assistant_commissioner: "/assistantDash/",
                         sanitary_inspector: "/inspectorDash/"
                     };

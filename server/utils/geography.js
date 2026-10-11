@@ -1,20 +1,11 @@
-const DEVELOPMENT_DIVISION_OPERATIONAL_BOUNDARIES = {
-    "DIV-1": {
-        source: "development",
-        name: "Divisional Office 1 - Gandhi Maidan",
-        officeLocation: "Divisional Office No. 1, Gandhi Maidan, Shivaji Peth, Kolhapur",
-        center: [16.6928000, 74.2226000],
-        polygon: [
-            [16.7160000, 74.2020000],
-            [16.7200000, 74.2380000],
-            [16.7080000, 74.2600000],
-            [16.6840000, 74.2610000],
-            [16.6660000, 74.2440000],
-            [16.6660000, 74.2100000],
-            [16.6870000, 74.1950000]
-        ]
-    }
-};
+/*
+ * Development division polygons are intentionally disabled.
+ *
+ * Division offices have verified reference locations, but no guessed polygon
+ * is used as a municipal administrative boundary. An official division
+ * boundary can be added later without changing the map/authorization model.
+ */
+const DEVELOPMENT_DIVISION_OPERATIONAL_BOUNDARIES = {};
 
 const DEVELOPMENT_OPERATIONAL_BOUNDARIES = {
     "WARD-10": [
@@ -392,7 +383,7 @@ function toGeoJsonPolygon(polygon) {
 }
 
 async function getWardPlanningBoundary(wardId, wardCode, connection) {
-    const [rows] = await connection.execute(
+    const [officialRows] = await connection.execute(
         `
         SELECT boundary_geojson
         FROM ward_boundaries
@@ -404,13 +395,40 @@ async function getWardPlanningBoundary(wardId, wardCode, connection) {
     );
 
     const officialPolygon = extractPolygonCoordinates(
-        rows[0]?.boundary_geojson
+        officialRows[0]?.boundary_geojson
     );
 
     if (officialPolygon.length >= 3) {
         return {
             source: "official",
             polygon: officialPolygon
+        };
+    }
+
+    /*
+     * Part 4 operational wards may have an Assistant Commissioner-defined
+     * boundary. It is stored as non-official geometry so it can never be
+     * mistaken for verified KMC geography.
+     */
+    const [assistantRows] = await connection.execute(
+        `
+        SELECT boundary_geojson
+        FROM ward_boundaries
+        WHERE ward_id = ?
+          AND is_official = 0
+        LIMIT 1
+        `,
+        [wardId]
+    );
+
+    const assistantPolygon = extractPolygonCoordinates(
+        assistantRows[0]?.boundary_geojson
+    );
+
+    if (assistantPolygon.length >= 3) {
+        return {
+            source: "assistant_defined",
+            polygon: assistantPolygon
         };
     }
 

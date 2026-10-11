@@ -66,6 +66,13 @@ function buildProfileResponse(profile) {
         official_contact_number: profile.official_contact_number,
         address: profile.address,
         city: profile.city,
+        postal_code: profile.postal_code,
+        address_latitude: profile.address_latitude === null || profile.address_latitude === undefined
+            ? null
+            : Number(profile.address_latitude),
+        address_longitude: profile.address_longitude === null || profile.address_longitude === undefined
+            ? null
+            : Number(profile.address_longitude),
         preferred_language: profile.preferred_language,
         notification_preference: profile.notification_preference,
 
@@ -242,6 +249,8 @@ async function getUserWithProfile(userId) {
             u.email,
             u.role,
             u.status,
+            cas.email_verified_at,
+            COALESCE(cas.session_version, 0) AS session_version,
 
             p.user_id AS profile_user_id,
             p.full_name,
@@ -255,6 +264,9 @@ async function getUserWithProfile(userId) {
             p.official_contact_number,
             p.address,
             p.city,
+            p.postal_code,
+            p.address_latitude,
+            p.address_longitude,
             p.preferred_language,
             p.notification_preference,
 
@@ -281,6 +293,9 @@ async function getUserWithProfile(userId) {
             w.ward_name
 
         FROM users u
+
+        LEFT JOIN citizen_account_security cas
+            ON cas.user_id = u.id
 
         LEFT JOIN user_profiles p
             ON p.user_id = u.id
@@ -351,9 +366,13 @@ async function login(req, res) {
                 email,
                 password_hash,
                 role,
-                status
-            FROM users
-            WHERE email = ?
+                status,
+                cas.email_verified_at,
+                COALESCE(cas.session_version, 0) AS session_version
+            FROM users u
+            LEFT JOIN citizen_account_security cas
+                ON cas.user_id = u.id
+            WHERE u.email = ?
             LIMIT 1
             `,
             [email]
@@ -387,12 +406,31 @@ async function login(req, res) {
             });
         }
 
+        if (user.role === "citizen" && !user.email_verified_at) {
+            return res.status(403).json({
+                success: false,
+                code: "EMAIL_NOT_VERIFIED",
+                message: "Verify your email address before signing in. Open the verification page to request a new link."
+            });
+        }
+
         const account = await getUserWithProfile(user.id);
 
         if (!account || account.status !== "active") {
             return res.status(401).json({
                 success: false,
                 message: "Account is no longer active."
+            });
+        }
+
+        if (
+            Number(account.session_version || 0) !== Number(user.session_version || 0) ||
+            (account.role === "citizen" && !account.email_verified_at)
+        ) {
+            return res.status(401).json({
+                success: false,
+                code: "SESSION_STATE_CHANGED",
+                message: "Account security state changed during sign-in. Please try again."
             });
         }
 
@@ -427,6 +465,7 @@ async function login(req, res) {
         req.session.userId = Number(account.id);
         req.session.email = account.email;
         req.session.role = account.role;
+        req.session.sessionVersion = Number(user.session_version || 0);
 
         return res.json({
             success: true,
@@ -435,7 +474,8 @@ async function login(req, res) {
             user: {
                 id: Number(account.id),
                 email: account.email,
-                role: account.role
+                role: account.role,
+                emailVerified: account.role !== "citizen" || Boolean(account.email_verified_at)
             },
 
             profileComplete,
@@ -492,6 +532,18 @@ async function me(req, res) {
             });
         }
 
+        if (
+            Number(req.session.sessionVersion || 0) !== Number(user.session_version || 0) ||
+            (user.role === "citizen" && !user.email_verified_at)
+        ) {
+            req.session.destroy(() => {});
+            return res.status(401).json({
+                success: false,
+                code: user.role === "citizen" && !user.email_verified_at ? "EMAIL_NOT_VERIFIED" : "SESSION_REVOKED",
+                message: "This session is no longer valid. Please sign in again."
+            });
+        }
+
         const sessionEmail = normalizeEmail(
             req.session.email
         );
@@ -535,7 +587,8 @@ async function me(req, res) {
             user: {
                 id: Number(user.id),
                 email: user.email,
-                role: user.role
+                role: user.role,
+                emailVerified: user.role !== "citizen" || Boolean(user.email_verified_at)
             },
 
             profileComplete:
@@ -570,8 +623,18 @@ async function me(req, res) {
  * POST /api/auth/logout
  */
 function logout(req, res) {
+    const cookieName = process.env.NODE_ENV === "production"
+        ? "__Host-swachhitra.sid"
+        : "swachhitra.sid";
+    const cookieOptions = {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/"
+    };
+
     if (!req.session) {
-        res.clearCookie("swachhitra.sid");
+        res.clearCookie(cookieName, cookieOptions);
 
         return res.json({
             success: true,
@@ -592,15 +655,7 @@ function logout(req, res) {
             });
         }
 
-        res.clearCookie(
-            "swachhitra.sid",
-            {
-                httpOnly: true,
-                sameSite: "lax",
-                secure:
-                    process.env.NODE_ENV === "production"
-            }
-        );
+        res.clearCookie(cookieName, cookieOptions);
 
         return res.json({
             success: true,

@@ -1,3 +1,4 @@
+
 /* =========================================================
    SWACHHITRA LOGIN PAGE
    ========================================================= */
@@ -415,3 +416,51 @@ button:disabled {
         transition: none !important;
     }
 }
+
+
+.citizen-signup-link {
+    margin: 18px 0 0;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.citizen-signup-link a {
+    color: var(--olive);
+    font-weight: 800;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+}
+
+.password-recovery-link {
+    margin: 8px 0 0;
+    text-align: right;
+    font-size: 13px;
+}
+
+.password-recovery-link a,
+.verification-help a {
+    color: var(--olive);
+    font-weight: 800;
+    text-decoration: none;
+    text-underline-offset: 3px;
+}
+
+.password-recovery-link a:hover,
+.verification-help a:hover {
+    color: var(--olive-dark);
+    text-decoration: underline;
+}
+
+.verification-help {
+    margin: 12px 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.verification-help[hidden] {
+    display: none;
+}
+

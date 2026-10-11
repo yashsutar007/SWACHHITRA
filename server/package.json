@@ -6,13 +6,21 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "create-user": "node scripts/createUser.js"
+    "create-user": "node scripts/createUser.js",
+    "test:assistant": "node tests/assistant-regression.test.js",
+    "test:citizen": "node tests/citizen-regression.test.js",
+    "test:account-security": "node tests/account-lifecycle-regression.test.js",
+    "check:deploy-config": "node scripts/check-deployment-config.js",
+    "check:deploy-config:production": "node scripts/check-deployment-config.js --production",
+    "test:deployment": "node tests/deployment-readiness.test.js",
+    "test:inspector": "node tests/inspector-regression.test.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.0",
     "dotenv": "^16.0.0",
     "express": "^5.1.0",
     "express-session": "^1.18.0",
-    "mysql2": "^3.0.0"
+    "mysql2": "^3.0.0",
+    "nodemailer": "^7.0.0"
   }
 }

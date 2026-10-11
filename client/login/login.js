@@ -1,3 +1,4 @@
+
 /* =========================================================
    SWACHHITRA LOGIN
    Part 6B - Role-aware, scope-aware redirect
@@ -9,6 +10,8 @@ const password = document.getElementById("password");
 const role = document.getElementById("role");
 const message = document.getElementById("loginMessage");
 const togglePassword = document.getElementById("togglePassword");
+const verifyHelp = document.getElementById("verifyHelp");
+const verifyHelpLink = document.getElementById("verifyHelpLink");
 
 const button = form?.querySelector('button[type="submit"]');
 
@@ -57,7 +60,9 @@ function getSafeRedirect(result) {
      * has assigned the required Division + Ward through the backend.
      */
     if (!profileComplete) {
-        return "/profile";
+        return loggedInRole === "citizen"
+            ? "/citizenDash/profile"
+            : "/profile";
     }
 
     switch (loggedInRole) {
@@ -67,13 +72,15 @@ function getSafeRedirect(result) {
         case "sanitary_inspector":
             return "/inspectorDash";
 
-        /*
-         * These dashboards are not part of the current operational build yet.
-         * Do not redirect users into a nonexistent page.
-         */
-        case "deputy_commissioner":
-        case "driver":
+        /* Citizen has an address-confirmed dashboard; DC now has its protected
+         * city-wide overview. Driver remains on the shared profile until its module is built. */
         case "citizen":
+            return "/citizenDash";
+
+        case "deputy_commissioner":
+            return "/deputyCommissionerDash";
+
+        case "driver":
             return "/profile";
 
         default:
@@ -111,6 +118,7 @@ if (form) {
     form.addEventListener("submit", async event => {
         event.preventDefault();
         showMessage("");
+        if (verifyHelp) verifyHelp.hidden = true;
 
         if (!form.checkValidity()) {
             form.reportValidity();
@@ -167,6 +175,13 @@ if (form) {
                 throw new Error(
                     "The server returned an invalid response."
                 );
+            }
+
+            if (result?.code === "EMAIL_NOT_VERIFIED") {
+                if (verifyHelp) verifyHelp.hidden = false;
+                if (verifyHelpLink) {
+                    verifyHelpLink.href = `/verifyEmail?email=${encodeURIComponent(emailValue)}`;
+                }
             }
 
             if (

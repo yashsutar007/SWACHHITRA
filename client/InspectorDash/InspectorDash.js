@@ -1101,35 +1101,100 @@ function normalizeCollection(raw) {
        API
     ========================================================= */
 
-    let inspectorCsrfToken = null;
+    const INSPECTOR_MUTATION_METHODS = new Set([
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE"
+    ]);
 
-    function isMutatingMethod(method) {
-        return new Set([
-            "POST",
-            "PUT",
-            "PATCH",
-            "DELETE"
-        ]).has(String(method || "GET").toUpperCase());
-    }
+    let inspectorCsrfToken = "";
+    let inspectorCsrfTokenPromise = null;
 
-    async function loadInspectorCsrfToken(forceRefresh = false) {
-        if (inspectorCsrfToken && !forceRefresh) {
+    async function getInspectorCsrfToken(forceRefresh = false) {
+        if (!forceRefresh && inspectorCsrfToken) {
             return inspectorCsrfToken;
         }
 
+        if (!forceRefresh && inspectorCsrfTokenPromise) {
+            return inspectorCsrfTokenPromise;
+        }
+
+        inspectorCsrfTokenPromise = (async () => {
+            const response = await fetch(
+                "/api/inspector/security/csrf-token",
+                {
+                    method: "GET",
+                    credentials: "same-origin",
+                    cache: "no-store",
+                    headers: { Accept: "application/json" }
+                }
+            );
+
+            let result = {};
+            try {
+                result = await response.json();
+            } catch {
+                result = {};
+            }
+
+            if (response.status === 401) {
+                window.location.href = "/login";
+                throw new Error("Authentication required.");
+            }
+
+            if (!response.ok || !result.csrfToken) {
+                throw new Error(
+                    result.message ||
+                    "Unable to load the Inspector security token. Refresh the dashboard and try again."
+                );
+            }
+
+            inspectorCsrfToken = String(result.csrfToken);
+            return inspectorCsrfToken;
+        })();
+
+        try {
+            return await inspectorCsrfTokenPromise;
+        } finally {
+            inspectorCsrfTokenPromise = null;
+        }
+    }
+
+    async function apiRequest(
+        url,
+        options = {},
+        csrfRetry = 0
+    ) {
+        const method = String(options.method || "GET").toUpperCase();
+        const isInspectorMutation =
+            /^\/api\/inspector(?:\/|$)/.test(String(url)) &&
+            INSPECTOR_MUTATION_METHODS.has(method);
+
+        const headers = {
+            Accept: "application/json",
+            ...(options.headers || {})
+        };
+
+        if (options.body && !headers["Content-Type"] && !headers["content-type"]) {
+            headers["Content-Type"] = "application/json";
+        }
+
+        if (isInspectorMutation) {
+            headers["X-CSRF-Token"] = await getInspectorCsrfToken();
+        }
+
         const response = await fetch(
-            "/api/inspector/security/csrf-token",
+            url,
             {
                 credentials: "same-origin",
-                cache: "no-store",
-                headers: {
-                    Accept: "application/json"
-                }
+                ...options,
+                method,
+                headers
             }
         );
 
         let result = {};
-
         try {
             result = await response.json();
         } catch {
@@ -1141,94 +1206,14 @@ function normalizeCollection(raw) {
             throw new Error("Authentication required.");
         }
 
-        if (!response.ok || !result.success || !result.csrfToken) {
-            throw new Error(
-                result.message ||
-                "Unable to establish a secure Inspector session."
-            );
-        }
-
-        inspectorCsrfToken = String(result.csrfToken);
-        return inspectorCsrfToken;
-    }
-
-    async function apiRequest(
-        url,
-        options = {}
-    ) {
-        const method = String(options.method || "GET").toUpperCase();
-        const headers = {
-            ...(options.headers || {}),
-            ...(options.body
-                ? {
-                    "Content-Type":
-                        "application/json"
-                }
-                : {})
-        };
-
-        if (isMutatingMethod(method)) {
-            headers["X-CSRF-Token"] =
-                await loadInspectorCsrfToken();
-        }
-
-        let response = await fetch(
-            url,
-            {
-                credentials: "same-origin",
-                cache: method === "GET"
-                    ? "no-store"
-                    : "no-store",
-                ...options,
-                method,
-                headers
-            }
-        );
-
-        let result = {};
-
-        try {
-            result = await response.json();
-        } catch {
-            result = {};
-        }
-
-        // A rotated/expired CSRF token is recoverable without sending the
-        // user's mutation twice. Fetch a fresh token and retry exactly once.
-        if (
+        const csrfRejected =
             response.status === 403 &&
-            result.code === "CSRF_TOKEN_INVALID" &&
-            isMutatingMethod(method)
-        ) {
-            inspectorCsrfToken = null;
-            headers["X-CSRF-Token"] =
-                await loadInspectorCsrfToken(true);
+            ["CSRF_TOKEN_MISSING", "CSRF_TOKEN_INVALID"].includes(result.code);
 
-            response = await fetch(
-                url,
-                {
-                    credentials: "same-origin",
-                    cache: "no-store",
-                    ...options,
-                    method,
-                    headers
-                }
-            );
-
-            try {
-                result = await response.json();
-            } catch {
-                result = {};
-            }
-        }
-
-        if (response.status === 401) {
-            window.location.href =
-                "/login";
-
-            throw new Error(
-                "Authentication required."
-            );
+        if (isInspectorMutation && csrfRejected && csrfRetry < 1) {
+            inspectorCsrfToken = "";
+            await getInspectorCsrfToken(true);
+            return apiRequest(url, options, csrfRetry + 1);
         }
 
         if (response.status === 403) {
@@ -1241,18 +1226,12 @@ function normalizeCollection(raw) {
         if (response.status === 429) {
             throw new Error(
                 result.message ||
-                "Too many requests. Please wait and try again."
+                "Too many update requests. Please wait briefly and try again."
             );
         }
 
-        if (
-            !response.ok ||
-            result.success === false
-        ) {
-            throw new Error(
-                result.message ||
-                "Request failed."
-            );
+        if (!response.ok || result.success === false) {
+            throw new Error(result.message || "Request failed.");
         }
 
         return result;
@@ -6540,16 +6519,6 @@ editRouteForm?.addEventListener(
 
         if (routeStopSubmitButton) {
             routeStopSubmitButton.textContent = "Add Stop";
-            const route = findRouteById(activeStopRouteId);
-            routeStopSubmitButton.disabled =
-                !routeStopsAreEditable(route);
-        }
-
-        if (routeAddStopButton) {
-            const route = findRouteById(activeStopRouteId);
-            routeAddStopButton.disabled =
-                !routeStopsAreEditable(route) ||
-                !routePlanningArea;
         }
 
         updateSelectedPointStatus();
@@ -6573,17 +6542,11 @@ editRouteForm?.addEventListener(
         );
     }
 
-    function routeStopsAreEditable(route) {
-        return route?.status === "scheduled";
-    }
-
-
     function renderRouteStopList(route) {
         if (!routeStopList) {
             return;
         }
 
-        const editable = routeStopsAreEditable(route);
         const stops =
             (route?.stops || [])
                 .slice()
@@ -6596,11 +6559,7 @@ editRouteForm?.addEventListener(
         if (!stops.length) {
             routeStopList.innerHTML = `
                 <div class="summary-empty">
-                    ${
-                        editable
-                            ? "No stops added yet. Click Add Stops, then place your first collection point inside the highlighted assigned operational area."
-                            : "No route stops are configured for this route. The route is read-only because it has already started or finished."
-                    }
+                    No stops added yet. Click Add Stops, then place your first collection point inside the highlighted assigned operational area.
                 </div>
             `;
             return;
@@ -6630,8 +6589,6 @@ editRouteForm?.addEventListener(
                                 type="button"
                                 data-stop-action="edit"
                                 data-stop-id="${Number(stop.id)}"
-                                ${editable ? "" : "disabled"}
-                                title="${editable ? "Edit stop" : "Route stops are read-only after the route starts."}"
                             >
                                 Edit
                             </button>
@@ -6640,8 +6597,6 @@ editRouteForm?.addEventListener(
                                 class="danger"
                                 data-stop-action="delete"
                                 data-stop-id="${Number(stop.id)}"
-                                ${editable ? "" : "disabled"}
-                                title="${editable ? "Delete stop" : "Route stops are read-only after the route starts."}"
                             >
                                 Delete
                             </button>
@@ -6689,30 +6644,6 @@ editRouteForm?.addEventListener(
 
         resetRouteStopForm();
         renderRouteStopList(route);
-
-        const editable = routeStopsAreEditable(route);
-
-        if (routeAddStopButton) {
-            routeAddStopButton.disabled = !editable || !routePlanningArea;
-            routeAddStopButton.title =
-                editable
-                    ? "Add collection stops inside the assigned operational area."
-                    : "Route stops are read-only after the route starts.";
-        }
-
-        if (routeStopSubmitButton) {
-            routeStopSubmitButton.disabled = !editable;
-        }
-
-        if (routePlanningStatus) {
-            setRoutePlanningStatus(
-                editable
-                    ? "The assigned operational area is fixed. Click Add Stops, then place collection points inside the highlighted boundary."
-                    : "This route is read-only. Route stops cannot be changed after the route starts.",
-                editable ? "success" : "warning"
-            );
-        }
-
         openModal(routeStopModal);
 
         setTimeout(async () => {
@@ -6722,14 +6653,7 @@ editRouteForm?.addEventListener(
     }
 
     function loadStopIntoForm(stop) {
-        const route = findRouteById(activeStopRouteId);
-
         if (!routeStopForm || !stop) {
-            return;
-        }
-
-        if (!routeStopsAreEditable(route)) {
-            showToast("Route stops are read-only after the route starts.");
             return;
         }
 
@@ -6791,11 +6715,6 @@ editRouteForm?.addEventListener(
             const route = findRouteById(
                 activeStopRouteId
             );
-
-            if (!routeStopsAreEditable(route)) {
-                showToast("Route stops are read-only after the route starts.");
-                return;
-            }
 
             routePlanningArea =
                 Array.isArray(route?.planningArea?.polygon)
@@ -6892,11 +6811,6 @@ editRouteForm?.addEventListener(
 
             const action = button.dataset.stopAction;
 
-            if (!routeStopsAreEditable(route)) {
-                showToast("Route stops are read-only after the route starts.");
-                return;
-            }
-
             if (action === "edit") {
                 loadStopIntoForm(stop);
                 return;
@@ -6957,13 +6871,6 @@ editRouteForm?.addEventListener(
                 );
 
             const routeId = Number(data.route_id);
-            const route = findRouteById(routeId);
-
-            if (!routeStopsAreEditable(route)) {
-                showToast("Route stops are read-only after the route starts.");
-                return;
-            }
-
             const stopOrder = Number(data.stop_order);
             const stopName = String(data.stop_name || "").trim();
             const address = String(data.address || "").trim();

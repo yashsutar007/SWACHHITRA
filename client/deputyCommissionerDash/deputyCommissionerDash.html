@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="City-wide operational overview for SWACHHITRA Deputy Commissioner.">
+    <meta name="theme-color" content="#193414">
+    <title>SWACHHITRA | Deputy Commissioner</title>
+    <link rel="stylesheet" href="/deputyCommissionerDash/deputyCommissionerDash.css">
+    <script src="/deputyCommissionerDash/deputyCommissionerDash.js" defer></script>
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar" id="dcSidebar" aria-label="Deputy Commissioner navigation">
+        <a class="brand" href="/deputyCommissionerDash" aria-label="SWACHHITRA City Overview">
+            <span class="brand-logo"><img src="/assets/logo.png" alt=""></span>
+            <span class="brand-copy"><strong>SWACHHITRA</strong><small>Smart Waste Collection &amp; Route Management</small></span>
+        </a>
+
+        <div class="role-card">
+            <span class="role-indicator"></span>
+            <div><span class="eyebrow">ROLE</span><strong>DEPUTY COMMISSIONER</strong></div>
+        </div>
+
+        <nav class="main-nav" aria-label="Dashboard sections">
+            <a class="nav-item active" href="#overview" id="nav-overview" aria-controls="overview" aria-current="page"><span class="nav-icon">⌂</span><span>City Overview</span></a>
+            <a class="nav-item" href="#operational-pulse" id="nav-operational-pulse" aria-controls="operational-pulse"><span class="nav-icon">▥</span><span>Operational Pulse</span></a>
+            <a class="nav-item" href="#daily-collections" id="nav-daily-collections" aria-controls="daily-collections"><span class="nav-icon">◷</span><span>Daily Collections</span></a>
+            <a class="nav-item" href="#division-supervision" id="nav-division-supervision" aria-controls="division-supervision"><span class="nav-icon">▦</span><span>Division &amp; Ward Supervision</span></a>
+            <a class="nav-item" href="#complaint-oversight" id="nav-complaint-oversight" aria-controls="complaint-oversight"><span class="nav-icon">▤</span><span>Complaint Oversight</span></a>
+            <a class="nav-item" href="#fleet-operations" id="nav-fleet-operations" aria-controls="fleet-operations"><span class="nav-icon">▰</span><span>Fleet Operations</span></a>
+            <a class="nav-item" href="#reports-analytics" id="nav-reports-analytics" aria-controls="reports-analytics"><span class="nav-icon">▧</span><span>Reports &amp; Analytics</span></a>
+            <a class="nav-item" href="#security-administration" id="nav-security-administration" aria-controls="security-administration"><span class="nav-icon">▣</span><span>Security &amp; Admin</span></a>
+        </nav>
+
+        <div class="sidebar-foot">
+            <div class="scope-card"><span class="eyebrow">ADMINISTRATIVE SCOPE</span><strong>City-wide</strong><p>Kolhapur Municipal Corporation</p></div>
+            <button class="logout-button" id="logoutButton" type="button"><span>⇥</span> Sign out</button>
+        </div>
+    </aside>
+    <button class="sidebar-backdrop" id="sidebarBackdrop" type="button"
+            aria-label="Close navigation menu" tabindex="-1"></button>
+
+    <main class="main-content">
+        <header class="topbar">
+            <div class="topbar-leading">
+                <button class="sidebar-toggle-button" id="sidebarToggleButton" type="button"
+                        aria-label="Collapse sidebar" aria-expanded="true" aria-controls="dcSidebar"
+                        title="Collapse sidebar">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M4 5h16v14H4z"></path>
+                        <path d="M9 5v14"></path>
+                    </svg>
+                </button>
+                <div class="page-heading">
+                <span class="eyebrow">CITY ADMINISTRATION</span>
+                <h1 id="pageTitle">City Overview</h1>
+                <p id="pageDescription">City-wide waste collection and service operations at a glance.</p>
+                </div>
+            </div>
+            <div class="topbar-actions">
+                <div class="system-pill" id="systemStatus"><span class="status-dot"></span><span id="systemStatusText">Connecting to live data</span></div>
+                <button class="refresh-button" id="refreshButton" type="button"><span aria-hidden="true">↻</span> Refresh data</button>
+            </div>
+        </header>
+
+        <div class="page-content">
+            <section class="dashboard-tab-panel overview-tab is-active" id="overview" aria-labelledby="nav-overview">
+                <section class="welcome-row" id="overviewHeading" aria-labelledby="overviewTitle">
+                <div><span class="eyebrow">EXECUTIVE SNAPSHOT</span><h2 id="overviewTitle">Municipal operations</h2><p>Figures are calculated from the current SWACHHITRA database; they are not live GPS telemetry.</p></div>
+                <div class="last-updated"><span class="eyebrow">LAST UPDATED</span><strong id="lastUpdated">Waiting for data…</strong></div>
+            </section>
+
+            <div class="alert-banner" id="dataAlert" role="status" aria-live="polite" hidden></div>
+
+            <section class="metric-grid" aria-label="City-wide key performance indicators">
+                <article class="metric-card metric-green"><div class="metric-top"><span class="metric-label">Active divisions</span><span class="metric-symbol">▦</span></div><strong class="metric-value" id="activeDivisions">—</strong><div class="metric-foot"><span id="divisionSubtext">of — divisions</span><span class="metric-foot-label">ADMIN</span></div></article>
+                <article class="metric-card"><div class="metric-top"><span class="metric-label">Active wards</span><span class="metric-symbol">⌖</span></div><strong class="metric-value" id="activeWards">—</strong><div class="metric-foot"><span id="wardSubtext">of — wards</span><span class="metric-foot-label">SERVICE AREAS</span></div></article>
+                <article class="metric-card"><div class="metric-top"><span class="metric-label">Assigned inspectors</span><span class="metric-symbol">♙</span></div><strong class="metric-value" id="assignedInspectors">—</strong><div class="metric-foot"><span id="inspectorSubtext">of — active inspectors</span><span class="metric-foot-label">STAFF</span></div></article>
+                <article class="metric-card"><div class="metric-top"><span class="metric-label">Operational vehicles</span><span class="metric-symbol">▰</span></div><strong class="metric-value" id="operationalVehicles">—</strong><div class="metric-foot"><span id="vehicleSubtext">of — vehicles</span><span class="metric-foot-label">FLEET</span></div></article>
+                <article class="metric-card"><div class="metric-top"><span class="metric-label">Routes in progress</span><span class="metric-symbol">↗</span></div><strong class="metric-value" id="activeRoutes">—</strong><div class="metric-foot"><span id="routeSubtext">— delayed routes</span><span class="metric-foot-label">ROUTES</span></div></article>
+                <article class="metric-card metric-amber"><div class="metric-top"><span class="metric-label">Open complaints</span><span class="metric-symbol">!</span></div><strong class="metric-value" id="openComplaints">—</strong><div class="metric-foot"><span id="complaintSubtext">— critical open</span><span class="metric-foot-label">CITIZEN SERVICE</span></div></article>
+                <article class="metric-card"><div class="metric-top"><span class="metric-label">Collections today</span><span class="metric-symbol">✓</span></div><strong class="metric-value" id="todayCollections">—</strong><div class="metric-foot"><span id="collectionSubtext">— completed</span><span class="metric-foot-label">TODAY</span></div></article>
+                <article class="metric-card metric-green"><div class="metric-top"><span class="metric-label">Waste collected today</span><span class="metric-symbol">♻</span></div><strong class="metric-value" id="todayWaste">—</strong><div class="metric-foot"><span>Recorded collection weight</span><span class="metric-foot-label">TONNES</span></div></article>
+            </section>
+            </section>
+
+            <section class="content-grid dashboard-tab-panel" id="operational-pulse" aria-labelledby="nav-operational-pulse" hidden>
+                <article class="panel">
+                    <div class="panel-heading"><div><span class="eyebrow">ROUTE MONITORING</span><h2>Route status distribution</h2></div><span class="panel-tag" id="totalRoutesTag">— total</span></div>
+                    <div class="status-list" id="routeStatusList"><div class="loading-line">Loading route status…</div></div>
+                </article>
+                <article class="panel">
+                    <div class="panel-heading"><div><span class="eyebrow">CITIZEN SERVICE</span><h2>Complaint status</h2></div><span class="panel-tag" id="totalComplaintsTag">— total</span></div>
+                    <div class="status-list" id="complaintStatusList"><div class="loading-line">Loading complaint status…</div></div>
+                    <div class="panel-note" id="criticalComplaintNote">Critical complaint counts will appear when data loads.</div>
+                </article>
+            </section>
+
+            <section class="panel collections-panel dashboard-tab-panel" id="daily-collections" aria-labelledby="nav-daily-collections" hidden>
+                <div class="panel-heading"><div><span class="eyebrow">COLLECTION TREND</span><h2>Recorded collections · last 7 days</h2><p>Bar height shows collected tonnes per day.</p></div><div class="panel-tag" id="trendSummary">— tonnes in 7 days</div></div>
+                <div class="trend-chart" id="collectionTrend" role="img" aria-label="Recorded collection tonnes during the last seven days"><div class="loading-line">Loading collection trend…</div></div>
+                <div class="panel-footer-note">This chart uses stored collection records. Vehicle GPS/live tracking will be developed separately.</div>
+            </section>
+
+
+            <section class="complaint-oversight-section dashboard-tab-panel" id="complaint-oversight" aria-labelledby="nav-complaint-oversight" hidden>
+                <div class="division-section-heading">
+                    <div>
+                        <span class="eyebrow">PART 3 · CITY-WIDE SERVICE REVIEW</span>
+                        <h2 id="complaintOversightTitle">Complaint Oversight &amp; Escalation</h2>
+                        <p>Review the city-wide complaint queue, identify high-priority and ageing cases, and notify the responsible Inspector and divisional Assistant Commissioner when a case needs attention.</p>
+                    </div>
+                    <button class="refresh-button" id="refreshComplaintsButton" type="button"><span aria-hidden="true">↻</span> Refresh complaints</button>
+                </div>
+                <div class="supervision-notice" role="note">Escalation sends an in-app notification to active Inspector accounts assigned to the complaint's Ward and the active Assistant Commissioner assigned to its Division. Complaint status is not changed. Complaints without a valid Ward/Division assignment cannot be escalated through this workflow.</div>
+                <div class="complaint-alert" id="complaintAlert" role="status" aria-live="polite" hidden></div>
+                <div class="complaint-summary-grid" aria-label="Complaint oversight summary">
+                    <article class="complaint-summary-card"><span>Total complaints</span><strong id="complaintTotalCount">—</strong><small>Across all recorded statuses</small></article>
+                    <article class="complaint-summary-card complaint-summary-open"><span>Open / in progress</span><strong id="complaintOpenCount">—</strong><small>Require operational attention</small></article>
+                    <article class="complaint-summary-card complaint-summary-critical"><span>Critical active</span><strong id="complaintCriticalCount">—</strong><small>Open or in progress</small></article>
+                    <article class="complaint-summary-card complaint-summary-overdue"><span>Age ≥ 48 hours</span><strong id="complaintOverdueCount">—</strong><small>Open or in progress</small></article>
+                </div>
+                <div class="complaint-filter-bar" role="search" aria-label="Filter complaints">
+                    <label for="complaintSearchInput">Search complaints<input id="complaintSearchInput" type="search" maxlength="120" placeholder="Code, type, description, Ward…" autocomplete="off"></label>
+                    <label for="complaintStatusFilter">Status<select id="complaintStatusFilter"><option value="all">All statuses</option><option value="open">Open</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option><option value="cancelled">Cancelled</option></select></label>
+                    <label for="complaintPriorityFilter">Priority<select id="complaintPriorityFilter"><option value="all">All priorities</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></label>
+                    <label for="complaintDivisionFilter">Division<select id="complaintDivisionFilter"><option value="all">All divisions</option></select></label>
+                    <label for="complaintWardFilter">Ward<select id="complaintWardFilter" disabled><option value="all">Select a Division first</option></select></label>
+                    <label for="complaintDateFrom">Reported from<input id="complaintDateFrom" type="date"></label>
+                    <label for="complaintDateTo">Reported to<input id="complaintDateTo" type="date"></label>
+                    <button class="filter-button" id="applyComplaintFiltersButton" type="button">Apply filters</button>
+                </div>
+                <div class="complaint-results-line" id="complaintResultsLine" aria-live="polite">Loading complaint records…</div>
+                <div class="table-scroll complaint-table-scroll">
+                    <table class="complaint-table">
+                        <thead><tr>
+                            <th scope="col">Priority</th><th scope="col">Complaint</th><th scope="col">Ward / location</th><th scope="col">Division</th><th scope="col">Status</th><th scope="col">Reported</th><th scope="col">Age</th><th scope="col">Current assignment</th><th scope="col">Action</th>
+                        </tr></thead>
+                        <tbody id="complaintTableBody"><tr><td colspan="9" class="table-empty">Loading complaint records…</td></tr></tbody>
+                    </table>
+                </div>
+                <div class="panel-footer-note">Up to 250 matching records are displayed. Age is calculated from the recorded report time. “Escalate” creates notifications; it does not resolve the complaint or replace Inspector workflow.</div>
+            </section>
+
+
+
+            <dialog class="escalation-dialog" id="escalationDialog" aria-labelledby="escalationDialogTitle">
+                <form id="escalationForm" class="escalation-form">
+                    <span class="eyebrow">SUPERVISORY ACTION</span>
+                    <h2 id="escalationDialogTitle">Escalate complaint</h2>
+                    <p id="escalationComplaintSummary">Add a clear reason for the escalation.</p>
+                    <input type="hidden" id="escalationComplaintId" name="complaintId">
+                    <label for="escalationNote">Escalation note</label>
+                    <textarea id="escalationNote" name="note" rows="4" minlength="10" maxlength="500" required placeholder="Explain why this case needs additional attention (10–500 characters)."></textarea>
+                    <div class="escalation-note-help">The note will be included in notifications to the assigned active Inspector(s) and the active Assistant Commissioner for this Division.</div>
+                    <div class="escalation-form-alert" id="escalationFormAlert" role="status" aria-live="polite" hidden></div>
+                    <div class="escalation-form-actions"><button class="detail-close-button" id="cancelEscalationButton" type="button">Cancel</button><button class="escalate-submit-button" id="submitEscalationButton" type="submit">Send escalation</button></div>
+                </form>
+            </dialog>
+
+            <section class="division-supervision-section dashboard-tab-panel" id="division-supervision" aria-labelledby="nav-division-supervision" hidden>
+                <div class="division-section-heading">
+                    <div>
+                        <span class="eyebrow">PART 2 · ADMINISTRATIVE COMPARISON</span>
+                        <h2 id="divisionSupervisionTitle">Division &amp; Ward Supervision</h2>
+                        <p>Compare recorded service activity across Divisions, then open a Division to inspect its Ward-level coverage.</p>
+                    </div>
+                    <button class="refresh-button" id="refreshDivisionsButton" type="button"><span aria-hidden="true">↻</span> Refresh divisions</button>
+                </div>
+                <div class="supervision-notice" role="note">
+                    Figures reflect current SWACHHITRA records and saved Division/Ward assignments. They may be incomplete and do not certify official municipal boundaries. Collection metrics count recorded entries from the last seven calendar days; GPS status is not implied.
+                </div>
+                <div class="division-alert" id="divisionAlert" role="status" aria-live="polite" hidden></div>
+                <div class="division-grid" id="divisionGrid" aria-live="polite">
+                    <div class="loading-line">Loading divisional summaries…</div>
+                </div>
+
+                <section class="panel ward-detail-panel" id="wardDetailPanel" aria-labelledby="wardDetailTitle" hidden>
+                    <div class="panel-heading ward-detail-heading">
+                        <div>
+                            <span class="eyebrow">WARD-LEVEL BREAKDOWN</span>
+                            <h2 id="wardDetailTitle">Select a Division</h2>
+                            <p id="wardDetailSubtitle">Ward records and service indicators will appear here.</p>
+                        </div>
+                        <button class="detail-close-button" id="closeWardDetailButton" type="button" aria-label="Close Ward details">Close</button>
+                    </div>
+                    <div class="ward-detail-summary" id="wardDetailSummary"></div>
+                    <div class="table-scroll">
+                        <table class="ward-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Ward</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col">Active Inspector(s)</th>
+                                    <th scope="col">Routes</th>
+                                    <th scope="col">Open complaints</th>
+                                    <th scope="col">Collections · 7d</th>
+                                    <th scope="col">Waste · 7d</th>
+                                </tr>
+                            </thead>
+                            <tbody id="wardTableBody"><tr><td colspan="7" class="table-empty">Select a Division to load Ward records.</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="panel-footer-note">Inspector names reflect active Inspector accounts whose current profile is assigned to each Ward. This view is read-only.</div>
+                </section>
+            </section>
+
+            <section class="fleet-operations-section dashboard-tab-panel" id="fleet-operations" aria-labelledby="nav-fleet-operations" hidden>
+                <div class="division-section-heading">
+                    <div>
+                        <span class="eyebrow">PART 4 · CITY-WIDE FLEET REVIEW</span>
+                        <h2 id="fleetOperationsTitle">Fleet &amp; Operations</h2>
+                        <p>Review recorded vehicle condition, current route assignments, driver availability and route progress across the city.</p>
+                    </div>
+                    <button class="refresh-button" id="refreshFleetButton" type="button"><span aria-hidden="true">↻</span> Refresh fleet</button>
+                </div>
+                <div class="supervision-notice" role="note">Vehicle-to-Ward association is derived through saved route assignments. Statuses, load and ETA are the values recorded in SWACHHITRA. This section does not provide live GPS tracking and does not change fleet, driver, route or assignment records.</div>
+                <div class="fleet-alert" id="fleetAlert" role="status" aria-live="polite" hidden></div>
+                <div class="fleet-summary-grid" aria-label="Fleet and route summary">
+                    <article class="fleet-summary-card"><span>Total vehicles</span><strong id="fleetVehicleTotal">—</strong><small>All recorded vehicles</small></article>
+                    <article class="fleet-summary-card fleet-summary-green"><span>Operational vehicles</span><strong id="fleetVehicleOperational">—</strong><small>Available, en route, collecting or delayed</small></article>
+                    <article class="fleet-summary-card fleet-summary-alert"><span>Maintenance</span><strong id="fleetVehicleMaintenance">—</strong><small>Recorded maintenance status</small></article>
+                    <article class="fleet-summary-card"><span>Current assignments</span><strong id="fleetCurrentAssignments">—</strong><small>Assigned, active or delayed and not unassigned</small></article>
+                    <article class="fleet-summary-card"><span>Available drivers</span><strong id="fleetDriverAvailable">—</strong><small>Based on saved driver status</small></article>
+                </div>
+                <div class="fleet-filter-bar" role="search" aria-label="Filter fleet and route records">
+                    <label for="fleetSearchInput">Search vehicles, routes, Wards or drivers<input id="fleetSearchInput" type="search" maxlength="100" placeholder="Vehicle number, route, Ward, driver…" autocomplete="off"></label>
+                    <label for="fleetVehicleStatusFilter">Vehicle status<select id="fleetVehicleStatusFilter"><option value="all">All vehicle statuses</option><option value="available">Available</option><option value="en_route">En route</option><option value="collecting">Collecting</option><option value="delayed">Delayed</option><option value="maintenance">Maintenance</option><option value="inactive">Inactive</option></select></label>
+                    <label for="fleetRouteStatusFilter">Route status<select id="fleetRouteStatusFilter"><option value="all">All route statuses</option><option value="scheduled">Scheduled</option><option value="starting">Starting</option><option value="active">Active</option><option value="delayed">Delayed</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></label>
+                    <button class="filter-button" id="applyFleetFiltersButton" type="button">Apply filters</button>
+                </div>
+                <section class="panel fleet-table-panel" aria-labelledby="fleetVehicleTableTitle">
+                    <div class="panel-heading"><div><span class="eyebrow">VEHICLE REGISTER</span><h2 id="fleetVehicleTableTitle">Vehicle status &amp; current assignment</h2><p id="fleetVehicleResultsLine">Loading vehicles…</p></div><span class="panel-tag" id="fleetVehicleTag">— vehicles</span></div>
+                    <div class="table-scroll fleet-table-scroll">
+                        <table class="fleet-table">
+                            <thead><tr><th scope="col">Vehicle</th><th scope="col">Type / make</th><th scope="col">Recorded status</th><th scope="col">Current route</th><th scope="col">Ward / zone</th><th scope="col">Assigned driver</th><th scope="col">Recorded load</th><th scope="col">Saved ETA</th><th scope="col">Assignment status</th></tr></thead>
+                            <tbody id="fleetVehicleTableBody"><tr><td colspan="9" class="table-empty">Loading vehicle records…</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="panel-footer-note">The vehicle list is capped at 250 matching records. Vehicle numbers and operational assignment details are displayed; personal driver contact and licence details are excluded.</div>
+                </section>
+                <section class="panel fleet-table-panel" aria-labelledby="fleetRouteTableTitle">
+                    <div class="panel-heading"><div><span class="eyebrow">ROUTE OPERATIONS</span><h2 id="fleetRouteTableTitle">Route progress &amp; crew assignment</h2><p id="fleetRouteResultsLine">Loading routes…</p></div><span class="panel-tag" id="fleetRouteTag">— routes</span></div>
+                    <div class="table-scroll fleet-table-scroll">
+                        <table class="fleet-table fleet-route-table">
+                            <thead><tr><th scope="col">Route</th><th scope="col">Status</th><th scope="col">Ward / zone</th><th scope="col">Schedule</th><th scope="col">Stops completed</th><th scope="col">Recorded delay</th><th scope="col">Vehicle</th><th scope="col">Driver</th></tr></thead>
+                            <tbody id="fleetRouteTableBody"><tr><td colspan="8" class="table-empty">Loading route records…</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="panel-footer-note">Route progress and crew assignments come from saved route, stop and assignment records. No route or vehicle state is modified from this dashboard.</div>
+                </section>
+            </section>
+
+
+            
+
+            <section class="reports-analytics-section dashboard-tab-panel" id="reports-analytics" aria-labelledby="nav-reports-analytics" hidden>
+                <div class="division-section-heading reports-heading">
+                    <div>
+                        <span class="eyebrow">PART 5 · HISTORICAL PERFORMANCE</span>
+                        <h2 id="reportsAnalyticsTitle">Reports &amp; Analytics</h2>
+                        <p>Explore recorded collections, complaint outcomes, route performance, and Division comparisons for a selected reporting period.</p>
+                    </div>
+                    <div class="reports-heading-actions">
+                        <button class="refresh-button" id="refreshReportsButton" type="button"><span aria-hidden="true">↻</span> Refresh report</button>
+                        <button class="filter-button reports-export-button" id="exportReportsButton" type="button" disabled>Export CSV</button>
+                    </div>
+                </div>
+                <div class="supervision-notice" role="note">Reports use saved records only. Complaints are grouped by their reported date and show their current status; routes use scheduled start time, or route creation date when no schedule is saved. Division comparisons depend on a saved Ward-to-Division mapping. Records without that mapping still contribute to city-wide totals but cannot be assigned to a Division row.</div>
+                <div class="reports-filter-bar" aria-label="Report date range">
+                    <label for="reportDateFrom">From date<input id="reportDateFrom" type="date" required></label>
+                    <label for="reportDateTo">To date<input id="reportDateTo" type="date" required></label>
+                    <button class="filter-button" id="applyReportFiltersButton" type="button">Apply date range</button>
+                    <span class="reports-period-caption" id="reportsPeriodCaption" aria-live="polite">Choose a date range to load report data.</span>
+                </div>
+                <div class="reports-alert" id="reportsAlert" role="status" aria-live="polite" hidden></div>
+                <div class="report-summary-grid" aria-label="Reporting period summary">
+                    <article class="report-summary-card"><span>Collection records</span><strong id="reportCollectionRecords">—</strong><small id="reportCollectionSubtext">Saved collection entries</small></article>
+                    <article class="report-summary-card report-summary-green"><span>Completed collections</span><strong id="reportCollectedRecords">—</strong><small>Records marked collected</small></article>
+                    <article class="report-summary-card report-summary-green"><span>Waste collected</span><strong id="reportWasteTons">—</strong><small>Recorded tonnes from completed collections</small></article>
+                    <article class="report-summary-card"><span>Complaints reported</span><strong id="reportComplaints">—</strong><small>Based on reported date</small></article>
+                    <article class="report-summary-card report-summary-alert"><span>Active complaints</span><strong id="reportActiveComplaints">—</strong><small id="reportCriticalComplaints">— critical active</small></article>
+                    <article class="report-summary-card"><span>Routes in period</span><strong id="reportRoutes">—</strong><small id="reportCompletedRoutes">— completed</small></article>
+                </div>
+
+                <section class="panel report-panel" aria-labelledby="reportTrendTitle">
+                    <div class="panel-heading"><div><span class="eyebrow">COLLECTION HISTORY</span><h2 id="reportTrendTitle">Daily collected waste</h2><p>Recorded tonnes by collection date. Scroll horizontally for longer reporting periods.</p></div><span class="panel-tag" id="reportTrendTag">— days</span></div>
+                    <div class="report-trend-scroll"><div class="report-trend-chart" id="reportCollectionTrend" role="img" aria-label="Daily recorded waste collection amounts"><div class="loading-line">Loading collection history…</div></div></div>
+                    <div class="panel-footer-note">Only entries marked “collected” contribute waste tonnes. Missing dates are displayed as zero for continuity.</div>
+                </section>
+
+                <div class="report-status-grid">
+                    <section class="panel report-panel" aria-labelledby="reportCollectionStatusTitle">
+                        <div class="panel-heading"><div><span class="eyebrow">COLLECTIONS</span><h2 id="reportCollectionStatusTitle">Collection status</h2></div><span class="panel-tag" id="reportCollectionStatusTotal">— records</span></div>
+                        <div class="report-status-list" id="reportCollectionStatuses"><div class="loading-line">Loading status data…</div></div>
+                    </section>
+                    <section class="panel report-panel" aria-labelledby="reportComplaintStatusTitle">
+                        <div class="panel-heading"><div><span class="eyebrow">CITIZEN SERVICE</span><h2 id="reportComplaintStatusTitle">Complaint status</h2><p>Current state of complaints reported in the selected period.</p></div><span class="panel-tag" id="reportComplaintStatusTotal">— complaints</span></div>
+                        <div class="report-status-list" id="reportComplaintStatuses"><div class="loading-line">Loading status data…</div></div>
+                    </section>
+                    <section class="panel report-panel" aria-labelledby="reportRouteStatusTitle">
+                        <div class="panel-heading"><div><span class="eyebrow">ROUTE OPERATIONS</span><h2 id="reportRouteStatusTitle">Route status</h2></div><span class="panel-tag" id="reportRouteStatusTotal">— routes</span></div>
+                        <div class="report-status-list" id="reportRouteStatuses"><div class="loading-line">Loading status data…</div></div>
+                    </section>
+                </div>
+
+                <section class="panel report-panel report-division-panel" aria-labelledby="reportDivisionTitle">
+                    <div class="panel-heading"><div><span class="eyebrow">ADMINISTRATIVE COMPARISON</span><h2 id="reportDivisionTitle">Division performance</h2><p>Compare saved collection activity, reported complaints, and route progress by Division.</p></div><span class="panel-tag" id="reportDivisionTag">— divisions</span></div>
+                    <div class="table-scroll report-division-scroll">
+                        <table class="report-division-table">
+                            <thead><tr><th scope="col">Division</th><th scope="col">Collection records</th><th scope="col">Collected tonnes</th><th scope="col">Complaints reported</th><th scope="col">Active complaints</th><th scope="col">Critical active</th><th scope="col">Routes in period</th><th scope="col">Completed routes</th><th scope="col">Delayed routes</th></tr></thead>
+                            <tbody id="reportDivisionTableBody"><tr><td colspan="9" class="table-empty">Loading Division comparison…</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="panel-footer-note">This comparison is based on existing records and current statuses, not an audit of historical status changes. No records are changed by generating or exporting a report.</div>
+                </section>
+            </section>
+
+
+
+            <section class="security-admin-section dashboard-tab-panel" id="security-administration" aria-labelledby="nav-security-administration" hidden>
+                <div class="division-section-heading security-admin-heading">
+                    <div>
+                        <span class="eyebrow">PART 6 · ACCESS GOVERNANCE</span>
+                        <h2 id="securityAdminTitle">Security &amp; Administration</h2>
+                        <p>Review staff access and apply controlled account-status changes with a required reason and a recorded audit trail.</p>
+                    </div>
+                    <div class="security-admin-actions">
+                        <button class="refresh-button" id="refreshSecurityButton" type="button"><span aria-hidden="true">↻</span> Refresh security</button>
+                    </div>
+                </div>
+                <div class="supervision-notice" role="note">These controls manage only Sanitary Inspector and Assistant Commissioner accounts. Citizen accounts, Deputy Commissioner accounts, your own account, roles, passwords and operational records cannot be changed here. Deactivating or reactivating an eligible account invalidates its saved sessions.</div>
+                <div class="security-alert" id="securityAlert" role="status" aria-live="polite" hidden></div>
+
+                <div class="security-summary-grid" aria-label="Staff access summary">
+                    <article class="security-summary-card"><span>Managed staff accounts</span><strong id="securityManagedAccounts">—</strong><small>Assistant Commissioners and Inspectors</small></article>
+                    <article class="security-summary-card security-summary-green"><span>Active accounts</span><strong id="securityActiveAccounts">—</strong><small>Can sign in when other access checks pass</small></article>
+                    <article class="security-summary-card security-summary-amber"><span>Inactive accounts</span><strong id="securityInactiveAccounts">—</strong><small>Rejected by the current authentication middleware</small></article>
+                    <article class="security-summary-card"><span>Active Assistant Commissioners</span><strong id="securityActiveAssistants">—</strong><small>The final active AC is protected from deactivation</small></article>
+                    <article class="security-summary-card"><span>Active Inspectors</span><strong id="securityActiveInspectors">—</strong><small>Current saved account statuses</small></article>
+                    <article class="security-summary-card security-summary-amber"><span>Incomplete operational scope</span><strong id="securityScopeIssues">—</strong><small>Missing Division or required Ward assignment</small></article>
+                </div>
+
+                <div class="security-filter-bar" role="search" aria-label="Filter staff accounts">
+                    <label for="securitySearchInput">Search staff accounts<input id="securitySearchInput" type="search" maxlength="100" placeholder="Account ID, name or email…" autocomplete="off"></label>
+                    <label for="securityRoleFilter">Staff role<select id="securityRoleFilter"><option value="all">All managed staff</option><option value="assistant_commissioner">Assistant Commissioner</option><option value="sanitary_inspector">Sanitary Inspector</option></select></label>
+                    <label for="securityStatusFilter">Account status<select id="securityStatusFilter"><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
+                    <button class="filter-button" id="applySecurityFiltersButton" type="button">Apply filters</button>
+                </div>
+                <section class="panel security-table-panel" aria-labelledby="staffAccessTableTitle">
+                    <div class="panel-heading"><div><span class="eyebrow">STAFF ACCESS REGISTER</span><h2 id="staffAccessTableTitle">Account access and operational scope</h2><p id="securityAccountResultsLine">Loading staff access records…</p></div><span class="panel-tag" id="securityAccountTag">— accounts</span></div>
+                    <div class="table-scroll security-table-scroll">
+                        <table class="security-table">
+                            <thead><tr><th scope="col">Staff account</th><th scope="col">Role</th><th scope="col">Operational scope</th><th scope="col">Status</th><th scope="col">Last updated</th><th scope="col">Controlled action</th></tr></thead>
+                            <tbody id="securityAccountTableBody"><tr><td colspan="6" class="table-empty">Loading staff access records…</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="panel-footer-note">The table is capped at 250 matching staff accounts. Scope details are informational; this section does not reassign Divisions or Wards.</div>
+                </section>
+
+                <section class="panel security-table-panel" aria-labelledby="securityAuditTableTitle">
+                    <div class="panel-heading"><div><span class="eyebrow">ADMINISTRATIVE AUDIT</span><h2 id="securityAuditTableTitle">Recent account-status actions</h2><p>Latest logged requests and results from this application instance.</p></div><span class="panel-tag" id="securityAuditTag">— events</span></div>
+                    <div class="table-scroll security-audit-scroll">
+                        <table class="security-table security-audit-table">
+                            <thead><tr><th scope="col">Time</th><th scope="col">Outcome</th><th scope="col">Actor / target</th><th scope="col">Status change</th><th scope="col">Reason</th><th scope="col">Sessions invalidated</th></tr></thead>
+                            <tbody id="securityAuditTableBody"><tr><td colspan="6" class="table-empty">Loading audit events…</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="panel-footer-note">Audit records are written to a JSONL file on the application server. Protect the server filesystem and include this log in operational backup/retention procedures; this file is not a tamper-proof or centralized audit store.</div>
+                </section>
+            </section>
+
+            <dialog class="security-action-dialog" id="staffAccountDialog" aria-labelledby="staffAccountDialogTitle">
+                <form id="staffAccountForm">
+                    <div class="dialog-heading"><div><span class="eyebrow">CONFIRM ACCOUNT CHANGE</span><h2 id="staffAccountDialogTitle">Change staff account status</h2></div><button class="dialog-close" id="cancelStaffAccountX" type="button" aria-label="Close dialog">×</button></div>
+                    <p class="security-dialog-summary" id="staffAccountDialogSummary">Review the selected staff account.</p>
+                    <input id="staffAccountTargetId" type="hidden">
+                    <input id="staffAccountTargetStatus" type="hidden">
+                    <label class="security-reason-label" for="staffAccountReason">Administrative reason <span>Required, 10–300 characters</span><textarea id="staffAccountReason" rows="4" minlength="10" maxlength="300" required placeholder="Record the operational or administrative reason for this change."></textarea></label>
+                    <div class="security-dialog-warning">This action changes the account's sign-in eligibility and invalidates saved sessions. It does not delete the account or its operational records.</div>
+                    <div class="security-dialog-alert" id="staffAccountDialogAlert" role="status" aria-live="polite" hidden></div>
+                    <div class="security-dialog-actions"><button class="filter-button secondary-button" id="cancelStaffAccountButton" type="button">Cancel</button><button class="filter-button security-danger-button" id="submitStaffAccountButton" type="submit">Confirm status change</button></div>
+                </form>
+            </dialog>
+
+            <footer class="page-footer"><span>SWACHHITRA</span><span>City-wide supervisory view</span><span id="footerDataSource">Waiting for database response</span></footer>
+        </div>
+    </main>
+</div>
+</body>
+</html>

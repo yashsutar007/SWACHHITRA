@@ -1,3 +1,5 @@
+"use strict";
+
 const express = require("express");
 
 const {
@@ -12,20 +14,16 @@ const {
     createRouteStop,
     updateRouteStop,
     deleteRouteStop,
-
     getVehicles,
     createVehicle,
     updateVehicle,
     deleteVehicle,
-
     getDrivers,
     createDriver,
     updateDriver,
     deleteDriver,
-
     getAssignments,
     getCollections,
-    getCollectionIntegrity,
     getComplaints,
     updateComplaint,
     getNotifications,
@@ -34,6 +32,7 @@ const {
     getWards
 } = require("../controllers/inspectorController");
 
+const { getCollectionIntegrity } = require("../controllers/inspectorCollectionIntegrityController");
 const { requireRole } = require("../middleware/authMiddleware");
 const {
     ensureInspectorCsrfToken,
@@ -42,58 +41,24 @@ const {
 
 const router = express.Router();
 
-/*
- * =========================================================
- * SWACHHITRA
- * INSPECTOR OPERATIONAL ROUTES
- * =========================================================
- *
- * Read access:
- *   Deputy Commissioner
- *   Assistant Commissioner
- *   Sanitary Inspector
- *
- * Operational mutations:
- *   Sanitary Inspector only
- *
- * This is an authorization boundary, not merely a UI choice.
- * The controller still performs database-backed scope checks.
- */
-
 const OPERATIONAL_VIEW_ROLES = [
     "deputy_commissioner",
     "assistant_commissioner",
     "sanitary_inspector"
 ];
+const INSPECTOR_WRITE_ROLES = ["sanitary_inspector"];
 
-const INSPECTOR_WRITE_ROLES = [
-    "sanitary_inspector"
-];
+router.use(requireRole(...OPERATIONAL_VIEW_ROLES));
+const requireInspectorWrite = requireRole(...INSPECTOR_WRITE_ROLES);
 
-router.use(
-    requireRole(...OPERATIONAL_VIEW_ROLES)
-);
-
-const requireInspectorWrite = requireRole(
-    ...INSPECTOR_WRITE_ROLES
-);
-
-// CSRF token endpoint for the authenticated Inspector dashboard.
-// It is read-only from the application perspective and never exposes
-// database data. The token is bound to the current session.
+// An authenticated Sanitary Inspector obtains a session-bound token before mutations.
 router.get(
     "/security/csrf-token",
+    requireInspectorWrite,
     ensureInspectorCsrfToken
 );
 
-const inspectorWriteSecurity = [
-    requireInspectorWrite,
-    requireInspectorMutationSecurity
-];
-
-// ---------------------------------------------------------
-// Read-only operational views
-// ---------------------------------------------------------
+// Read-only operational endpoints.
 router.get("/overview", getOverview);
 router.get("/routes", getRoutes);
 router.get("/vehicles", getVehicles);
@@ -103,124 +68,70 @@ router.get("/collections", getCollections);
 router.get("/collections/integrity", getCollectionIntegrity);
 router.get("/complaints", getComplaints);
 router.get("/notifications", getNotifications);
+router.get("/zones", getZones);
+router.get("/wards", getWards);
+router.get("/routes/:id/stops", getRouteStopsForInspector);
+
+// Complaint lifecycle mutation. Both role authorization and CSRF/origin/rate-limit
+// controls run before the controller can update the record.
+router.put(
+    "/complaints/:id",
+    requireInspectorWrite,
+    requireInspectorMutationSecurity,
+    updateComplaint
+);
 router.put(
     "/notifications/read",
+    requireInspectorWrite,
     requireInspectorMutationSecurity,
     markNotificationsRead
 );
-router.get("/zones", getZones);
-router.get("/wards", getWards);
 
-// ---------------------------------------------------------
-// Route mutations: Sanitary Inspector only
-// ---------------------------------------------------------
-router.post(
-    "/routes",
-    ...inspectorWriteSecurity,
-    createRoute
-);
-
-router.put(
-    "/routes/:id",
-    ...inspectorWriteSecurity,
-    updateRoute
-);
-
-router.delete(
-    "/routes/:id",
-    ...inspectorWriteSecurity,
-    deleteRoute
-);
-
+// Route mutations.
+router.post("/routes", requireInspectorWrite, requireInspectorMutationSecurity, createRoute);
+router.put("/routes/:id", requireInspectorWrite, requireInspectorMutationSecurity, updateRoute);
+router.delete("/routes/:id", requireInspectorWrite, requireInspectorMutationSecurity, deleteRoute);
 router.put(
     "/routes/:id/assignment",
-    ...inspectorWriteSecurity,
+    requireInspectorWrite,
+    requireInspectorMutationSecurity,
     updateRouteAssignment
 );
-
 router.delete(
     "/routes/:id/assignment",
-    ...inspectorWriteSecurity,
+    requireInspectorWrite,
+    requireInspectorMutationSecurity,
     removeRouteAssignment
 );
 
-// ---------------------------------------------------------
-// Route-stop mutations: Sanitary Inspector only
-// ---------------------------------------------------------
-router.get(
-    "/routes/:id/stops",
-    getRouteStopsForInspector
-);
-
+// Route-stop mutations.
 router.post(
     "/routes/:id/stops",
-    ...inspectorWriteSecurity,
+    requireInspectorWrite,
+    requireInspectorMutationSecurity,
     createRouteStop
 );
-
 router.put(
     "/routes/:id/stops/:stopId",
-    ...inspectorWriteSecurity,
+    requireInspectorWrite,
+    requireInspectorMutationSecurity,
     updateRouteStop
 );
-
 router.delete(
     "/routes/:id/stops/:stopId",
-    ...inspectorWriteSecurity,
+    requireInspectorWrite,
+    requireInspectorMutationSecurity,
     deleteRouteStop
 );
 
-// ---------------------------------------------------------
-// Fleet mutations: Sanitary Inspector only
-// ---------------------------------------------------------
-router.post(
-    "/vehicles",
-    ...inspectorWriteSecurity,
-    createVehicle
-);
+// Fleet mutations.
+router.post("/vehicles", requireInspectorWrite, requireInspectorMutationSecurity, createVehicle);
+router.put("/vehicles/:id", requireInspectorWrite, requireInspectorMutationSecurity, updateVehicle);
+router.delete("/vehicles/:id", requireInspectorWrite, requireInspectorMutationSecurity, deleteVehicle);
 
-router.put(
-    "/vehicles/:id",
-    ...inspectorWriteSecurity,
-    updateVehicle
-);
-
-router.delete(
-    "/vehicles/:id",
-    ...inspectorWriteSecurity,
-    deleteVehicle
-);
-
-// ---------------------------------------------------------
-// Driver mutations: Sanitary Inspector only
-// ---------------------------------------------------------
-router.post(
-    "/drivers",
-    ...inspectorWriteSecurity,
-    createDriver
-);
-
-router.put(
-    "/drivers/:id",
-    ...inspectorWriteSecurity,
-    updateDriver
-);
-
-router.delete(
-    "/drivers/:id",
-    ...inspectorWriteSecurity,
-    deleteDriver
-);
-
-// ---------------------------------------------------------
-// Complaint status changes: Sanitary Inspector only
-// Assistant Commissioner has view access and will later receive
-// a separate route-approval workflow.
-// ---------------------------------------------------------
-router.put(
-    "/complaints/:id",
-    ...inspectorWriteSecurity,
-    updateComplaint
-);
+// Driver mutations.
+router.post("/drivers", requireInspectorWrite, requireInspectorMutationSecurity, createDriver);
+router.put("/drivers/:id", requireInspectorWrite, requireInspectorMutationSecurity, updateDriver);
+router.delete("/drivers/:id", requireInspectorWrite, requireInspectorMutationSecurity, deleteDriver);
 
 module.exports = router;

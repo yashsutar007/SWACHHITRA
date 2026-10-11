@@ -520,13 +520,36 @@ function isProfileCompleteForRole(role, profile) {
         return false;
     }
 
-    if (
-        role === "driver" ||
-        role === "citizen"
-    ) {
+    if (role === "driver") {
         if (
             !positiveInteger(profile.zone_id) ||
             !positiveInteger(profile.ward_id)
+        ) {
+            return false;
+        }
+    }
+
+    if (role === "citizen") {
+        const hasCoordinates =
+            profile.address_latitude !== null &&
+            profile.address_latitude !== undefined &&
+            profile.address_longitude !== null &&
+            profile.address_longitude !== undefined &&
+            Number.isFinite(Number(profile.address_latitude)) &&
+            Number.isFinite(Number(profile.address_longitude)) &&
+            Number(profile.address_latitude) >= -90 &&
+            Number(profile.address_latitude) <= 90 &&
+            Number(profile.address_longitude) >= -180 &&
+            Number(profile.address_longitude) <= 180;
+
+        if (
+            !positiveInteger(profile.zone_id) ||
+            !positiveInteger(profile.ward_id) ||
+            !/^\d{10}$/.test(String(profile.mobile_number || "")) ||
+            !clean(profile.address) ||
+            !clean(profile.city) ||
+            !/^\d{6}$/.test(String(profile.postal_code || "")) ||
+            !hasCoordinates
         ) {
             return false;
         }
@@ -561,6 +584,9 @@ async function getProfile(req, res) {
                 p.official_contact_number,
                 p.address,
                 p.city,
+                p.postal_code,
+                p.address_latitude,
+                p.address_longitude,
                 p.preferred_language,
                 p.notification_preference,
 
@@ -633,6 +659,13 @@ async function getProfile(req, res) {
                     row.official_contact_number,
                 address: row.address,
                 city: row.city,
+                postal_code: row.postal_code,
+                address_latitude: row.address_latitude === null
+                    ? null
+                    : Number(row.address_latitude),
+                address_longitude: row.address_longitude === null
+                    ? null
+                    : Number(row.address_longitude),
                 preferred_language:
                     row.preferred_language,
                 notification_preference:
@@ -976,6 +1009,14 @@ async function saveProfile(req, res) {
             return res.status(401).json({
                 success: false,
                 message: "Authentication required."
+            });
+        }
+
+        if (user.role === "citizen") {
+            return res.status(403).json({
+                success: false,
+                message:
+                    "Citizen address and ward assignment must be saved through the Citizen module. Ward jurisdiction is derived from the selected map location and cannot be selected manually."
             });
         }
 

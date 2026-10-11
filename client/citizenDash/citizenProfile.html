@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Citizen residential profile and Ward identification">
+    <title>SWACHHITRA | Citizen Profile</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+    <link rel="stylesheet" href="/citizenDash/citizenDash.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="" defer></script>
+    <script src="/citizenDash/citizenProfile.js" defer></script>
+</head>
+<body class="citizen-body">
+    <header class="citizen-topbar">
+        <a class="brand-lockup" href="/citizenDash" aria-label="SWACHHITRA citizen home">
+            <img src="/assets/logo.png" alt="" class="brand-mark">
+            <span><strong>SWACHHITRA</strong><small>CITIZEN SERVICES</small></span>
+        </a>
+        <button id="backToDashboard" class="button-secondary" type="button">Dashboard</button>
+    </header>
+
+    <main class="citizen-main narrow-main">
+        <section class="page-intro">
+            <p class="eyebrow">YOUR RESIDENTIAL DETAILS</p>
+            <h1>Complete your Citizen profile</h1>
+            <p>Enter your address and place the pin at that location. SWACHHITRA checks the point against saved operational Ward boundaries and assigns the Ward on the server.</p>
+        </section>
+
+        <div id="pageNotice" class="notice" role="status" aria-live="polite"></div>
+
+        <form id="citizenProfileForm" class="content-card" novalidate>
+            <div class="form-grid">
+                <div class="form-field full-width">
+                    <label for="fullName">Full name *</label>
+                    <input id="fullName" name="full_name" maxlength="120" autocomplete="name" required>
+                </div>
+                <div class="form-field">
+                    <label for="email">Account email</label>
+                    <input id="email" type="email" readonly aria-readonly="true">
+                </div>
+                <div class="form-field">
+                    <label for="mobileNumber">Mobile number *</label>
+                    <input id="mobileNumber" name="mobile_number" type="tel" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" autocomplete="tel-national" required placeholder="10-digit mobile number">
+                </div>
+                <div class="form-field full-width">
+                    <label for="address">House / building, street, locality and landmark *</label>
+                    <textarea id="address" name="address" maxlength="255" rows="3" autocomplete="street-address" required placeholder="Flat/house no., building, road, locality, nearby landmark"></textarea>
+                    <small>Do not enter your Ward or Division as this is derived automatically.</small>
+                </div>
+                <div class="form-field">
+                    <label for="city">City / municipal area *</label>
+                    <input id="city" name="city" maxlength="100" autocomplete="address-level2" required placeholder="Kolhapur">
+                </div>
+                <div class="form-field">
+                    <label for="postalCode">PIN code *</label>
+                    <input id="postalCode" name="postal_code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="postal-code" required placeholder="6-digit PIN code">
+                </div>
+            </div>
+
+            <div class="map-heading">
+                <div>
+                    <h2>Pin your residential location</h2>
+                    <p>Click the map to place or move the pin. You can also use your device location if you choose to grant browser permission.</p>
+                </div>
+                <button id="useMyLocation" class="button-secondary" type="button">Use my location</button>
+            </div>
+            <div id="citizenLocationMap" class="citizen-map" role="application" aria-label="Map to select residential location"></div>
+            <p class="map-attribution-note">Map data © OpenStreetMap contributors. The pin coordinates are sent to SWACHHITRA to check Ward boundary coverage; the address text is not sent to a public geocoding service.</p>
+            <div id="wardResolution" class="ward-resolution" aria-live="polite">
+                Place a pin to check whether a supported Ward boundary covers this location.
+            </div>
+            <input id="addressLatitude" name="address_latitude" type="hidden">
+            <input id="addressLongitude" name="address_longitude" type="hidden">
+
+            <div class="form-grid preferences-grid">
+                <div class="form-field">
+                    <label for="preferredLanguage">Preferred language</label>
+                    <select id="preferredLanguage" name="preferred_language">
+                        <option value="">Select language</option>
+                        <option value="English">English</option>
+                        <option value="Marathi">Marathi</option>
+                        <option value="Hindi">Hindi</option>
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label for="notificationPreference">Notification preference</label>
+                    <select id="notificationPreference" name="notification_preference">
+                        <option value="">Select preference</option>
+                        <option value="Email">Email</option>
+                        <option value="SMS">SMS</option>
+                        <option value="Both">Both</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button class="button-secondary" id="cancelProfile" type="button">Cancel</button>
+                <button class="button-primary" id="saveProfile" type="submit">Save profile and confirm Ward</button>
+            </div>
+        </form>
+
+        <aside class="boundary-disclaimer">
+            <strong>Ward detection limitation</strong>
+            <p>Ward assignment is only as reliable as the boundaries currently saved in SWACHHITRA. Application-defined and development polygons are not verified official KMC Ward boundaries. If no saved polygon covers the pin, the address is saved but the Ward remains unconfirmed, and Ward-routed complaint submission will stay unavailable.</p>
+        </aside>
+    </main>
+</body>
+</html>

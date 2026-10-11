@@ -1,58 +1,34 @@
+"use strict";
+
 const express = require("express");
-
+const { login, me, logout } = require("../controllers/authController");
 const {
-    login,
-    me,
-    logout
-} = require("../controllers/authController");
-
+    registerCitizen,
+    requestEmailVerification,
+    confirmEmailVerification,
+    requestPasswordReset,
+    resetPassword
+} = require("../controllers/accountLifecycleController");
+const { protectCitizenRegistration } = require("../middleware/citizenSecurityMiddleware");
+const {
+    protectLogin,
+    protectLogout,
+    protectVerificationRequest,
+    protectVerificationConfirm,
+    protectForgotPassword,
+    protectResetPassword
+} = require("../middleware/accountSecurityMiddleware");
 
 const router = express.Router();
 
+router.post("/register-citizen", protectCitizenRegistration, registerCitizen);
+router.post("/login", protectLogin, login);
+router.get("/me", me);
+router.post("/logout", protectLogout, logout);
 
-/*
- * Authentication routes
- *
- * POST /api/auth/login
- *      Verifies credentials and creates the session.
- *
- * GET /api/auth/me
- *      Returns the currently authenticated user and profile state.
- *
- * POST /api/auth/logout
- *      Destroys the current session.
- */
-
-
-/*
- * Login
- */
-router.post(
-    "/login",
-    login
-);
-
-
-/*
- * Current session
- *
- * This endpoint intentionally does not use requireAuth because its purpose
- * is to tell the frontend whether the user is currently authenticated.
- * The controller returns HTTP 401 when there is no valid session.
- */
-router.get(
-    "/me",
-    me
-);
-
-
-/*
- * Logout
- */
-router.post(
-    "/logout",
-    logout
-);
-
+router.post("/citizen/verification/resend", protectVerificationRequest, requestEmailVerification);
+router.post("/citizen/verification/confirm", protectVerificationConfirm, confirmEmailVerification);
+router.post("/password/forgot", protectForgotPassword, requestPasswordReset);
+router.post("/password/reset", protectResetPassword, resetPassword);
 
 module.exports = router;

@@ -1,3 +1,4 @@
+
 const db = require("../config/db");
 
 
@@ -29,9 +30,13 @@ async function resolveSessionUser(req) {
             u.email,
             u.role,
             u.status,
+            cas.email_verified_at,
+            COALESCE(cas.session_version, 0) AS session_version,
             up.zone_id,
             up.ward_id
         FROM users u
+        LEFT JOIN citizen_account_security cas
+            ON cas.user_id = u.id
         LEFT JOIN user_profiles up
             ON up.user_id = u.id
         WHERE u.id = ?
@@ -43,6 +48,13 @@ async function resolveSessionUser(req) {
     const user = rows[0];
 
     if (!user || user.status !== "active") {
+        return null;
+    }
+
+    if (
+        Number(req.session.sessionVersion || 0) !== Number(user.session_version || 0) ||
+        (user.role === "citizen" && !user.email_verified_at)
+    ) {
         return null;
     }
 

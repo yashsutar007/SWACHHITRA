@@ -141,6 +141,47 @@
 
                 <button
                     class="navigation-item"
+                    id="nav-btn-operations"
+                    data-tab="operations"
+                    type="button"
+                >
+                    <span class="navigation-item-left">
+                        <span class="navigation-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M5 19V9"></path>
+                                <path d="M12 19V5"></path>
+                                <path d="M19 19v-7"></path>
+                                <path d="M3.5 19.5h17"></path>
+                            </svg>
+                        </span>
+                        <span>Operations</span>
+                    </span>
+                    <span class="navigation-count" id="operationNavCount">VIEW</span>
+                </button>
+
+                <button
+                    class="navigation-item"
+                    id="nav-btn-reports"
+                    data-tab="reports"
+                    type="button"
+                >
+                    <span class="navigation-item-left">
+                        <span class="navigation-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M4 19V5"></path>
+                                <path d="M4 19h16"></path>
+                                <rect x="7" y="13" width="2.8" height="4" rx=".5"></rect>
+                                <rect x="11" y="9" width="2.8" height="8" rx=".5"></rect>
+                                <rect x="15" y="6" width="2.8" height="11" rx=".5"></rect>
+                            </svg>
+                        </span>
+                        <span>Reports</span>
+                    </span>
+                    <span class="navigation-count" id="reportNavCount">30D</span>
+                </button>
+
+                <button
+                    class="navigation-item"
                     id="nav-btn-inspectors"
                     data-tab="inspectors"
                     type="button"
@@ -247,7 +288,7 @@
                 </button>
 
                 <div class="topbar-title-block">
-                    <span class="topbar-eyebrow">ZONE SUPERVISION</span>
+                    <span class="topbar-eyebrow">DIVISION SUPERVISION</span>
                     <h1 id="pageTitle">Assistant Commissioner</h1>
                 </div>
             </div>
@@ -327,7 +368,7 @@
                             </span>
                         </div>
                         <strong id="kpiWardCount">—</strong>
-                        <span>Active wards in division</span>
+                        <span>Verified active wards in division</span>
                     </article>
 
                     <article class="kpi-card">
@@ -343,7 +384,7 @@
                             </span>
                         </div>
                         <strong id="kpiInspectorCount">—</strong>
-                        <span>Inspector assignments</span>
+                        <span>Active inspectors in division</span>
                     </article>
 
                     <article class="kpi-card">
@@ -406,6 +447,11 @@
                                 <strong id="overviewDivisionStatus">—</strong>
                             </div>
                         </div>
+
+                        <div class="jurisdiction-note">
+                            <span class="jurisdiction-note-dot" aria-hidden="true"></span>
+                            <span>Only verified active ward mappings are used for operational supervision. Historical or demo geography is excluded from the active view.</span>
+                        </div>
                     </section>
 
                     <section class="panel-card">
@@ -434,6 +480,178 @@
                     </section>
 
                 </div>
+
+                <section class="overview-map-card panel-card">
+
+                    <div class="map-header">
+
+                        <div class="map-title-group">
+                            <span class="live-dot"></span>
+
+                            <div>
+                                <h2>DIVISION COLLECTION MAP</h2>
+                                <span id="overviewMapSubtitle">
+                                    Division office, ward boundaries and database routes
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="map-tools">
+
+                            <button
+                                id="overviewMapRoutesButton"
+                                type="button"
+                                class="active"
+                            >
+                                All Routes
+                            </button>
+
+                            <button
+                                id="overviewMapWardsButton"
+                                type="button"
+                                class="active"
+                            >
+                                Ward Boundaries
+                            </button>
+
+                            <button
+                                id="overviewMapVehiclesButton"
+                                type="button"
+                                class="active"
+                            >
+                                Vehicles (—)
+                            </button>
+
+                            <button
+                                id="overviewMapEditDivisionButton"
+                                type="button"
+                            >
+                                Edit Division Area
+                            </button>
+
+                            <button
+                                id="overviewMapSaveDivisionButton"
+                                type="button"
+                                class="planner-tool-button map-editor-save"
+                                hidden
+                            >
+                                Save Area
+                            </button>
+
+                            <button
+                                id="overviewMapCancelDivisionButton"
+                                type="button"
+                                class="planner-tool-button danger-outline"
+                                hidden
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                id="overviewMapFullscreenButton"
+                                type="button"
+                                aria-label="Open overview map in full screen"
+                            >
+                                Full Screen
+                            </button>
+
+                            <button
+                                id="overviewMapPlus"
+                                type="button"
+                                aria-label="Zoom in"
+                            >
+                                +
+                            </button>
+
+                            <button
+                                id="overviewMapMinus"
+                                type="button"
+                                aria-label="Zoom out"
+                            >
+                                −
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                    <div class="overview-map-wrap">
+
+                        <div
+                            id="overviewTrackingMap"
+                            class="tracking-map"
+                        ></div>
+
+                        <div class="map-legend">
+
+                            <strong>Map Legend</strong>
+
+                            <span>
+                                <i class="legend-dot office"></i>
+                                Divisional office
+                            </span>
+
+                            <span>
+                                <i class="legend-line ward-boundary"></i>
+                                Official ward boundary
+                            </span>
+
+                            <span>
+                                <i class="legend-line division-operational"></i>
+                                AC-defined division working area (editable)
+                            </span>
+
+                            <span>
+                                <i class="legend-line inspector-area"></i>
+                                Inspector assigned operational area
+                            </span>
+
+                            <span>
+                                <i class="legend-line green"></i>
+                                Collection route
+                            </span>
+
+                            <span>
+                                <i class="legend-line amber"></i>
+                                Delayed route
+                            </span>
+
+                            <span>
+                                <i class="legend-dot olive"></i>
+                                Collection vehicle
+                            </span>
+
+
+                        </div>
+
+                    </div>
+
+                    <div class="map-footer">
+
+                        <span>
+                            Showing
+                            <strong id="overviewMapScopeText">
+                                assigned division
+                            </strong>
+                        </span>
+
+                        <span
+                            id="overviewMapAreaStatus"
+                            class="map-data-status map-area-status"
+                        >
+                            Division working area: not defined
+                        </span>
+
+                        <span
+                            id="overviewMapDataStatus"
+                            class="map-data-status"
+                        >
+                            Loading map data…
+                        </span>
+
+                    </div>
+
+                </section>
 
             </section>
 
@@ -470,7 +688,18 @@
                             >
                                 Loading…
                             </span>
+                            <button
+                                type="button"
+                                class="primary-button compact-button"
+                                id="createWardButton"
+                            >
+                                Create Operational Ward
+                            </button>
                         </div>
+                    </div>
+
+                    <div class="data-note" id="wardDataNote" aria-live="polite">
+                        Loading ward master status…
                     </div>
 
                     <div class="table-wrap">
@@ -482,6 +711,7 @@
                                     <th>Boundary</th>
                                     <th>Inspectors</th>
                                     <th>Status</th>
+                                    <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody id="wardsTableBody">
@@ -511,7 +741,7 @@
                         <span class="eyebrow">INSPECTOR SUPERVISION</span>
                         <h2>Sanitary Inspectors</h2>
                         <p>
-                            Assign or reassign Sanitary Inspectors to wards and define their operational working area within your division.
+                            Assign or reassign Sanitary Inspectors to operational wards within your assigned Division.
                         </p>
                     </div>
                 </div>
@@ -539,7 +769,7 @@
                                     <th>Inspector</th>
                                     <th>Employee ID</th>
                                     <th>Assigned Ward</th>
-                                    <th>Operational Area</th>
+                                    <th>Ward Boundary</th>
                                     <th>Scope</th>
                                     <th>Action</th>
                                 </tr>
@@ -556,6 +786,242 @@
                 </section>
             </section>
 
+
+
+            <!-- =====================================================
+                 OPERATIONAL SUPERVISION
+                 ===================================================== -->
+            <section
+                class="tab-panel"
+                id="panel-operations"
+                data-panel="operations"
+                hidden
+            >
+                <div class="section-heading">
+                    <div>
+                        <span class="eyebrow">READ-ONLY SUPERVISION</span>
+                        <h2>Operational supervision</h2>
+                        <p>
+                            Review current routes, route assignments, vehicles, drivers, collection activity, complaints, notifications and route-change requests within your assigned Division.
+                        </p>
+                    </div>
+                    <div class="table-toolbar-right">
+                        <span class="data-status" id="supervisionStatus">Loading operational snapshot…</span>
+                        <button type="button" class="secondary-button compact-button" id="supervisionRefreshButton">Refresh</button>
+                    </div>
+                </div>
+
+                <div class="supervision-metrics-grid">
+                    <article class="kpi-card"><span class="kpi-label">ROUTES</span><strong id="supervisionRoutesMetric">—</strong><span>Division route records</span></article>
+                    <article class="kpi-card"><span class="kpi-label">VEHICLES</span><strong id="supervisionVehiclesMetric">—</strong><span>Visible through route assignments</span></article>
+                    <article class="kpi-card"><span class="kpi-label">DRIVERS</span><strong id="supervisionDriversMetric">—</strong><span>Division-visible driver records</span></article>
+                    <article class="kpi-card"><span class="kpi-label">COLLECTIONS</span><strong id="supervisionCollectionMetric">—</strong><span>Recorded collection entries</span></article>
+                    <article class="kpi-card"><span class="kpi-label">OPEN COMPLAINTS</span><strong id="supervisionComplaintMetric">—</strong><span>Unresolved Division complaints</span></article>
+                    <article class="kpi-card"><span class="kpi-label">CHANGE REQUESTS</span><strong id="supervisionPendingMetric">—</strong><span>Pending route-change requests</span></article>
+                    <article class="kpi-card"><span class="kpi-label">ROUTE COMPLETION</span><strong id="supervisionCompletionMetric">—</strong><span>Completed stops ÷ total route stops</span></article>
+                    <article class="kpi-card"><span class="kpi-label">TOTAL DELAY</span><strong id="supervisionDelayMetric">—</strong><span>Recorded route delay</span></article>
+                </div>
+
+                <section class="panel-card supervision-section">
+                    <div class="panel-card-header"><div><span class="eyebrow">ROUTES</span><h3>Division routes</h3></div></div>
+                    <div class="table-wrap"><table class="data-table supervision-table"><thead><tr><th>Route</th><th>Ward</th><th>Status</th><th>Stops</th><th>Delay</th><th>Vehicle</th><th>Driver</th></tr></thead><tbody id="supervisionRoutesTableBody"><tr><td colspan="7" class="table-empty">Loading…</td></tr></tbody></table></div>
+                </section>
+
+                <section class="panel-card supervision-section">
+                    <div class="panel-card-header"><div><span class="eyebrow">FLEET</span><h3>Vehicles</h3></div></div>
+                    <div class="table-wrap"><table class="data-table supervision-table"><thead><tr><th>Vehicle</th><th>Type</th><th>Status</th><th>Route</th><th>Driver</th><th>Last Location</th></tr></thead><tbody id="supervisionVehiclesTableBody"><tr><td colspan="6" class="table-empty">Loading…</td></tr></tbody></table></div>
+                </section>
+
+                <section class="panel-card supervision-section">
+                    <div class="panel-card-header"><div><span class="eyebrow">DRIVERS</span><h3>Division drivers</h3></div></div>
+                    <div class="table-wrap"><table class="data-table supervision-table"><thead><tr><th>Driver</th><th>Status</th><th>Ward</th><th>Vehicle</th><th>Route</th></tr></thead><tbody id="supervisionDriversTableBody"><tr><td colspan="5" class="table-empty">Loading…</td></tr></tbody></table></div>
+                </section>
+
+                <section class="panel-card supervision-section">
+                    <div class="panel-card-header"><div><span class="eyebrow">COLLECTIONS</span><h3>Collection activity</h3></div></div>
+                    <div class="table-wrap"><table class="data-table supervision-table"><thead><tr><th>Date</th><th>Ward</th><th>Route</th><th>Status</th><th>Waste (t)</th><th>Collected At</th></tr></thead><tbody id="supervisionCollectionsTableBody"><tr><td colspan="6" class="table-empty">Loading…</td></tr></tbody></table></div>
+                </section>
+
+                <section class="panel-card supervision-section">
+                    <div class="panel-card-header"><div><span class="eyebrow">COMPLAINTS</span><h3>Division complaints</h3></div></div>
+                    <div class="table-wrap"><table class="data-table supervision-table"><thead><tr><th>Code</th><th>Type</th><th>Ward</th><th>Status</th><th>Priority</th><th>Reported</th></tr></thead><tbody id="supervisionComplaintsTableBody"><tr><td colspan="6" class="table-empty">Loading…</td></tr></tbody></table></div>
+                </section>
+
+                <section class="panel-card supervision-section">
+                    <div class="panel-card-header"><div><span class="eyebrow">NOTIFICATIONS</span><h3>Assistant Commissioner notifications</h3></div></div>
+                    <div class="table-wrap"><table class="data-table supervision-table"><thead><tr><th>Notification</th><th>Type</th><th>Priority</th><th>Read</th><th>Created</th></tr></thead><tbody id="supervisionNotificationsTableBody"><tr><td colspan="5" class="table-empty">Loading…</td></tr></tbody></table></div>
+                </section>
+
+                <section class="panel-card supervision-section">
+                    <div class="panel-card-header"><div><span class="eyebrow">ROUTE GOVERNANCE</span><h3>Route-change requests</h3></div></div>
+                    <div class="table-wrap"><table class="data-table supervision-table"><thead><tr><th>Route</th><th>Request</th><th>Requested By</th><th>Status</th><th>Requested At</th><th>Action</th></tr></thead><tbody id="supervisionChangeRequestsTableBody"><tr><td colspan="6" class="table-empty">Loading…</td></tr></tbody></table></div>
+                </section>
+            </section>
+
+            <!-- =====================================================
+                 REPORTS & ANALYTICS
+                 ===================================================== -->
+            <section
+                class="tab-panel"
+                id="panel-reports"
+                data-panel="reports"
+                hidden
+            >
+                <div class="section-heading report-page-heading">
+                    <div>
+                        <span class="eyebrow">DIVISIONAL REPORTING</span>
+                        <h2>Reports &amp; analytics</h2>
+                        <p id="reportsSubtitle">
+                            Review measured collection, route, fleet, complaint and Inspector coverage performance for your assigned Division.
+                        </p>
+                    </div>
+
+                    <div class="report-toolbar">
+                        <label class="report-date-field">
+                            <span>From</span>
+                            <input type="date" id="reportFromDate">
+                        </label>
+                        <label class="report-date-field">
+                            <span>To</span>
+                            <input type="date" id="reportToDate">
+                        </label>
+                        <button type="button" class="primary-button compact-button" id="reportApplyButton">Apply</button>
+                        <button type="button" class="secondary-button compact-button" id="reportRefreshButton">Refresh</button>
+                    </div>
+                </div>
+
+                <div class="report-meta-row">
+                    <span class="data-status" id="reportsStatus">Loading report data…</span>
+                    <span class="scope-badge" id="reportsPeriodBadge">Last 30 days</span>
+                </div>
+
+                <div class="report-kpi-grid">
+                    <article class="kpi-card">
+                        <span class="kpi-label">COLLECTIONS</span>
+                        <strong id="reportCollectionsMetric">—</strong>
+                        <span>Records in selected period</span>
+                    </article>
+                    <article class="kpi-card">
+                        <span class="kpi-label">WASTE</span>
+                        <strong id="reportWasteMetric">—</strong>
+                        <span>Recorded waste in tonnes</span>
+                    </article>
+                    <article class="kpi-card">
+                        <span class="kpi-label">COLLECTION COMPLETION</span>
+                        <strong id="reportCollectionRateMetric">—</strong>
+                        <span>Collected records ÷ collection records</span>
+                    </article>
+                    <article class="kpi-card">
+                        <span class="kpi-label">ROUTE COMPLETION</span>
+                        <strong id="reportRouteRateMetric">—</strong>
+                        <span>Collected stops ÷ route stops</span>
+                    </article>
+                    <article class="kpi-card">
+                        <span class="kpi-label">DELAYED ROUTES</span>
+                        <strong id="reportDelayedRoutesMetric">—</strong>
+                        <span>Current delayed route records</span>
+                    </article>
+                    <article class="kpi-card">
+                        <span class="kpi-label">OPEN COMPLAINTS</span>
+                        <strong id="reportOpenComplaintsMetric">—</strong>
+                        <span>Reported in selected period</span>
+                    </article>
+                    <article class="kpi-card">
+                        <span class="kpi-label">VEHICLES DEPLOYED</span>
+                        <strong id="reportVehiclesMetric">—</strong>
+                        <span>Visible through active route assignments</span>
+                    </article>
+                    <article class="kpi-card">
+                        <span class="kpi-label">INSPECTOR COVERAGE</span>
+                        <strong id="reportInspectorCoverageMetric">—</strong>
+                        <span>Active Division wards with an Inspector</span>
+                    </article>
+                </div>
+
+                <div class="reports-two-column">
+                    <section class="panel-card report-status-card">
+                        <div class="panel-card-header">
+                            <div>
+                                <span class="eyebrow">ROUTE STATUS</span>
+                                <h3>Current route distribution</h3>
+                            </div>
+                        </div>
+                        <div class="report-status-list" id="reportRouteStatusList"></div>
+                    </section>
+
+                    <section class="panel-card report-status-card">
+                        <div class="panel-card-header">
+                            <div>
+                                <span class="eyebrow">COLLECTION STATUS</span>
+                                <h3>Selected-period collection records</h3>
+                            </div>
+                        </div>
+                        <div class="report-status-list" id="reportCollectionStatusList"></div>
+                    </section>
+
+                    <section class="panel-card report-status-card">
+                        <div class="panel-card-header">
+                            <div>
+                                <span class="eyebrow">COMPLAINT STATUS</span>
+                                <h3>Selected-period complaint records</h3>
+                            </div>
+                        </div>
+                        <div class="report-status-list" id="reportComplaintStatusList"></div>
+                    </section>
+
+                    <section class="panel-card report-status-card">
+                        <div class="panel-card-header">
+                            <div>
+                                <span class="eyebrow">FLEET</span>
+                                <h3>Current vehicle deployment</h3>
+                            </div>
+                        </div>
+                        <div class="report-fleet-summary" id="reportFleetSummary"></div>
+                    </section>
+                </div>
+
+                <section class="panel-card report-chart-card">
+                    <div class="panel-card-header">
+                        <div>
+                            <span class="eyebrow">DAILY ACTIVITY</span>
+                            <h3>Collection and complaint activity</h3>
+                        </div>
+                    </div>
+                    <div class="report-chart" id="reportDailyActivityChart"></div>
+                    <div class="report-chart-legend">
+                        <span><i class="report-legend-dot collection"></i>Collections</span>
+                        <span><i class="report-legend-dot complaints"></i>Complaints</span>
+                    </div>
+                </section>
+
+                <section class="panel-card report-ward-card">
+                    <div class="panel-card-header">
+                        <div>
+                            <span class="eyebrow">WARD PERFORMANCE</span>
+                            <h3>Division ward comparison</h3>
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="data-table report-ward-table">
+                            <thead>
+                                <tr>
+                                    <th>Ward</th>
+                                    <th>Routes</th>
+                                    <th>Stops</th>
+                                    <th>Route completion</th>
+                                    <th>Collections</th>
+                                    <th>Waste (t)</th>
+                                    <th>Complaints</th>
+                                    <th>Inspector</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reportWardTableBody">
+                                <tr><td colspan="8" class="table-empty">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </section>
 
             <!-- =====================================================
                  PROFILE
@@ -621,6 +1087,354 @@
 
 
     <!-- =========================================================
+         CREATE OPERATIONAL WARD MODAL
+         ========================================================= -->
+    <div
+        class="modal-overlay"
+        id="createWardModal"
+        aria-hidden="true"
+        hidden
+    >
+        <section
+            class="modal-card create-ward-modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="createWardModalTitle"
+        >
+            <div class="modal-header">
+                <div>
+                    <span class="eyebrow">OPERATIONAL WARD MANAGEMENT</span>
+                    <h2 id="createWardModalTitle">Create Operational Ward</h2>
+                    <p>
+                        Create an application-managed operational ward inside your authenticated Division. This geometry is not presented as an official KMC boundary.
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    class="modal-close-button"
+                    id="closeCreateWardModal"
+                    aria-label="Close"
+                >
+                    ×
+                </button>
+            </div>
+
+            <form
+                id="createWardForm"
+                class="assignment-form"
+                novalidate
+            >
+                <div class="modal-body">
+
+                    <div class="ward-create-form-grid">
+                        <div class="form-field">
+                            <label for="createWardNumber">
+                                Ward Number
+                                <span class="required">*</span>
+                            </label>
+                            <input
+                                id="createWardNumber"
+                                name="ward_number"
+                                type="number"
+                                min="1"
+                                max="9999"
+                                step="1"
+                                required
+                                placeholder="e.g. 52"
+                            >
+                        </div>
+
+                        <div class="form-field">
+                            <label for="createWardCode">
+                                Ward Code
+                                <span class="required">*</span>
+                            </label>
+                            <input
+                                id="createWardCode"
+                                name="ward_code"
+                                type="text"
+                                maxlength="30"
+                                required
+                                placeholder="e.g. WARD-52"
+                            >
+                        </div>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="createWardName">
+                            Ward Name
+                            <span class="required">*</span>
+                        </label>
+                        <input
+                            id="createWardName"
+                            name="ward_name"
+                            type="text"
+                            maxlength="120"
+                            required
+                            placeholder="Operational ward name"
+                        >
+                    </div>
+
+                    <div class="ward-create-boundary-note">
+                        <strong>Division scope</strong>
+                        <span id="createWardDivisionScope">Loading Division…</span>
+                    </div>
+
+                    <div class="ward-create-map-section">
+                        <div class="assignment-map-header">
+                            <div>
+                                <span class="summary-label">WARD AREA</span>
+                                <strong>Define the operational ward boundary</strong>
+                                <small>The saved AC-defined Division working area is shown as the outer context. The new ward must remain inside it when that area exists.</small>
+                            </div>
+                            <button
+                                type="button"
+                                class="secondary-button planner-tool-button map-fullscreen-button"
+                                id="wardCreateMapFullscreenButton"
+                                aria-label="Open ward boundary map in full screen"
+                            >
+                                Full Screen
+                            </button>
+                        </div>
+
+                        <div class="assignment-map-toolbar">
+                            <button
+                                type="button"
+                                class="secondary-button planner-tool-button"
+                                id="wardCreateSelectAreaButton"
+                            >
+                                Select Ward
+                            </button>
+
+                            <button
+                                type="button"
+                                class="secondary-button planner-tool-button"
+                                id="wardCreateFinishAreaButton"
+                                disabled
+                            >
+                                Finish Area
+                            </button>
+
+                            <button
+                                type="button"
+                                class="secondary-button planner-tool-button"
+                                id="wardCreateUndoPointButton"
+                                disabled
+                            >
+                                Undo Last Point
+                            </button>
+
+                            <button
+                                type="button"
+                                class="secondary-button planner-tool-button danger-outline"
+                                id="wardCreateClearAreaButton"
+                            >
+                                Clear Area
+                            </button>
+                        </div>
+
+                        <div
+                            id="wardCreateMapStatus"
+                            class="assignment-map-status"
+                            data-tone="neutral"
+                        >
+                            Select Area to start defining the new operational ward boundary.
+                        </div>
+
+                        <div
+                            id="wardCreateMap"
+                            class="assignment-map ward-create-map"
+                        ></div>
+
+                        <div
+                            id="wardCreateAreaSummary"
+                            class="assignment-area-summary"
+                            data-selected="false"
+                        >
+                            No ward boundary selected yet.
+                        </div>
+                    </div>
+
+                    <div
+                        class="modal-message"
+                        id="createWardMessage"
+                        aria-live="polite"
+                        role="status"
+                    ></div>
+                </div>
+
+                <div class="modal-footer">
+                    <button
+                        type="button"
+                        class="secondary-button"
+                        id="cancelCreateWardButton"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        class="primary-button"
+                        id="saveCreateWardButton"
+                    >
+                        Create Ward
+                    </button>
+                </div>
+            </form>
+        </section>
+    </div>
+
+
+    <!-- =========================================================
+         EDIT OPERATIONAL WARD BOUNDARY MODAL
+         ========================================================= -->
+    <div
+        class="modal-overlay"
+        id="editWardBoundaryModal"
+        aria-hidden="true"
+        hidden
+    >
+        <section
+            class="modal-card edit-ward-boundary-modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="editWardBoundaryModalTitle"
+        >
+            <div class="modal-header">
+                <div>
+                    <span class="eyebrow">OPERATIONAL WARD MANAGEMENT</span>
+                    <h2 id="editWardBoundaryModalTitle">Edit Ward Boundary</h2>
+                    <p>
+                        Edit an application-managed operational ward boundary. Official KMC geometry remains read-only.
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    class="modal-close-button"
+                    id="closeEditWardBoundaryModal"
+                    aria-label="Close"
+                >
+                    ×
+                </button>
+            </div>
+
+            <form
+                id="editWardBoundaryForm"
+                class="assignment-form"
+                novalidate
+            >
+                <div class="modal-body">
+                    <div class="ward-create-boundary-note">
+                        <strong>Ward scope</strong>
+                        <span id="editWardBoundaryWardScope">Loading ward…</span>
+                    </div>
+
+                    <div class="ward-boundary-edit-map-section">
+                        <div class="assignment-map-header">
+                            <div>
+                                <span class="summary-label">WARD BOUNDARY EDITOR</span>
+                                <strong>Reshape the operational ward area</strong>
+                                <small>Drag a vertex to reshape the boundary. Use Add Point to extend the area, or double-click a vertex to remove it. This edits the Ward boundary only; routes keep the same Ward ID and existing Inspector scope data is preserved.</small>
+                            </div>
+                            <button
+                                type="button"
+                                class="secondary-button planner-tool-button map-fullscreen-button"
+                                id="editWardBoundaryMapFullscreenButton"
+                                aria-label="Open ward boundary editor in full screen"
+                            >
+                                Full Screen
+                            </button>
+                        </div>
+
+                        <div class="assignment-map-toolbar">
+                            <button
+                                type="button"
+                                class="secondary-button planner-tool-button"
+                                id="editWardBoundarySelectModeButton"
+                            >
+                                Add Point
+                            </button>
+
+                            <button
+                                type="button"
+                                class="secondary-button planner-tool-button"
+                                id="editWardBoundaryFinishButton"
+                                disabled
+                            >
+                                Finish Edit
+                            </button>
+
+                            <button
+                                type="button"
+                                class="secondary-button planner-tool-button"
+                                id="editWardBoundaryUndoButton"
+                                disabled
+                            >
+                                Remove Last Point
+                            </button>
+
+                            <button
+                                type="button"
+                                class="secondary-button planner-tool-button danger-outline"
+                                id="editWardBoundaryClearButton"
+                            >
+                                Revert Changes
+                            </button>
+                        </div>
+
+                        <div
+                            id="editWardBoundaryMapStatus"
+                            class="assignment-map-status"
+                            data-tone="neutral"
+                        >
+                            Loading ward boundary editor…
+                        </div>
+
+                        <div
+                            id="editWardBoundaryMap"
+                            class="assignment-map ward-boundary-edit-map"
+                        ></div>
+
+                        <div
+                            id="editWardBoundarySummary"
+                            class="assignment-area-summary"
+                            data-selected="false"
+                        >
+                            A valid ward boundary requires at least three points.
+                        </div>
+                    </div>
+
+                    <div
+                        class="modal-message"
+                        id="editWardBoundaryMessage"
+                        aria-live="polite"
+                        role="status"
+                    ></div>
+                </div>
+
+                <div class="modal-footer">
+                    <button
+                        type="button"
+                        class="secondary-button"
+                        id="cancelEditWardBoundaryButton"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        class="primary-button"
+                        id="saveEditWardBoundaryButton"
+                    >
+                        Save Boundary
+                    </button>
+                </div>
+            </form>
+        </section>
+    </div>
+
+
+    <!-- =========================================================
          ASSIGN INSPECTOR MODAL
          ========================================================= -->
     <div
@@ -640,7 +1454,7 @@
                     <span class="eyebrow">JURISDICTION ASSIGNMENT</span>
                     <h2 id="assignInspectorModalTitle">Assign Inspector</h2>
                     <p id="assignInspectorModalSubtitle">
-                        Select a ward within your assigned division, then draw the Inspector's operational working area on the map.
+                        Select a Ward within your assigned Division to define the Inspector's jurisdiction.
                     </p>
                 </div>
 
@@ -686,65 +1500,32 @@
                             <option value="">Select ward</option>
                         </select>
                         <small>
-                            Only wards in your assigned division are available. The Assistant Commissioner can then draw the Inspector's specific operational working area.
+                            Only Wards in your assigned Division are available. The selected Ward becomes the Inspector's assigned Ward. Manage or edit the Ward boundary from the Wards tab; changing a Ward boundary does not change its Ward ID or existing routes.
                         </small>
                     </div>
 
                     <div class="assignment-map-section">
                         <div class="assignment-map-header">
                             <div>
-                                <span class="summary-label">INSPECTOR OPERATIONAL AREA</span>
-                                <strong>Select the working area for this Inspector</strong>
-                                <small>The map opens on the broader Divisional Office working area around Gandhi Maidan. Draw a smaller polygon for this Inspector's actual field area. The Assistant Commissioner owns this assignment; the Inspector cannot change it.</small>
+                                <span class="summary-label">INSPECTOR WARD ASSIGNMENT</span>
+                                <strong>Select the Ward jurisdiction for this Inspector</strong>
+                                <small>The map shows the AC-defined Division working area and the selected Ward boundary. The Ward boundary is the Inspector's jurisdiction.</small>
                             </div>
-                        </div>
-
-                        <div class="assignment-map-toolbar">
                             <button
                                 type="button"
-                                class="secondary-button planner-tool-button"
-                                id="assignmentSelectAreaButton"
+                                class="secondary-button planner-tool-button map-fullscreen-button"
+                                id="assignmentMapFullscreenButton"
+                                aria-label="Open Inspector assignment map in full screen"
                             >
-                                Select Area
-                            </button>
-
-                            <button
-                                type="button"
-                                class="secondary-button planner-tool-button"
-                                id="assignmentFinishAreaButton"
-                                disabled
-                            >
-                                Finish Area
-                            </button>
-
-                            <button
-                                type="button"
-                                class="secondary-button planner-tool-button"
-                                id="assignmentUndoPointButton"
-                                disabled
-                            >
-                                Undo Last Point
-                            </button>
-
-                            <button
-                                type="button"
-                                class="secondary-button planner-tool-button danger-outline"
-                                id="assignmentClearAreaButton"
-                            >
-                                Clear Area
+                                Full Screen
                             </button>
                         </div>
-
                         <div
                             id="assignmentMapStatus"
                             class="assignment-map-status"
                             data-tone="neutral"
                         >
-                            Select a ward to load the division operational map.
-                        </div>
-
-                        <div class="assignment-map-hint">
-                            The dashed boundary is the Assistant Commissioner's current development working envelope. Your selected Inspector area must remain inside it.
+                            Select a Ward to view its current operational boundary.
                         </div>
 
                         <div
@@ -757,7 +1538,7 @@
                             class="assignment-area-summary"
                             data-selected="false"
                         >
-                            No Inspector area selected yet.
+                            Select a Ward to view the Inspector's Ward jurisdiction.
                         </div>
                     </div>
 
@@ -796,10 +1577,106 @@
                         class="primary-button"
                         id="saveInspectorAssignmentButton"
                     >
-                        Save Ward &amp; Area
+                        Save Ward Assignment
                     </button>
                 </div>
             </form>
+        </section>
+    </div>
+
+
+    <!-- =========================================================
+         ROUTE CHANGE REQUEST REVIEW MODAL
+         ========================================================= -->
+    <div
+        class="modal-overlay"
+        id="reviewChangeRequestModal"
+        aria-hidden="true"
+        hidden
+    >
+        <section
+            class="modal-card review-change-request-modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reviewChangeRequestModalTitle"
+        >
+            <div class="modal-header">
+                <div>
+                    <span class="eyebrow">ROUTE GOVERNANCE</span>
+                    <h2 id="reviewChangeRequestModalTitle">Review Route Change Request</h2>
+                    <p>
+                        Approve or reject the requested route change. The Assistant Commissioner can review only requests belonging to the authenticated Division.
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    class="modal-close-button"
+                    id="closeReviewChangeRequestModal"
+                    aria-label="Close"
+                >
+                    ×
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <input type="hidden" id="reviewChangeRequestId">
+
+                <div
+                    id="reviewChangeRequestSummary"
+                    class="review-request-summary"
+                ></div>
+
+                <div class="form-field">
+                    <label>Request details</label>
+                    <pre
+                        id="reviewChangeRequestDetails"
+                        class="review-request-details"
+                    ></pre>
+                </div>
+
+                <div class="form-field">
+                    <label for="reviewChangeRequestNotes">
+                        Review notes
+                    </label>
+                    <textarea
+                        id="reviewChangeRequestNotes"
+                        rows="4"
+                        maxlength="1000"
+                        placeholder="Optional notes explaining the approval or rejection."
+                    ></textarea>
+                </div>
+
+                <div
+                    class="modal-message"
+                    id="reviewChangeRequestMessage"
+                    aria-live="polite"
+                    role="status"
+                ></div>
+            </div>
+
+            <div class="modal-footer">
+                <button
+                    type="button"
+                    class="secondary-button"
+                    id="cancelReviewChangeRequestButton"
+                >
+                    Close
+                </button>
+                <button
+                    type="button"
+                    class="secondary-button danger-action-button"
+                    id="rejectChangeRequestButton"
+                >
+                    Reject
+                </button>
+                <button
+                    type="button"
+                    class="primary-button"
+                    id="approveChangeRequestButton"
+                >
+                    Approve
+                </button>
+            </div>
         </section>
     </div>
 
@@ -817,6 +1694,6 @@
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     crossorigin=""
 ></script>
-<script src="./assistantDash.js?v=20261004-part17-geography2"></script>
+<script src="./assistantDash.js?v=20261008-part9"></script>
 </body>
 </html>

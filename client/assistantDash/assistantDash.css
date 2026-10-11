@@ -1084,6 +1084,20 @@ a {
     background: #fff9e8;
 }
 
+.boundary-pill.assistant {
+    color: #315b27;
+    background: #edf5e8;
+}
+
+.table-action-muted {
+    color: var(--muted);
+    font-size: 10px;
+}
+
+.ward-boundary-edit-action {
+    white-space: nowrap;
+}
+
 
 .assign-action-button {
     min-height: 32px;
@@ -1767,5 +1781,1671 @@ body.modal-open {
 
     .assignment-map-toolbar button {
         width: 100%;
+    }
+}
+
+/* =========================================================
+   AC PART 2: JURISDICTION / MASTER-DATA STATES
+   ========================================================= */
+
+.jurisdiction-note,
+.data-note {
+    border: 1px solid var(--line);
+    background: var(--sage-2);
+    color: var(--ink-2);
+    border-radius: 12px;
+}
+
+.jurisdiction-note {
+    margin-top: 16px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.jurisdiction-note-dot {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 8px;
+    margin-top: 5px;
+    border-radius: 50%;
+    background: var(--olive-700);
+    box-shadow: 0 0 0 4px rgba(65,109,39,.08);
+}
+
+.data-note {
+    margin: 0 20px 18px;
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.boundary-pill.missing {
+    color: var(--warning);
+    background: var(--amber-soft);
+    border-color: #efd7a6;
+}
+
+
+/* =========================================================
+   PART 3
+   DIVISION OVERVIEW MAP
+   ========================================================= */
+
+.overview-map-card {
+    margin-top: 15px;
+    min-width: 0;
+    overflow: hidden;
+    padding: 0;
+}
+
+.overview-map-card .map-header {
+    min-height: 62px;
+    padding: 11px 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: #f8faf6;
+    border-bottom: 1px solid var(--border);
+}
+
+.overview-map-card .map-title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.overview-map-card .live-dot {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 8px;
+    border-radius: 50%;
+    background: #14a76a;
+    box-shadow: 0 0 0 4px rgba(20,167,106,.10);
+}
+
+.overview-map-card .map-title-group h2 {
+    color: #273026;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: .08em;
+}
+
+.overview-map-card .map-title-group span {
+    display: block;
+    margin-top: 3px;
+    color: #7d897c;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 16px;
+}
+
+.overview-map-card .map-tools {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.overview-map-card .map-tools button {
+    height: 33px;
+    padding: 0 9px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: #4d584c;
+    background: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    transition:
+        background .18s ease,
+        border-color .18s ease,
+        color .18s ease,
+        transform .18s ease;
+}
+
+.overview-map-card .map-tools button:hover {
+    background: var(--sage-soft);
+    border-color: #c4d2be;
+    transform: translateY(-1px);
+}
+
+.overview-map-card .map-tools button.active {
+    color: #fff;
+    background: var(--olive-dark);
+    border-color: var(--olive-dark);
+}
+
+.overview-map-wrap {
+    position: relative;
+    height: 405px;
+    overflow: hidden;
+}
+
+.overview-map-wrap .tracking-map {
+    width: 100%;
+    height: 100%;
+    background: #edf3e9;
+}
+
+.overview-map-wrap .map-legend {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    z-index: 500;
+    width: 210px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: rgba(255,255,255,.96);
+    box-shadow: var(--shadow-sm);
+}
+
+.overview-map-wrap .map-legend strong {
+    color: #334032;
+    font-size: 16px;
+    font-weight: 800;
+}
+
+.overview-map-wrap .map-legend span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #687366;
+    font-size: 16px;
+}
+
+.legend-line.division-boundary {
+    height: 2px;
+    background: transparent;
+    border-top: 2px dashed #9aa694;
+}
+
+.legend-line.ward-boundary {
+    height: 3px;
+    background: #6e875f;
+}
+
+.legend-dot.office {
+    background: #4f6d43;
+}
+
+.overview-map-card .map-footer {
+    min-height: 43px;
+    padding: 0 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border-top: 1px solid #edf1e9;
+    color: #7c8779;
+    font-size: 16px;
+}
+
+.overview-map-card .map-footer strong {
+    color: #2f3a2f;
+}
+
+.map-data-status {
+    color: #7c8779;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+}
+
+.division-office-marker {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid #365e2d;
+    background: #d4ed8b;
+    box-shadow:
+        0 0 0 4px rgba(54,94,45,.12),
+        0 5px 14px rgba(24,42,20,.18);
+    display: grid;
+    place-items: center;
+}
+
+.division-office-marker span {
+    width: 7px;
+    height: 7px;
+    border-radius: 2px;
+    background: #365e2d;
+    display: block;
+}
+
+.overview-map-card .leaflet-control-attribution {
+    font-size: 8px;
+}
+
+.overview-map-card .custom-truck-marker {
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #ffffff;
+    background: #416d27;
+    border: 2px solid #ffffff;
+    box-shadow: 0 4px 12px rgba(18,43,12,.24);
+}
+
+.overview-map-card .custom-truck-marker svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.overview-map-card .truck-popup {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 190px;
+    font-size: 13px;
+}
+
+.overview-map-card .truck-popup strong {
+    color: #253026;
+    font-size: 16px;
+}
+
+.overview-map-card .truck-popup span {
+    color: #687366;
+    font-size: 12px;
+}
+
+@media (max-width: 900px) {
+    .overview-map-card .map-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .overview-map-card .map-tools {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .overview-map-wrap {
+        height: 360px;
+    }
+}
+
+@media (max-width: 620px) {
+    .overview-map-wrap {
+        height: 320px;
+    }
+
+    .overview-map-wrap .map-legend {
+        width: 170px;
+        padding: 8px;
+    }
+}
+
+
+/* =========================================================
+   PART 3
+   TYPOGRAPHY PARITY WITH INSPECTORDASH.CSS
+   ========================================================= */
+
+.sidebar-brand-text span {
+    font-size: 16px;
+}
+
+.role-label {
+    font-size: 11px;
+}
+
+.sidebar-role strong {
+    font-size: 13px;
+}
+
+.navigation-title {
+    font-size: 16px;
+}
+
+.navigation-item {
+    font-size: 16px;
+}
+
+.navigation-count {
+    font-size: 16px;
+}
+
+.current-scope-card strong,
+.current-scope-card span:last-child {
+    font-size: 16px;
+}
+
+.logout-button {
+    font-size: 16px;
+}
+
+.system-status {
+    font-size: 16px;
+}
+
+.header-user-block strong {
+    font-size: 14px;
+}
+
+.header-user-block span:last-child {
+    font-size: 11px;
+}
+
+.topbar-title-block h1 {
+    font-size: 32px;
+}
+
+.section-heading h2 {
+    font-size: 32px;
+}
+
+.section-heading p {
+    font-size: 16px;
+}
+
+.primary-button,
+.secondary-button {
+    font-size: 16px;
+}
+
+.kpi-card > strong {
+    font-size: 33px;
+}
+
+.kpi-card > span:last-child {
+    font-size: 16px;
+}
+
+.panel-card-header h3 {
+    font-size: 16px;
+}
+
+.text-button {
+    font-size: 16px;
+}
+
+.data-table th {
+    font-size: 12px;
+}
+
+.data-table td {
+    font-size: 13px;
+}
+
+.status-pill {
+    font-size: 12px;
+}
+
+.toast {
+    font-size: 13px;
+}
+
+.form-field label {
+    font-size: 13px;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+    font-size: 14px;
+}
+
+.form-field small {
+    font-size: 11px;
+}
+
+.modal-header p {
+    font-size: 13px;
+}
+
+/* =========================================================
+   PART 3 MAP TOOLBAR
+   ========================================================= */
+
+.overview-map-card .map-tools button {
+    color: var(--olive-700);
+    background: #ffffff;
+    border-color: var(--border);
+    transition:
+        color .2s ease,
+        background .2s ease,
+        border-color .2s ease,
+        transform .2s ease;
+}
+
+.overview-map-card .map-tools button:hover {
+    color: var(--olive-900);
+    background: var(--sage-2);
+    border-color: #c8d6c3;
+    transform: translateY(-1px);
+}
+
+.overview-map-card .map-tools button.active {
+    color: var(--olive-700);
+    background: #eef6df;
+    border-color: #d5e3bf;
+}
+
+.overview-map-card .map-tools button.active:hover {
+    color: var(--olive-900);
+    background: var(--lime);
+    border-color: #c1e46c;
+    transform: translateY(-1px);
+}
+
+/* Keep icon-style zoom buttons green too. */
+.overview-map-card .map-tools button[aria-label="Zoom in"],
+.overview-map-card .map-tools button[aria-label="Zoom out"] {
+    color: var(--olive-700);
+}
+
+.overview-map-card .map-tools button[aria-label="Zoom in"]:hover,
+.overview-map-card .map-tools button[aria-label="Zoom out"]:hover {
+    color: var(--olive-900);
+}
+
+/* Assignment map should never visually suggest a city-wide division envelope. */
+.assignment-map-hint {
+    color: var(--muted);
+}
+
+/* =========================================================
+   PART 3 MAP SAFETY / INITIAL VIEW
+   ========================================================= */
+
+.overview-map-card .tracking-map,
+.assignment-map {
+    background: #eef2ea;
+}
+
+.overview-map-card .leaflet-container,
+.assignment-map.leaflet-container {
+    font-family: "DM Sans", system-ui, sans-serif;
+}
+
+
+/* =========================================================
+   AC PART 4: OPERATIONAL AREA EDITOR + FULLSCREEN MAPS
+   ========================================================= */
+
+.compact-button {
+    min-height: 34px;
+    padding: 0 12px;
+    white-space: nowrap;
+}
+
+.table-toolbar-right {
+    flex-wrap: wrap;
+}
+
+.map-editor-save {
+    color: #2f6d37 !important;
+    background: #eff8ed !important;
+    border-color: #cce3c7 !important;
+}
+
+.map-fullscreen-button {
+    white-space: nowrap;
+}
+
+.map-data-status.map-area-status {
+    color: #2f6d37;
+}
+
+.legend-line.division-operational {
+    height: 2px;
+    background: transparent;
+    border-top: 2px dashed #4f7d45;
+}
+
+.division-area-vertex-icon,
+.ward-area-vertex-icon {
+    background: transparent;
+    border: 0;
+}
+
+.division-area-vertex,
+.ward-area-vertex {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #315b27;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(18, 43, 12, .24);
+}
+
+.ward-create-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.ward-create-boundary-note {
+    margin-top: 10px;
+    padding: 10px 12px;
+    display: grid;
+    gap: 3px;
+    border: 1px solid #dce5d8;
+    border-radius: 9px;
+    background: #f8fbf6;
+}
+
+.ward-create-boundary-note strong {
+    color: var(--ink);
+    font-size: 11px;
+}
+
+.ward-create-boundary-note span {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.create-ward-modal-card {
+    width: min(1080px, calc(100vw - 28px));
+}
+
+.ward-create-map-section {
+    margin-top: 14px;
+    padding: 12px;
+    border: 1px solid #dfe7db;
+    border-radius: 12px;
+    background: #fbfcfa;
+}
+
+.ward-create-map {
+    height: 430px;
+}
+
+.edit-ward-boundary-modal-card {
+    width: min(1200px, calc(100vw - 24px));
+}
+
+.ward-boundary-edit-map-section {
+    margin-top: 14px;
+    padding: 12px;
+    border: 1px solid #dfe7db;
+    border-radius: 12px;
+    background: #fbfcfa;
+}
+
+.ward-boundary-edit-map {
+    height: 500px;
+}
+
+.ward-boundary-edit-map-section.map-fullscreen-fallback {
+    position: fixed !important;
+    inset: 8px !important;
+    z-index: 4000 !important;
+    margin: 0 !important;
+    width: auto !important;
+    height: calc(100vh - 16px) !important;
+    background: #ffffff !important;
+    box-shadow: 0 16px 48px rgba(20, 30, 18, .25) !important;
+}
+
+.ward-boundary-edit-map-section:fullscreen {
+    display: flex;
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+    box-sizing: border-box;
+    margin: 0;
+    border-radius: 0;
+    background: #fbfcfa;
+    padding: 16px;
+}
+
+.ward-boundary-edit-map-section:fullscreen .ward-boundary-edit-map,
+.ward-boundary-edit-map-section.map-fullscreen-fallback .ward-boundary-edit-map {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+}
+
+.overview-map-card.map-fullscreen-fallback,
+.assignment-map-section.map-fullscreen-fallback,
+.ward-create-map-section.map-fullscreen-fallback {
+    position: fixed !important;
+    inset: 8px !important;
+    z-index: 4000 !important;
+    margin: 0 !important;
+    width: auto !important;
+    height: calc(100vh - 16px) !important;
+    background: #ffffff !important;
+    box-shadow: 0 16px 48px rgba(20, 30, 18, .25) !important;
+}
+
+.overview-map-card:fullscreen {
+    display: flex;
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+    background: #fff;
+}
+
+.overview-map-card:fullscreen .overview-map-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+}
+
+.assignment-map-section:fullscreen,
+.ward-create-map-section:fullscreen {
+    display: flex;
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+    box-sizing: border-box;
+    margin: 0;
+    border-radius: 0;
+    background: #fbfcfa;
+    padding: 16px;
+}
+
+.assignment-map-section:fullscreen .assignment-map,
+.ward-create-map-section:fullscreen .ward-create-map {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+}
+
+.overview-map-card.map-fullscreen-fallback .overview-map-wrap,
+.assignment-map-section.map-fullscreen-fallback .assignment-map,
+.ward-create-map-section.map-fullscreen-fallback .ward-create-map {
+    min-height: 0;
+}
+
+.overview-map-card.map-fullscreen-fallback .overview-map-wrap {
+    height: calc(100% - 108px) !important;
+}
+
+.assignment-map-section.map-fullscreen-fallback {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 16px !important;
+}
+
+.assignment-map-section.map-fullscreen-fallback .assignment-map {
+    flex: 1 1 auto;
+    height: auto !important;
+}
+
+.ward-create-map-section.map-fullscreen-fallback {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 16px !important;
+}
+
+.ward-create-map-section.map-fullscreen-fallback .ward-create-map {
+    flex: 1 1 auto;
+    height: auto !important;
+}
+
+@media (max-width: 720px) {
+    .ward-create-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .compact-button {
+        width: 100%;
+    }
+
+    .overview-map-card .map-tools button {
+        flex: 1 1 auto;
+    }
+}
+
+
+/* =========================================================
+   AC PART 6: OPERATIONAL SUPERVISION
+   ========================================================= */
+.supervision-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.supervision-section {
+    margin-bottom: 18px;
+}
+
+.supervision-table {
+    min-width: 920px;
+}
+
+.supervision-table td strong + div {
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.supervision-section .panel-card-header {
+    padding-bottom: 10px;
+}
+
+@media (max-width: 980px) {
+    .supervision-metrics-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .supervision-metrics-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+/* AC Part 6: all existing Ward boundaries remain visible as map context. */
+.assignment-map-section .ward-boundary-context,
+.ward-create-map-section .ward-boundary-context,
+.ward-boundary-edit-map-section .ward-boundary-context {
+    pointer-events: auto;
+}
+
+.supervision-section + .supervision-section {
+    margin-top: 4px;
+}
+
+
+/* =========================================================
+   AC PART 7: ROUTE GOVERNANCE + INSPECTOR AREA VISIBILITY
+   ========================================================= */
+.review-request-summary {
+    display: grid;
+    gap: 6px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--soft);
+}
+
+.review-request-summary strong {
+    font-size: 17px;
+}
+
+.review-request-summary span {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.review-request-details {
+    max-height: 300px;
+    overflow: auto;
+    margin: 0;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #f7f8f5;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.danger-action-button {
+    color: #8b2d24;
+    border-color: #d9aaa4;
+}
+
+.review-request-button {
+    white-space: nowrap;
+}
+
+.review-request-button:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+@media (max-width: 760px) {
+    .review-change-request-modal-card {
+        width: min(96vw, 720px);
+    }
+}
+
+
+/* Part 7 map-layer distinction: Inspector operational area is a separate inner scope. */
+.map-legend .legend-line.inspector-area {
+    border-top: 3px solid #245b36;
+    box-shadow: 0 1px 0 rgba(120, 169, 107, 0.55);
+}
+
+
+
+/* =========================================================
+   AC PART 8: DIVISIONAL REPORTS & ANALYTICS
+   ========================================================= */
+.report-page-heading {
+    align-items: flex-start;
+}
+
+.report-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.report-date-field {
+    display: grid;
+    gap: 5px;
+    min-width: 150px;
+}
+
+.report-date-field span {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.4;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+}
+
+.report-date-field input {
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--ink);
+    background: var(--white);
+    font-size: 16px;
+}
+
+.report-meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 18px;
+}
+
+.report-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.reports-two-column {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    margin-bottom: 18px;
+}
+
+.report-status-card,
+.report-chart-card,
+.report-ward-card {
+    min-width: 0;
+}
+
+.report-status-list {
+    display: grid;
+    gap: 12px;
+    padding-top: 4px;
+}
+
+.report-status-row {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) auto;
+    gap: 10px;
+}
+
+.report-status-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.report-status-head span:first-child {
+    color: var(--ink-2);
+    font-size: 15px;
+    line-height: 1.4;
+    font-weight: 600;
+}
+
+.report-status-head strong {
+    font-size: 16px;
+    line-height: 1.3;
+}
+
+.report-progress-track {
+    height: 8px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--sage-2);
+}
+
+.report-progress-fill {
+    height: 100%;
+    min-width: 0;
+    border-radius: inherit;
+    background: var(--olive-700);
+}
+
+.report-status-share {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.report-fleet-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.report-fleet-item {
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--sage-2);
+}
+
+.report-fleet-item span {
+    display: block;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.4;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.report-fleet-item strong {
+    display: block;
+    margin-top: 5px;
+    font-size: 24px;
+    line-height: 1.2;
+}
+
+.report-chart {
+    /* Keep one column per day. A wrapping grid made 30-day reports split into
+       multiple chart rows at narrower dashboard widths, distorting comparison. */
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 8px;
+    min-height: 240px;
+    padding: 18px 12px 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    scrollbar-color: #b9c9b0 #edf2e8;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: linear-gradient(to bottom, var(--white), var(--sage-2));
+}
+
+.report-chart::-webkit-scrollbar {
+    height: 8px;
+}
+
+.report-chart::-webkit-scrollbar-track {
+    border-radius: 999px;
+    background: #edf2e8;
+}
+
+.report-chart::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: #b9c9b0;
+}
+
+.report-chart-empty {
+    flex: 1 0 100%;
+    display: grid;
+    place-items: center;
+    min-height: 200px;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.5;
+    text-align: center;
+}
+
+.report-chart-day {
+    display: flex;
+    flex: 0 0 42px;
+    min-width: 42px;
+    height: 195px;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 6px;
+    scroll-snap-align: start;
+}
+
+.report-chart-bars {
+    display: flex;
+    flex: 0 0 155px;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 3px;
+    width: 100%;
+    height: 155px;
+}
+
+.report-chart-bar {
+    flex: 0 1 13px;
+    width: min(13px, 38%);
+    min-width: 3px;
+    min-height: 2px;
+    border-radius: 5px 5px 2px 2px;
+}
+
+.report-chart-bar.collection {
+    background: var(--olive-700);
+}
+
+.report-chart-bar.complaints {
+    background: var(--warning);
+}
+
+.report-chart-label {
+    width: 100%;
+    overflow: hidden;
+    color: var(--ink-2);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    line-height: 1.35;
+    text-align: center;
+    text-overflow: clip;
+    white-space: nowrap;
+}
+
+.report-chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 12px;
+    color: var(--ink-2);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.report-chart-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.report-legend-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+}
+
+.report-legend-dot.collection {
+    background: var(--olive-700);
+}
+
+.report-legend-dot.complaints {
+    background: var(--warning);
+}
+
+.report-ward-card {
+    margin-bottom: 24px;
+}
+
+.report-ward-table {
+    min-width: 980px;
+}
+
+.report-rate-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.report-rate-track {
+    width: 74px;
+    height: 7px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--sage-2);
+}
+
+.report-rate-fill {
+    height: 100%;
+    border-radius: inherit;
+    background: var(--success);
+}
+
+@media (max-width: 1200px) {
+    .report-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 860px) {
+    .reports-two-column {
+        grid-template-columns: 1fr;
+    }
+
+    .report-page-heading {
+        flex-direction: column;
+    }
+
+    .report-toolbar {
+        width: 100%;
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 620px) {
+    .report-kpi-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .report-toolbar {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .report-date-field,
+    .report-toolbar .compact-button {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .report-meta-row {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+/* =========================================================
+   AC FINAL READABILITY PASS — TYPOGRAPHY PARITY WITH INSPECTOR
+   Keep compact decorative labels compact, but make operational text, form
+   controls, tables, and status summaries readable at normal dashboard scale.
+   ========================================================= */
+
+.topbar-eyebrow,
+.header-role,
+.eyebrow {
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.topbar-title-block h1 {
+    font-size: clamp(22px, 2.2vw, 32px);
+    line-height: 1.15;
+}
+
+.section-heading h2 {
+    font-size: clamp(26px, 2.4vw, 32px);
+    line-height: 1.15;
+}
+
+.section-heading p {
+    font-size: 16px;
+    line-height: 1.55;
+}
+
+.header-user-block strong {
+    font-size: 16px;
+    line-height: 1.3;
+}
+
+.header-user-block span:last-child {
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.system-status {
+    font-size: 14px;
+}
+
+.scope-card-label {
+    font-size: 12px;
+}
+
+.kpi-label {
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.kpi-card > span:last-child {
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.panel-card-header h3 {
+    font-size: 20px;
+    line-height: 1.3;
+}
+
+.summary-row > span {
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.summary-row > strong {
+    font-size: 15px;
+    line-height: 1.4;
+}
+
+.coverage-item-main strong,
+.coverage-item-side strong {
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.coverage-item-main span,
+.coverage-item-side span {
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.page-message,
+.empty-state,
+.table-empty,
+.data-note,
+.jurisdiction-note,
+.assignment-map-hint,
+.assignment-map-status,
+.map-data-status,
+.ward-create-boundary-note span,
+.review-request-summary span,
+.modal-header p,
+.modal-message,
+.toast {
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.data-status {
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.data-table th {
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.data-table td {
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+.scope-badge,
+.scope-badge.small,
+.data-table .scope-badge {
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.status-pill,
+.boundary-pill {
+    font-size: 12px;
+    line-height: 1.3;
+}
+
+.text-button,
+.table-action-muted {
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.assign-action-button {
+    min-height: 38px;
+    padding: 0 12px;
+    font-size: 14px;
+}
+
+.primary-button,
+.secondary-button {
+    min-height: 44px;
+    font-size: 16px;
+}
+
+.modal-header h2 {
+    font-size: 24px;
+    line-height: 1.2;
+}
+
+.assignment-inspector-summary .summary-label,
+.summary-label {
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.assignment-inspector-summary strong {
+    font-size: 16px;
+    line-height: 1.35;
+}
+
+.assignment-inspector-summary > span:last-child,
+.form-field small {
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.form-field label {
+    font-size: 15px;
+    line-height: 1.4;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+    font-size: 16px;
+    line-height: 1.45;
+}
+
+.form-field input,
+.form-field select {
+    min-height: 44px;
+}
+
+.review-request-summary strong {
+    font-size: 18px;
+    line-height: 1.35;
+}
+
+.review-request-details {
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+.supervision-table td strong + div {
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.overview-map-card .leaflet-control-attribution {
+    font-size: 11px;
+}
+
+@media (max-width: 620px) {
+    .report-chart-day {
+        flex-basis: 42px;
+        min-width: 42px;
+    }
+
+    .report-date-field span {
+        font-size: 12px;
+    }
+
+    .data-table th {
+        font-size: 12px;
+    }
+
+    .data-table td {
+        font-size: 14px;
+    }
+}
+
+
+
+/* =========================================================
+   AC LEGIBILITY FOLLOW-UP — OPERATIONAL MAPS AND SMALL LABELS
+   ========================================================= */
+.role-label,
+.sidebar-role strong,
+.assignment-map-header strong,
+.ward-create-boundary-note strong {
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.assignment-map-header small,
+.assignment-area-summary,
+.assignment-map-hint,
+.ward-create-boundary-note span {
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.operational-area-pill {
+    min-height: 28px;
+    padding: 5px 10px;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.overview-map-card .truck-popup span {
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.assignment-map .leaflet-control-attribution,
+.overview-map-card .leaflet-control-attribution {
+    font-size: 11px;
+    line-height: 1.3;
+}
+
+@media (max-width: 620px) {
+    .assignment-map-header strong,
+    .assignment-map-header small,
+    .assignment-area-summary,
+    .assignment-map-hint,
+    .ward-create-boundary-note strong,
+    .ward-create-boundary-note span {
+        font-size: 13px;
+    }
+}
+
+
+/* =========================================================
+   AC REPORTS — CARD FIT / CHART OVERFLOW FIX
+   ========================================================= */
+.report-status-card {
+    min-width: 0;
+    height: auto;
+    align-self: stretch;
+}
+
+.report-status-list {
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    width: 100%;
+    min-width: 0;
+    padding: 16px 20px 22px;
+}
+
+.report-status-row {
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+}
+
+.report-status-row > div {
+    min-width: 0;
+    width: 100%;
+}
+
+.report-status-head {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    margin-bottom: 7px;
+}
+
+.report-status-head span:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 15px;
+    line-height: 1.35;
+}
+
+.report-status-head strong {
+    flex: 0 0 auto;
+    font-size: 15px;
+    line-height: 1.35;
+    font-variant-numeric: tabular-nums;
+}
+
+.report-progress-track {
+    box-sizing: border-box;
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: 9px;
+    margin: 0;
+}
+
+.report-progress-fill {
+    max-width: 100%;
+}
+
+.report-status-share {
+    box-sizing: border-box;
+    display: block;
+    min-width: 52px;
+    padding-left: 0;
+    text-align: right;
+    white-space: nowrap;
+    font-size: 14px;
+    line-height: 1.35;
+    font-variant-numeric: tabular-nums;
+}
+
+/* The 30-day trend must stay in one row; overflow is contained in its own chart box. */
+.report-chart {
+    box-sizing: border-box;
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    min-height: 230px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    padding: 18px 12px 8px;
+    scrollbar-width: thin;
+}
+
+.report-chart-day {
+    box-sizing: border-box;
+    display: flex;
+    flex: 0 0 38px;
+    width: 38px;
+    min-width: 38px;
+    height: 190px;
+    min-height: 0;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 6px;
+}
+
+.report-chart-bars {
+    box-sizing: border-box;
+    display: flex;
+    flex: 0 0 155px;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 3px;
+    width: 100%;
+    max-width: 100%;
+    height: 155px;
+    min-height: 155px;
+}
+
+.report-chart-bar {
+    flex: 0 1 12px;
+    width: 12px;
+    max-width: 34%;
+    min-width: 3px;
+    box-sizing: border-box;
+}
+
+.report-chart-label {
+    flex: 0 0 auto;
+    width: 100%;
+    font-size: 11px;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.report-chart-empty {
+    flex: 1 0 100%;
+    min-width: 0;
+}
+
+.report-chart-legend {
+    box-sizing: border-box;
+    padding: 0 20px 18px;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.report-ward-card .table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+@media (max-width: 860px) {
+    .report-status-list {
+        padding: 15px 18px 20px;
+    }
+
+    .report-chart-legend {
+        padding-right: 18px;
+        padding-left: 18px;
+    }
+}
+
+@media (max-width: 620px) {
+    .report-status-list {
+        gap: 13px;
+        padding: 14px 14px 18px;
+    }
+
+    .report-status-row {
+        gap: 9px;
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .report-status-head span:first-child,
+    .report-status-head strong {
+        font-size: 14px;
+    }
+
+    .report-status-share {
+        min-width: 46px;
+        font-size: 13px;
+    }
+
+    .report-chart-legend {
+        padding-right: 14px;
+        padding-left: 14px;
     }
 }

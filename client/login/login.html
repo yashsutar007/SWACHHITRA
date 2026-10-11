@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -137,6 +138,7 @@
                         minlength="6"
                         required
                     >
+                    <p class="password-recovery-link"><a href="/forgotPassword">Forgot your password?</a></p>
 
                 </div>
 
@@ -198,7 +200,7 @@
                     role="status"
                     aria-live="polite"
                 ></div>
-
+                <p id="verifyHelp" class="verification-help" hidden>Need a fresh verification link? <a id="verifyHelpLink" href="/verifyEmail">Resend email verification</a></p>
 
                 <button
                     type="submit"
@@ -208,6 +210,10 @@
                 </button>
 
             </form>
+
+            <p class="citizen-signup-link">
+                New Citizen? <a href="/citizenRegister">Create a Citizen account</a>
+            </p>
 
         </div>
 

@@ -1,30 +1,18 @@
--- =========================================================
--- SWACHHITRA DATABASE SCHEMA
--- =========================================================
--- Purpose:
---   Rebuild the application tables cleanly while PRESERVING
---   the existing `users` table and its authentication data.
---
--- Current database state expected before running this file:
---   users table exists
---   other application tables may or may not exist
---
--- IMPORTANT:
---   This file intentionally DROPS every application table except
---   `users` and recreates them from scratch.
---
---   It does NOT drop or recreate `users`.
---
--- Main Inspector model:
---   user -> profile -> zone/ward scope
---   route -> zone/ward
---   route_assignment -> route + vehicle + driver
---   vehicle is NOT directly assigned to a ward
---
--- Vehicle image support:
---   vehicles.image_path stores the uploaded image path/URL.
---   Actual upload handling will be added in the server code later.
--- =========================================================
+-- ================================================================
+-- SWACHHITRA DATABASE SCHEMA BASELINE
+-- Source: mysqldump --no-data snapshot of the current swachhitra DB
+-- MySQL server version in snapshot: 8.0.44
+-- ================================================================
+-- SAFETY:
+--   * This file contains CREATE TABLE IF NOT EXISTS only.
+--   * It contains no DROP TABLE, TRUNCATE, DELETE, or UPDATE statements.
+--   * It is a baseline for a fresh/rebuilt development database, not a
+--     schema migration. IF NOT EXISTS does NOT alter a table that already
+--     exists with a different definition.
+--   * Do not use this file to update an existing database. Use reviewed,
+--     additive migration files for schema changes to an existing database.
+--   * Authentication records and operational data are not seeded here.
+-- ================================================================
 
 CREATE DATABASE IF NOT EXISTS swachhitra
     CHARACTER SET utf8mb4
@@ -32,745 +20,471 @@ CREATE DATABASE IF NOT EXISTS swachhitra
 
 USE swachhitra;
 
-
--- =========================================================
--- 1. CLEAN REBUILD OF NON-AUTHENTICATION TABLES
--- =========================================================
-
-SET FOREIGN_KEY_CHECKS = 0;
-
-DROP TABLE IF EXISTS notifications;
-DROP TABLE IF EXISTS complaints;
-DROP TABLE IF EXISTS collections;
-DROP TABLE IF EXISTS route_stops;
-DROP TABLE IF EXISTS route_assignments;
-DROP TABLE IF EXISTS routes;
-DROP TABLE IF EXISTS vehicles;
-DROP TABLE IF EXISTS drivers;
-DROP TABLE IF EXISTS user_profiles;
-DROP TABLE IF EXISTS wards;
-DROP TABLE IF EXISTS zones;
-
+SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 1;
 
-
--- =========================================================
--- 2. EXISTING USERS TABLE
--- =========================================================
--- DO NOT CREATE, DROP, OR MODIFY `users` here.
---
--- Your existing row such as:
---   inspector@example.com
--- must remain untouched.
---
--- Expected columns:
---   id
---   email
---   password_hash
---   role
---   status
---   created_at
---   updated_at
--- =========================================================
-
-
--- =========================================================
--- 3. ZONES
--- =========================================================
-
-CREATE TABLE zones (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-
-    zone_code VARCHAR(30) NOT NULL,
-    zone_name VARCHAR(100) NOT NULL,
-
-    status ENUM(
-        'active',
-        'inactive'
-    ) NOT NULL DEFAULT 'active',
-
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        ON UPDATE CURRENT_TIMESTAMP,
-
-    PRIMARY KEY (id),
-
-    UNIQUE KEY uq_zones_code (zone_code),
-
-    KEY idx_zones_name (zone_name),
-    KEY idx_zones_status (status)
-)
-ENGINE = InnoDB
-DEFAULT CHARSET = utf8mb4
-COLLATE = utf8mb4_unicode_ci;
-
-
--- =========================================================
--- 4. WARDS
--- Every ward belongs to exactly one zone.
--- =========================================================
-
-CREATE TABLE wards (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-
-    zone_id BIGINT UNSIGNED NOT NULL,
-
-    ward_number INT UNSIGNED NOT NULL,
-    ward_code VARCHAR(30) NOT NULL,
-    ward_name VARCHAR(120) NOT NULL,
-
-    status ENUM(
-        'active',
-        'inactive'
-    ) NOT NULL DEFAULT 'active',
-
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        ON UPDATE CURRENT_TIMESTAMP,
-
-    PRIMARY KEY (id),
-
-    UNIQUE KEY uq_wards_code (ward_code),
-
-    UNIQUE KEY uq_wards_zone_number (
-        zone_id,
-        ward_number
-    ),
-
-    -- Required so routes/profiles can verify that a ward
-    -- belongs to the same zone selected by the record.
-    UNIQUE KEY uq_wards_id_zone (
-        id,
-        zone_id
-    ),
-
-    KEY idx_wards_zone (zone_id),
-    KEY idx_wards_status (status),
-
-    CONSTRAINT fk_wards_zone
-        FOREIGN KEY (zone_id)
-        REFERENCES zones(id)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT
-)
-ENGINE = InnoDB
-DEFAULT CHARSET = utf8mb4
-COLLATE = utf8mb4_unicode_ci;
-
-
--- =========================================================
--- 5. USER PROFILES
---
--- Stores personal/official information plus the relational
--- operational scope used by role-based dashboards.
--- =========================================================
-
-CREATE TABLE user_profiles (
-    user_id BIGINT UNSIGNED NOT NULL,
-
-    full_name VARCHAR(120) NOT NULL,
-    mobile_number VARCHAR(20) NULL,
-
-    official_email VARCHAR(190) NULL,
-    employee_id VARCHAR(60) NULL,
-
-    department VARCHAR(120) NULL,
-    designation VARCHAR(120) NULL,
-
-    office_location VARCHAR(180) NULL,
-    working_shift VARCHAR(50) NULL,
-    official_contact_number VARCHAR(20) NULL,
-
-    address VARCHAR(255) NULL,
-    city VARCHAR(100) NULL,
-    preferred_language VARCHAR(40) NULL,
-    notification_preference VARCHAR(40) NULL,
-
-    -- Relational operational scope.
-    zone_id BIGINT UNSIGNED NULL,
-    ward_id BIGINT UNSIGNED NULL,
-
-    license_number VARCHAR(80) NULL,
-    license_type VARCHAR(80) NULL,
-    vehicle_number VARCHAR(50) NULL,
-
-    jurisdiction VARCHAR(180) NULL,
-
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        ON UPDATE CURRENT_TIMESTAMP,
-
-    PRIMARY KEY (user_id),
-
-    UNIQUE KEY uq_user_profiles_employee_id (employee_id),
-
-    KEY idx_profiles_zone (zone_id),
-    KEY idx_profiles_ward (ward_id),
-
-    CONSTRAINT fk_user_profiles_user
-        FOREIGN KEY (user_id)
-        REFERENCES users(id)
-        ON UPDATE CASCADE
-        ON DELETE CASCADE,
-
-    -- Ensures the selected ward belongs to the selected zone.
-    CONSTRAINT fk_user_profiles_ward_zone
-        FOREIGN KEY (ward_id, zone_id)
-        REFERENCES wards(id, zone_id)
-        ON UPDATE CASCADE
-        ON DELETE SET NULL
-)
-ENGINE = InnoDB
-DEFAULT CHARSET = utf8mb4
-COLLATE = utf8mb4_unicode_ci;
-
-
--- =========================================================
--- 6. DRIVERS
--- Driver records are independent operational records.
--- assigned_ward_id is allowed here because a driver can have
--- an operational ward assignment independent of a current route.
--- =========================================================
-
-CREATE TABLE drivers (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-
-    user_id BIGINT UNSIGNED NULL,
-
-    employee_id VARCHAR(60) NOT NULL,
-    full_name VARCHAR(120) NOT NULL,
-    mobile_number VARCHAR(20) NULL,
-    email VARCHAR(190) NULL,
-
-    license_number VARCHAR(80) NULL,
-    license_type VARCHAR(80) NULL,
-
-    assigned_ward_id BIGINT UNSIGNED NULL,
-
-    status ENUM(
-        'available',
-        'assigned',
-        'on_break',
-        'inactive'
-    ) NOT NULL DEFAULT 'available',
-
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        ON UPDATE CURRENT_TIMESTAMP,
-
-    PRIMARY KEY (id),
-
-    UNIQUE KEY uq_drivers_user (user_id),
-    UNIQUE KEY uq_drivers_employee_id (employee_id),
-
-    KEY idx_drivers_ward (assigned_ward_id),
-    KEY idx_drivers_status (status),
-
-    CONSTRAINT fk_drivers_user
-        FOREIGN KEY (user_id)
-        REFERENCES users(id)
-        ON UPDATE CASCADE
-        ON DELETE SET NULL,
-
-    CONSTRAINT fk_drivers_ward
-        FOREIGN KEY (assigned_ward_id)
-        REFERENCES wards(id)
-        ON UPDATE CASCADE
-        ON DELETE SET NULL
-)
-ENGINE = InnoDB
-DEFAULT CHARSET = utf8mb4
-COLLATE = utf8mb4_unicode_ci;
-
-
--- =========================================================
--- 7. VEHICLES
---
--- IMPORTANT:
---   There is NO assigned_ward_id column here.
---
---   A vehicle's current operational scope is determined by its
---   route assignment:
---
---      vehicle -> route_assignment -> route -> zone/ward
---
--- image_path is reserved for the later upload feature.
--- =========================================================
-
-CREATE TABLE vehicles (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-
-    vehicle_number VARCHAR(50) NOT NULL,
-    registration_number VARCHAR(50) NULL,
-
-    vehicle_type VARCHAR(60) NOT NULL,
-    make VARCHAR(80) NULL,
-
-    capacity_tons DECIMAL(8,2) NOT NULL DEFAULT 0.00,
-    current_load_tons DECIMAL(8,2) NOT NULL DEFAULT 0.00,
-    current_load_percent DECIMAL(5,2) NOT NULL DEFAULT 0.00,
-
-    eta_minutes INT UNSIGNED NULL,
-
-    status ENUM(
-        'available',
-        'en_route',
-        'collecting',
-        'delayed',
-        'maintenance',
-        'inactive'
-    ) NOT NULL DEFAULT 'available',
-
-    current_latitude DECIMAL(10,7) NULL,
-    current_longitude DECIMAL(10,7) NULL,
-    last_location_at DATETIME NULL,
-
-    -- Uploaded vehicle image path or URL.
-    image_path VARCHAR(255) NULL,
-
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        ON UPDATE CURRENT_TIMESTAMP,
-
-    PRIMARY KEY (id),
-
-    UNIQUE KEY uq_vehicles_number (vehicle_number),
-    UNIQUE KEY uq_vehicles_registration (registration_number),
-
-    KEY idx_vehicles_status (status)
-)
-ENGINE = InnoDB
-DEFAULT CHARSET = utf8mb4
-COLLATE = utf8mb4_unicode_ci;
-
-
--- =========================================================
--- 8. ROUTES
--- One route belongs to one zone and one ward.
--- =========================================================
-
-CREATE TABLE routes (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-
-    route_code VARCHAR(30) NOT NULL,
-    route_name VARCHAR(150) NOT NULL,
-
-    zone_id BIGINT UNSIGNED NOT NULL,
-    ward_id BIGINT UNSIGNED NOT NULL,
-
-    status ENUM(
-        'scheduled',
-        'starting',
-        'active',
-        'delayed',
-        'completed',
-        'cancelled'
-    ) NOT NULL DEFAULT 'scheduled',
-
-    start_point VARCHAR(200) NULL,
-    end_point VARCHAR(200) NULL,
-
-    estimated_distance_km DECIMAL(8,2) NULL,
-    estimated_duration_minutes INT UNSIGNED NULL,
-
-    total_stops INT UNSIGNED NOT NULL DEFAULT 0,
-    completed_stops INT UNSIGNED NOT NULL DEFAULT 0,
-    delay_minutes INT NOT NULL DEFAULT 0,
-
-    scheduled_start_time DATETIME NULL,
-    scheduled_end_time DATETIME NULL,
-
-    created_by BIGINT UNSIGNED NOT NULL,
-
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        ON UPDATE CURRENT_TIMESTAMP,
-
-    PRIMARY KEY (id),
-
-    UNIQUE KEY uq_routes_code (route_code),
-
-    KEY idx_routes_zone (zone_id),
-    KEY idx_routes_ward (ward_id),
-    KEY idx_routes_status (status),
-    KEY idx_routes_created_by (created_by),
-
-    CONSTRAINT fk_routes_zone
-        FOREIGN KEY (zone_id)
-        REFERENCES zones(id)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT,
-
-    -- Ensures the selected ward belongs to the same zone.
-    CONSTRAINT fk_routes_ward_zone
-        FOREIGN KEY (ward_id, zone_id)
-        REFERENCES wards(id, zone_id)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT,
-
-    CONSTRAINT fk_routes_created_by
-        FOREIGN KEY (created_by)
-        REFERENCES users(id)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT
-)
-ENGINE = InnoDB
-DEFAULT CHARSET = utf8mb4
-COLLATE = utf8mb4_unicode_ci;
-
-
--- =========================================================
--- 9. ROUTE STOPS
--- =========================================================
-
-CREATE TABLE route_stops (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-
-    route_id BIGINT UNSIGNED NOT NULL,
-
-    stop_order INT UNSIGNED NOT NULL,
-    stop_name VARCHAR(150) NOT NULL,
-    address VARCHAR(255) NULL,
-
-    latitude DECIMAL(10,7) NULL,
-    longitude DECIMAL(10,7) NULL,
-
-    status ENUM(
-        'pending',
-        'in_progress',
-        'collected',
-        'skipped'
-    ) NOT NULL DEFAULT 'pending',
-
-    collected_at DATETIME NULL,
-
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        ON UPDATE CURRENT_TIMESTAMP,
-
-    PRIMARY KEY (id),
-
-    UNIQUE KEY uq_route_stops_order (
-        route_id,
-        stop_order
-    ),
-
-    KEY idx_route_stops_status (status),
-
-    CONSTRAINT fk_route_stops_route
-        FOREIGN KEY (route_id)
-        REFERENCES routes(id)
-        ON UPDATE CASCADE
-        ON DELETE CASCADE
-)
-ENGINE = InnoDB
-DEFAULT CHARSET = utf8mb4
-COLLATE = utf8mb4_unicode_ci;
-
-
--- =========================================================
--- 10. ROUTE ASSIGNMENTS
--- Connects a route to one vehicle and one driver.
--- =========================================================
-
-CREATE TABLE route_assignments (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-
-    assignment_code VARCHAR(50) NOT NULL,
-
-    route_id BIGINT UNSIGNED NOT NULL,
-    vehicle_id BIGINT UNSIGNED NOT NULL,
-    driver_id BIGINT UNSIGNED NOT NULL,
-
-    assigned_by BIGINT UNSIGNED NOT NULL,
-
-    status ENUM(
-        'assigned',
-        'active',
-        'delayed',
-        'completed',
-        'cancelled'
-    ) NOT NULL DEFAULT 'assigned',
-
-    assigned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    started_at DATETIME NULL,
-    completed_at DATETIME NULL,
-    unassigned_at DATETIME NULL,
-
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        ON UPDATE CURRENT_TIMESTAMP,
-
-    PRIMARY KEY (id),
-
-    UNIQUE KEY uq_route_assignments_code (assignment_code),
-
-    KEY idx_assignments_route (route_id),
-    KEY idx_assignments_vehicle (vehicle_id),
-    KEY idx_assignments_driver (driver_id),
-    KEY idx_assignments_status (status),
-
-    CONSTRAINT fk_assignments_route
-        FOREIGN KEY (route_id)
-        REFERENCES routes(id)
-        ON UPDATE CASCADE
-        ON DELETE CASCADE,
-
-    CONSTRAINT fk_assignments_vehicle
-        FOREIGN KEY (vehicle_id)
-        REFERENCES vehicles(id)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT,
-
-    CONSTRAINT fk_assignments_driver
-        FOREIGN KEY (driver_id)
-        REFERENCES drivers(id)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT,
-
-    CONSTRAINT fk_assignments_user
-        FOREIGN KEY (assigned_by)
-        REFERENCES users(id)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT
-)
-ENGINE = InnoDB
-DEFAULT CHARSET = utf8mb4
-COLLATE = utf8mb4_unicode_ci;
-
-
--- =========================================================
--- 11. COLLECTIONS
--- Records actual waste collection work.
--- =========================================================
-
-CREATE TABLE collections (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-
-    route_id BIGINT UNSIGNED NOT NULL,
-    route_stop_id BIGINT UNSIGNED NULL,
-    ward_id BIGINT UNSIGNED NOT NULL,
-
-    vehicle_id BIGINT UNSIGNED NULL,
-    driver_id BIGINT UNSIGNED NULL,
-
-    collection_date DATE NOT NULL,
-
-    waste_tons DECIMAL(8,2) NOT NULL DEFAULT 0.00,
-
-    status ENUM(
-        'in_progress',
-        'collected',
-        'skipped'
-    ) NOT NULL DEFAULT 'in_progress',
-
-    notes TEXT NULL,
-    collected_at DATETIME NULL,
-
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        ON UPDATE CURRENT_TIMESTAMP,
-
-    PRIMARY KEY (id),
-
-    KEY idx_collections_route (route_id),
-    KEY idx_collections_stop (route_stop_id),
-    KEY idx_collections_ward (ward_id),
-    KEY idx_collections_date (collection_date),
-    KEY idx_collections_status (status),
-
-    CONSTRAINT fk_collections_route
-        FOREIGN KEY (route_id)
-        REFERENCES routes(id)
-        ON UPDATE CASCADE
-        ON DELETE CASCADE,
-
-    CONSTRAINT fk_collections_route_stop
-        FOREIGN KEY (route_stop_id)
-        REFERENCES route_stops(id)
-        ON UPDATE CASCADE
-        ON DELETE SET NULL,
-
-    CONSTRAINT fk_collections_ward
-        FOREIGN KEY (ward_id)
-        REFERENCES wards(id)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT,
-
-    CONSTRAINT fk_collections_vehicle
-        FOREIGN KEY (vehicle_id)
-        REFERENCES vehicles(id)
-        ON UPDATE CASCADE
-        ON DELETE SET NULL,
-
-    CONSTRAINT fk_collections_driver
-        FOREIGN KEY (driver_id)
-        REFERENCES drivers(id)
-        ON UPDATE CASCADE
-        ON DELETE SET NULL
-)
-ENGINE = InnoDB
-DEFAULT CHARSET = utf8mb4
-COLLATE = utf8mb4_unicode_ci;
-
-
--- =========================================================
--- 12. COMPLAINTS
--- Citizen-reported waste collection/service issues.
--- =========================================================
-
-CREATE TABLE complaints (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-
-    complaint_code VARCHAR(40) NOT NULL,
-
-    citizen_user_id BIGINT UNSIGNED NULL,
-
-    complaint_type VARCHAR(80) NOT NULL,
-    description TEXT NOT NULL,
-    location_text VARCHAR(255) NULL,
-
-    ward_id BIGINT UNSIGNED NULL,
-
-    latitude DECIMAL(10,7) NULL,
-    longitude DECIMAL(10,7) NULL,
-
-    priority ENUM(
-        'low',
-        'medium',
-        'high',
-        'critical'
-    ) NOT NULL DEFAULT 'medium',
-
-    status ENUM(
-        'open',
-        'in_progress',
-        'resolved',
-        'cancelled'
-    ) NOT NULL DEFAULT 'open',
-
-    assigned_vehicle_id BIGINT UNSIGNED NULL,
-    assigned_driver_id BIGINT UNSIGNED NULL,
-
-    reported_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    resolved_at DATETIME NULL,
-
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        ON UPDATE CURRENT_TIMESTAMP,
-
-    PRIMARY KEY (id),
-
-    UNIQUE KEY uq_complaints_code (complaint_code),
-
-    KEY idx_complaints_citizen (citizen_user_id),
-    KEY idx_complaints_ward (ward_id),
-    KEY idx_complaints_priority (priority),
-    KEY idx_complaints_status (status),
-    KEY idx_complaints_vehicle (assigned_vehicle_id),
-    KEY idx_complaints_driver (assigned_driver_id),
-    KEY idx_complaints_reported_at (reported_at),
-
-    CONSTRAINT fk_complaints_citizen
-        FOREIGN KEY (citizen_user_id)
-        REFERENCES users(id)
-        ON UPDATE CASCADE
-        ON DELETE SET NULL,
-
-    CONSTRAINT fk_complaints_ward
-        FOREIGN KEY (ward_id)
-        REFERENCES wards(id)
-        ON UPDATE CASCADE
-        ON DELETE SET NULL,
-
-    CONSTRAINT fk_complaints_vehicle
-        FOREIGN KEY (assigned_vehicle_id)
-        REFERENCES vehicles(id)
-        ON UPDATE CASCADE
-        ON DELETE SET NULL,
-
-    CONSTRAINT fk_complaints_driver
-        FOREIGN KEY (assigned_driver_id)
-        REFERENCES drivers(id)
-        ON UPDATE CASCADE
-        ON DELETE SET NULL
-)
-ENGINE = InnoDB
-DEFAULT CHARSET = utf8mb4
-COLLATE = utf8mb4_unicode_ci;
-
-
--- =========================================================
--- 13. NOTIFICATIONS
--- =========================================================
-
-CREATE TABLE notifications (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-
-    recipient_user_id BIGINT UNSIGNED NOT NULL,
-
-    title VARCHAR(150) NOT NULL,
-    message TEXT NOT NULL,
-
-    notification_type VARCHAR(50) NOT NULL DEFAULT 'general',
-
-    priority ENUM(
-        'low',
-        'medium',
-        'high'
-    ) NOT NULL DEFAULT 'medium',
-
-    is_read TINYINT(1) NOT NULL DEFAULT 0,
-    read_at DATETIME NULL,
-
-    related_route_id BIGINT UNSIGNED NULL,
-    related_complaint_id BIGINT UNSIGNED NULL,
-
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    PRIMARY KEY (id),
-
-    KEY idx_notifications_recipient (recipient_user_id),
-    KEY idx_notifications_read (
-        recipient_user_id,
-        is_read
-    ),
-    KEY idx_notifications_route (related_route_id),
-    KEY idx_notifications_complaint (related_complaint_id),
-
-    CONSTRAINT fk_notifications_recipient
-        FOREIGN KEY (recipient_user_id)
-        REFERENCES users(id)
-        ON UPDATE CASCADE
-        ON DELETE CASCADE,
-
-    CONSTRAINT fk_notifications_route
-        FOREIGN KEY (related_route_id)
-        REFERENCES routes(id)
-        ON UPDATE CASCADE
-        ON DELETE SET NULL,
-
-    CONSTRAINT fk_notifications_complaint
-        FOREIGN KEY (related_complaint_id)
-        REFERENCES complaints(id)
-        ON UPDATE CASCADE
-        ON DELETE SET NULL
-)
-ENGINE = InnoDB
-DEFAULT CHARSET = utf8mb4
-COLLATE = utf8mb4_unicode_ci;
-
-
--- =========================================================
--- END OF SCHEMA
--- =========================================================
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `email` varchar(190) NOT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `role` enum('deputy_commissioner','assistant_commissioner','sanitary_inspector','driver','citizen') NOT NULL,
+  `status` enum('active','inactive') NOT NULL DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`),
+  KEY `idx_users_role` (`role`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS `zones` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `zone_code` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `zone_name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `status` enum('active','inactive') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_zones_code` (`zone_code`),
+  KEY `idx_zones_name` (`zone_name`),
+  KEY `idx_zones_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `divisions` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `division_code` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `division_name` varchar(120) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `office_location` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `status` enum('active','inactive') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active',
+  `source_name` varchar(180) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `source_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `source_checked_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_divisions_code` (`division_code`),
+  KEY `idx_divisions_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `vehicles` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `vehicle_number` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `registration_number` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `vehicle_type` varchar(60) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `make` varchar(80) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `capacity_tons` decimal(8,2) NOT NULL DEFAULT '0.00',
+  `current_load_tons` decimal(8,2) NOT NULL DEFAULT '0.00',
+  `current_load_percent` decimal(5,2) NOT NULL DEFAULT '0.00',
+  `eta_minutes` int unsigned DEFAULT NULL,
+  `status` enum('available','en_route','collecting','delayed','maintenance','inactive') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'available',
+  `current_latitude` decimal(10,7) DEFAULT NULL,
+  `current_longitude` decimal(10,7) DEFAULT NULL,
+  `last_location_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_vehicles_number` (`vehicle_number`),
+  UNIQUE KEY `uq_vehicles_registration` (`registration_number`),
+  KEY `idx_vehicles_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `sessions` (
+  `session_id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `expires` datetime(3) DEFAULT NULL,
+  `data` mediumtext COLLATE utf8mb4_unicode_ci NOT NULL,
+  PRIMARY KEY (`session_id`),
+  KEY `idx_sessions_expires` (`expires`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `wards` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `zone_id` bigint unsigned NOT NULL,
+  `division_id` bigint unsigned DEFAULT NULL,
+  `ward_number` int unsigned NOT NULL,
+  `ward_code` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `ward_name` varchar(120) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `status` enum('active','inactive') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_wards_code` (`ward_code`),
+  UNIQUE KEY `uq_wards_zone_number` (`zone_id`,`ward_number`),
+  UNIQUE KEY `uq_wards_id_zone` (`id`,`zone_id`),
+  UNIQUE KEY `uq_wards_id_division` (`id`,`division_id`),
+  KEY `idx_wards_zone` (`zone_id`),
+  KEY `idx_wards_status` (`status`),
+  KEY `idx_wards_division` (`division_id`),
+  CONSTRAINT `fk_wards_division` FOREIGN KEY (`division_id`) REFERENCES `divisions` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_wards_zone` FOREIGN KEY (`zone_id`) REFERENCES `zones` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `drivers` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint unsigned DEFAULT NULL,
+  `employee_id` varchar(60) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `full_name` varchar(120) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `mobile_number` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `email` varchar(190) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `license_number` varchar(80) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `license_type` varchar(80) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `assigned_ward_id` bigint unsigned DEFAULT NULL,
+  `status` enum('available','assigned','on_break','inactive') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'available',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_drivers_employee_id` (`employee_id`),
+  UNIQUE KEY `uq_drivers_user` (`user_id`),
+  KEY `idx_drivers_ward` (`assigned_ward_id`),
+  KEY `idx_drivers_status` (`status`),
+  CONSTRAINT `fk_drivers_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_drivers_ward` FOREIGN KEY (`assigned_ward_id`) REFERENCES `wards` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `user_profiles` (
+  `user_id` bigint unsigned NOT NULL,
+  `full_name` varchar(120) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `mobile_number` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `official_email` varchar(190) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `employee_id` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `department` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `designation` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `office_location` varchar(180) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `working_shift` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `official_contact_number` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `address` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `city` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `postal_code` varchar(12) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `address_latitude` decimal(10,7) DEFAULT NULL,
+  `address_longitude` decimal(10,7) DEFAULT NULL,
+  `preferred_language` varchar(40) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `notification_preference` varchar(40) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `zone_id` bigint unsigned DEFAULT NULL,
+  `division_id` bigint unsigned DEFAULT NULL,
+  `scope_assigned_by` bigint unsigned DEFAULT NULL,
+  `scope_assigned_at` datetime DEFAULT NULL,
+  `ward_id` bigint unsigned DEFAULT NULL,
+  `license_number` varchar(80) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `license_type` varchar(80) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `vehicle_number` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `jurisdiction` varchar(180) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`user_id`),
+  UNIQUE KEY `uq_user_profiles_employee_id` (`employee_id`),
+  KEY `idx_profiles_zone` (`zone_id`),
+  KEY `idx_profiles_ward` (`ward_id`),
+  KEY `fk_user_profiles_ward_zone` (`ward_id`,`zone_id`),
+  KEY `idx_profiles_division` (`division_id`),
+  KEY `fk_user_profiles_scope_assigned_by` (`scope_assigned_by`),
+  KEY `fk_user_profiles_ward_division` (`ward_id`,`division_id`),
+  CONSTRAINT `fk_user_profiles_division` FOREIGN KEY (`division_id`) REFERENCES `divisions` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_user_profiles_scope_assigned_by` FOREIGN KEY (`scope_assigned_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_user_profiles_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_user_profiles_ward_division` FOREIGN KEY (`ward_id`, `division_id`) REFERENCES `wards` (`id`, `division_id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_user_profiles_ward_zone` FOREIGN KEY (`ward_id`, `zone_id`) REFERENCES `wards` (`id`, `zone_id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `routes` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `route_code` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `route_name` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `zone_id` bigint unsigned NOT NULL,
+  `division_id` bigint unsigned DEFAULT NULL,
+  `ward_id` bigint unsigned NOT NULL,
+  `status` enum('scheduled','starting','active','delayed','completed','cancelled') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'scheduled',
+  `approval_status` enum('legacy_unreviewed','pending','approved','rejected') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'legacy_unreviewed',
+  `approval_requested_by` bigint unsigned DEFAULT NULL,
+  `approval_requested_at` datetime DEFAULT NULL,
+  `approved_by` bigint unsigned DEFAULT NULL,
+  `approved_at` datetime DEFAULT NULL,
+  `approval_notes` varchar(1000) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `start_point` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `end_point` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `estimated_distance_km` decimal(8,2) DEFAULT NULL,
+  `estimated_duration_minutes` int unsigned DEFAULT NULL,
+  `total_stops` int unsigned NOT NULL DEFAULT '0',
+  `completed_stops` int unsigned NOT NULL DEFAULT '0',
+  `delay_minutes` int NOT NULL DEFAULT '0',
+  `scheduled_start_time` datetime DEFAULT NULL,
+  `scheduled_end_time` datetime DEFAULT NULL,
+  `created_by` bigint unsigned NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_routes_code` (`route_code`),
+  KEY `idx_routes_zone` (`zone_id`),
+  KEY `idx_routes_ward` (`ward_id`),
+  KEY `idx_routes_status` (`status`),
+  KEY `idx_routes_created_by` (`created_by`),
+  KEY `fk_routes_ward_zone` (`ward_id`,`zone_id`),
+  KEY `idx_routes_division` (`division_id`),
+  KEY `idx_routes_approval_status` (`approval_status`),
+  KEY `fk_routes_ward_division` (`ward_id`,`division_id`),
+  KEY `fk_routes_approval_requested_by` (`approval_requested_by`),
+  KEY `fk_routes_approved_by` (`approved_by`),
+  CONSTRAINT `fk_routes_approval_requested_by` FOREIGN KEY (`approval_requested_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_routes_approved_by` FOREIGN KEY (`approved_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_routes_created_by` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_routes_division` FOREIGN KEY (`division_id`) REFERENCES `divisions` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_routes_ward_division` FOREIGN KEY (`ward_id`, `division_id`) REFERENCES `wards` (`id`, `division_id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_routes_ward_zone` FOREIGN KEY (`ward_id`, `zone_id`) REFERENCES `wards` (`id`, `zone_id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_routes_zone` FOREIGN KEY (`zone_id`) REFERENCES `zones` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `route_stops` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `route_id` bigint unsigned NOT NULL,
+  `stop_order` int unsigned NOT NULL,
+  `stop_name` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `address` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `latitude` decimal(10,7) DEFAULT NULL,
+  `longitude` decimal(10,7) DEFAULT NULL,
+  `status` enum('pending','in_progress','collected','skipped') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
+  `collected_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_route_stops_order` (`route_id`,`stop_order`),
+  KEY `idx_route_stops_status` (`status`),
+  CONSTRAINT `fk_route_stops_route` FOREIGN KEY (`route_id`) REFERENCES `routes` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `route_assignments` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `assignment_code` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `route_id` bigint unsigned NOT NULL,
+  `vehicle_id` bigint unsigned NOT NULL,
+  `driver_id` bigint unsigned NOT NULL,
+  `assigned_by` bigint unsigned NOT NULL,
+  `status` enum('assigned','active','delayed','completed','cancelled') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'assigned',
+  `assigned_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `started_at` datetime DEFAULT NULL,
+  `completed_at` datetime DEFAULT NULL,
+  `unassigned_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_route_assignments_code` (`assignment_code`),
+  KEY `idx_assignments_route` (`route_id`),
+  KEY `idx_assignments_vehicle` (`vehicle_id`),
+  KEY `idx_assignments_driver` (`driver_id`),
+  KEY `idx_assignments_status` (`status`),
+  KEY `fk_assignments_user` (`assigned_by`),
+  CONSTRAINT `fk_assignments_driver` FOREIGN KEY (`driver_id`) REFERENCES `drivers` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_assignments_route` FOREIGN KEY (`route_id`) REFERENCES `routes` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_assignments_user` FOREIGN KEY (`assigned_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_assignments_vehicle` FOREIGN KEY (`vehicle_id`) REFERENCES `vehicles` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `collections` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `route_id` bigint unsigned NOT NULL,
+  `route_stop_id` bigint unsigned DEFAULT NULL,
+  `ward_id` bigint unsigned NOT NULL,
+  `vehicle_id` bigint unsigned DEFAULT NULL,
+  `driver_id` bigint unsigned DEFAULT NULL,
+  `collection_date` date NOT NULL,
+  `waste_tons` decimal(8,2) NOT NULL DEFAULT '0.00',
+  `status` enum('in_progress','collected','skipped') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'in_progress',
+  `notes` text COLLATE utf8mb4_unicode_ci,
+  `collected_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_collections_route` (`route_id`),
+  KEY `idx_collections_stop` (`route_stop_id`),
+  KEY `idx_collections_ward` (`ward_id`),
+  KEY `idx_collections_date` (`collection_date`),
+  KEY `idx_collections_status` (`status`),
+  KEY `fk_collections_vehicle` (`vehicle_id`),
+  KEY `fk_collections_driver` (`driver_id`),
+  CONSTRAINT `fk_collections_driver` FOREIGN KEY (`driver_id`) REFERENCES `drivers` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_collections_route` FOREIGN KEY (`route_id`) REFERENCES `routes` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_collections_route_stop` FOREIGN KEY (`route_stop_id`) REFERENCES `route_stops` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_collections_vehicle` FOREIGN KEY (`vehicle_id`) REFERENCES `vehicles` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_collections_ward` FOREIGN KEY (`ward_id`) REFERENCES `wards` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `complaints` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `complaint_code` varchar(40) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `citizen_user_id` bigint unsigned DEFAULT NULL,
+  `complaint_type` varchar(80) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `location_text` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `ward_id` bigint unsigned DEFAULT NULL,
+  `latitude` decimal(10,7) DEFAULT NULL,
+  `longitude` decimal(10,7) DEFAULT NULL,
+  `priority` enum('low','medium','high','critical') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'medium',
+  `status` enum('open','in_progress','resolved','cancelled') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'open',
+  `assigned_vehicle_id` bigint unsigned DEFAULT NULL,
+  `assigned_driver_id` bigint unsigned DEFAULT NULL,
+  `reported_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `resolved_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_complaints_code` (`complaint_code`),
+  KEY `idx_complaints_citizen` (`citizen_user_id`),
+  KEY `idx_complaints_ward` (`ward_id`),
+  KEY `idx_complaints_priority` (`priority`),
+  KEY `idx_complaints_status` (`status`),
+  KEY `idx_complaints_vehicle` (`assigned_vehicle_id`),
+  KEY `idx_complaints_driver` (`assigned_driver_id`),
+  KEY `idx_complaints_reported_at` (`reported_at`),
+  CONSTRAINT `fk_complaints_citizen` FOREIGN KEY (`citizen_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_complaints_driver` FOREIGN KEY (`assigned_driver_id`) REFERENCES `drivers` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_complaints_vehicle` FOREIGN KEY (`assigned_vehicle_id`) REFERENCES `vehicles` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_complaints_ward` FOREIGN KEY (`ward_id`) REFERENCES `wards` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `notifications` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `recipient_user_id` bigint unsigned NOT NULL,
+  `title` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `message` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `notification_type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'general',
+  `priority` enum('low','medium','high') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'medium',
+  `is_read` tinyint(1) NOT NULL DEFAULT '0',
+  `read_at` datetime DEFAULT NULL,
+  `related_route_id` bigint unsigned DEFAULT NULL,
+  `related_complaint_id` bigint unsigned DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_notifications_recipient` (`recipient_user_id`),
+  KEY `idx_notifications_read` (`recipient_user_id`,`is_read`),
+  KEY `idx_notifications_route` (`related_route_id`),
+  KEY `idx_notifications_complaint` (`related_complaint_id`),
+  CONSTRAINT `fk_notifications_complaint` FOREIGN KEY (`related_complaint_id`) REFERENCES `complaints` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_notifications_recipient` FOREIGN KEY (`recipient_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_notifications_route` FOREIGN KEY (`related_route_id`) REFERENCES `routes` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `division_operational_areas` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `division_id` bigint unsigned NOT NULL,
+  `boundary_geojson` json NOT NULL,
+  `source` varchar(40) NOT NULL DEFAULT 'assistant_defined',
+  `assigned_by` bigint unsigned DEFAULT NULL,
+  `assigned_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_division_operational_area_division` (`division_id`),
+  KEY `idx_division_operational_area_assigned_by` (`assigned_by`),
+  CONSTRAINT `fk_division_operational_area_division` FOREIGN KEY (`division_id`) REFERENCES `divisions` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_division_operational_area_user` FOREIGN KEY (`assigned_by`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS `inspector_operational_areas` (
+  `inspector_user_id` bigint unsigned NOT NULL,
+  `division_id` bigint unsigned NOT NULL,
+  `ward_id` bigint unsigned NOT NULL,
+  `boundary_geojson` longtext COLLATE utf8mb4_unicode_ci NOT NULL,
+  `source` varchar(40) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'assistant_selected',
+  `assigned_by` bigint unsigned NOT NULL,
+  `assigned_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`inspector_user_id`),
+  KEY `idx_inspector_operational_area_division_ward` (`division_id`,`ward_id`),
+  KEY `idx_inspector_operational_area_assigned_by` (`assigned_by`,`assigned_at`),
+  KEY `fk_inspector_operational_area_ward_division` (`ward_id`,`division_id`),
+  CONSTRAINT `fk_inspector_operational_area_assigned_by` FOREIGN KEY (`assigned_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_inspector_operational_area_division` FOREIGN KEY (`division_id`) REFERENCES `divisions` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_inspector_operational_area_inspector` FOREIGN KEY (`inspector_user_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_inspector_operational_area_ward_division` FOREIGN KEY (`ward_id`, `division_id`) REFERENCES `wards` (`id`, `division_id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `chk_inspector_operational_area_json` CHECK (json_valid(`boundary_geojson`))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `inspector_scope_history` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `inspector_user_id` bigint unsigned NOT NULL,
+  `previous_division_id` bigint unsigned DEFAULT NULL,
+  `previous_ward_id` bigint unsigned DEFAULT NULL,
+  `new_division_id` bigint unsigned NOT NULL,
+  `new_ward_id` bigint unsigned NOT NULL,
+  `assigned_by` bigint unsigned NOT NULL,
+  `reason` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_scope_history_inspector` (`inspector_user_id`,`created_at`),
+  KEY `idx_scope_history_assigner` (`assigned_by`,`created_at`),
+  KEY `fk_scope_history_previous_division` (`previous_division_id`),
+  KEY `fk_scope_history_previous_ward` (`previous_ward_id`),
+  KEY `fk_scope_history_new_division` (`new_division_id`),
+  KEY `fk_scope_history_new_ward` (`new_ward_id`),
+  CONSTRAINT `fk_scope_history_assigned_by` FOREIGN KEY (`assigned_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_scope_history_inspector` FOREIGN KEY (`inspector_user_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_scope_history_new_division` FOREIGN KEY (`new_division_id`) REFERENCES `divisions` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_scope_history_new_ward` FOREIGN KEY (`new_ward_id`) REFERENCES `wards` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_scope_history_previous_division` FOREIGN KEY (`previous_division_id`) REFERENCES `divisions` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_scope_history_previous_ward` FOREIGN KEY (`previous_ward_id`) REFERENCES `wards` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `route_change_requests` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `route_id` bigint unsigned NOT NULL,
+  `request_type` enum('route_creation','route_update','route_reassignment','route_cancellation') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `status` enum('pending','approved','rejected','withdrawn') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
+  `requested_by` bigint unsigned NOT NULL,
+  `requested_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `before_state` longtext COLLATE utf8mb4_unicode_ci,
+  `after_state` longtext COLLATE utf8mb4_unicode_ci,
+  `reviewed_by` bigint unsigned DEFAULT NULL,
+  `reviewed_at` datetime DEFAULT NULL,
+  `review_notes` varchar(1000) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_route_change_route_status` (`route_id`,`status`),
+  KEY `idx_route_change_requester` (`requested_by`,`requested_at`),
+  KEY `idx_route_change_reviewer` (`reviewed_by`,`reviewed_at`),
+  CONSTRAINT `fk_route_change_requester` FOREIGN KEY (`requested_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_route_change_reviewer` FOREIGN KEY (`reviewed_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_route_change_route` FOREIGN KEY (`route_id`) REFERENCES `routes` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `citizen_account_security` (
+  `user_id` bigint unsigned NOT NULL,
+  `email_verified_at` datetime(3) DEFAULT NULL,
+  `session_version` int unsigned NOT NULL DEFAULT '0',
+  `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`user_id`),
+  CONSTRAINT `fk_citizen_account_security_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `citizen_account_tokens` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint unsigned NOT NULL,
+  `purpose` enum('email_verification','password_reset') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `token_hash` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `expires_at` datetime(3) NOT NULL,
+  `used_at` datetime(3) DEFAULT NULL,
+  `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_citizen_account_tokens_hash` (`token_hash`),
+  KEY `idx_citizen_account_tokens_user_purpose` (`user_id`,`purpose`,`used_at`,`expires_at`),
+  KEY `idx_citizen_account_tokens_expiry` (`expires_at`),
+  CONSTRAINT `fk_citizen_account_tokens_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `ward_boundaries` (
+  `ward_id` bigint unsigned NOT NULL,
+  `boundary_geojson` longtext COLLATE utf8mb4_unicode_ci NOT NULL,
+  `source_name` varchar(180) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `source_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `source_document_date` date DEFAULT NULL,
+  `source_version` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `is_official` tinyint(1) NOT NULL DEFAULT '0',
+  `verified_by` bigint unsigned DEFAULT NULL,
+  `verified_at` datetime DEFAULT NULL,
+  `checksum_sha256` char(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`ward_id`),
+  KEY `idx_ward_boundaries_official` (`is_official`),
+  KEY `fk_ward_boundaries_verified_by` (`verified_by`),
+  CONSTRAINT `fk_ward_boundaries_verified_by` FOREIGN KEY (`verified_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_ward_boundaries_ward` FOREIGN KEY (`ward_id`) REFERENCES `wards` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- End of SWACHHITRA baseline schema.
