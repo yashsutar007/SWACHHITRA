@@ -413,7 +413,8 @@ const PASSWORD_RESET_ELIGIBILITY_SQL = `(
                 ON assigning_ac_profile.user_id = assigning_ac.id
                AND assigning_ac_profile.division_id = inspector_profile.division_id
             WHERE inspector_profile.user_id = u.id
-              AND LOWER(TRIM(inspector_profile.official_email)) = LOWER(u.email)
+              AND LOWER(CONVERT(TRIM(inspector_profile.official_email) USING utf8mb4)) COLLATE utf8mb4_unicode_ci
+                  = LOWER(CONVERT(u.email USING utf8mb4)) COLLATE utf8mb4_unicode_ci
         )
     )
     OR (
@@ -451,8 +452,18 @@ const PASSWORD_RESET_ELIGIBILITY_SQL = `(
                AND assigning_ac_profile.division_id = driver_ward.division_id
             WHERE driver_registry.user_id = u.id
               AND driver_registry.status <> 'inactive'
-              AND LOWER(TRIM(driver_registry.email)) = LOWER(u.email)
-              AND LOWER(COALESCE(NULLIF(driver_profile.official_email, ''), u.email)) = LOWER(u.email)
+              AND LOWER(CONVERT(TRIM(driver_registry.email) USING utf8mb4)) COLLATE utf8mb4_unicode_ci
+                  = LOWER(CONVERT(u.email USING utf8mb4)) COLLATE utf8mb4_unicode_ci
+              AND LOWER(
+                    COALESCE(
+                        NULLIF(
+                            CONVERT(driver_profile.official_email USING utf8mb4) COLLATE utf8mb4_unicode_ci,
+                            _utf8mb4'' COLLATE utf8mb4_unicode_ci
+                        ),
+                        CONVERT(u.email USING utf8mb4) COLLATE utf8mb4_unicode_ci
+                    )
+                  ) COLLATE utf8mb4_unicode_ci
+                  = LOWER(CONVERT(u.email USING utf8mb4)) COLLATE utf8mb4_unicode_ci
         )
     )
 )`;
@@ -465,7 +476,8 @@ async function findEligiblePasswordResetTarget(executor, email, userId = null) {
     const [rows] = await executor.execute(
         `SELECT u.id, u.email, u.role, u.status
          FROM users u
-         WHERE LOWER(u.email) = ?
+         WHERE LOWER(CONVERT(u.email USING utf8mb4)) COLLATE utf8mb4_unicode_ci
+             = LOWER(CONVERT(? USING utf8mb4)) COLLATE utf8mb4_unicode_ci
            AND u.status = 'active'
            AND ${PASSWORD_RESET_ELIGIBILITY_SQL}
            ${whereUserId}
