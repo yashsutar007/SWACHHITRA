@@ -22,7 +22,7 @@
         <section class="auth-card">
             <p class="eyebrow">NEW CITIZEN ACCOUNT</p>
             <h2>Sign up</h2>
-            <p class="subheading">Verify your email address before signing in and setting up your service Ward.</p>
+            <p class="subheading">Create your account, then continue directly to your Citizen profile to save your address and service Ward.</p>
 
             <form id="citizenRegisterForm" novalidate>
                 <label for="email">Email address</label>
@@ -35,6 +35,7 @@
                 <label for="confirmPassword">Confirm password</label>
                 <input id="confirmPassword" name="confirm_password" type="password" required minlength="12" maxlength="72" autocomplete="new-password" placeholder="Enter the same password again">
 
+                <p class="field-hint">Use an email address you control. This demo continues directly to profile setup and does not verify email ownership during signup.</p>
                 <p id="registerMessage" class="notice" role="status" aria-live="polite"></p>
                 <button id="registerButton" class="button-primary" type="submit">Create account</button>
             </form>

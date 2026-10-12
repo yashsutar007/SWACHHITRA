@@ -34,8 +34,9 @@
         showMessage("");
         addDevelopmentLink("");
         if (!form.checkValidity()) { form.reportValidity(); return; }
+
         button.disabled = true;
-        button.textContent = "Checking options…";
+        button.textContent = "Requesting link…";
         try {
             const response = await fetch("/api/auth/password/forgot", {
                 method: "POST",
@@ -45,23 +46,32 @@
                 body: JSON.stringify({ email: email.value.trim() })
             });
             const result = await response.json().catch(() => null);
-            if (!response.ok || result?.success !== true) throw new Error(result?.message || "Unable to process the request.");
+            if (!response.ok || result?.success !== true) {
+                throw new Error(result?.message || "Unable to process the request.");
+            }
 
             if (result.developmentResetPath) {
                 addDevelopmentLink(result.developmentResetPath);
-                showMessage("A local development reset link was generated. Open it below to choose a new password.", "success");
-            } else if (result.emailDeliveryMode === "staff_activation_code") {
-                showMessage(result.message || "For a Driver account, request a code from the Inspector responsible for the Driver's Ward. For an Inspector account, request a code from the Assistant Commissioner who assigned the Inspector. The authority must issue the code while signed in.", "success");
+                showMessage(
+                    "A local development reset link was generated. Open it below to choose a new password.",
+                    "success"
+                );
             } else if (result.emailDeliveryMode === "not_configured") {
-                showMessage("If this is a Driver or Sanitary Inspector account, use the assignment-authorized recovery-code process described below. Email-based reset instructions require SMTP configuration.", "success");
+                showMessage(
+                    result.deliveryHelp || "Email delivery is not configured on this server. Ask the administrator to configure SMTP before requesting a reset link.",
+                    "error"
+                );
             } else {
-                showMessage(`${result.message || "If the account exists, reset instructions will be sent."}${result.deliveryHelp ? " " + result.deliveryHelp : ""}`, "success");
+                showMessage(
+                    `${result.message || "If the account is eligible, a reset link will be emailed."}${result.deliveryHelp ? " " + result.deliveryHelp : ""}`,
+                    "success"
+                );
             }
         } catch (error) {
             showMessage(error.message || "Unable to process the request.", "error");
         } finally {
             button.disabled = false;
-            button.textContent = "Request reset instructions";
+            button.textContent = "Send password reset link";
         }
     });
 })();

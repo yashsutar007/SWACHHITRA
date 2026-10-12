@@ -49,26 +49,29 @@ check("Password reset rechecks the active assignment and invalidates sessions", 
     assert.match(controller, /session_version = session_version \+ 1/);
 });
 
-check("Code issuer and reset pages are linked and avoid token URLs for staff codes", () => {
+check("Forgot/reset pages expose only email-link recovery", () => {
     const forgot = read("client/accountSecurity/forgotPassword.html");
+    const forgotJs = read("client/accountSecurity/forgotPassword.js");
     const reset = read("client/accountSecurity/resetPassword.html");
     const resetJs = read("client/accountSecurity/resetPassword.js");
-    const issue = read("client/accountSecurity/issueRecoveryCode.html");
-    assert.match(forgot, /href="\/issueRecoveryCode"/);
-    assert.match(forgot, /href="\/resetPassword"/);
-    assert.match(reset, /recovery_code/);
-    assert.match(resetJs, /password\/reset-assigned-staff/);
+    assert.doesNotMatch(forgot, /I already have a recovery code|Authority: issue a staff code|recovery code|issueRecoveryCode/i);
+    assert.doesNotMatch(forgot, /href="\/issueRecoveryCode"/);
+    assert.doesNotMatch(reset, /recovery_code|One-time recovery code/i);
+    assert.doesNotMatch(resetJs, /password\/reset-assigned-staff|recoveryCode/);
     assert.match(resetJs, /history\.replaceState/);
-    assert.match(issue, /issueRecoveryCode\.js/);
+    assert.match(forgotJs, /Send password reset link/);
 });
 
-check("No-SMTP production mode is explicit and Citizen registration stays closed", () => {
+check("No-SMTP production mode is explicit and Citizen registration proceeds to profile setup", () => {
     const server = read("server/server.js");
     const config = read("server/scripts/check-deployment-config.js");
     const lifecycle = read("server/controllers/accountLifecycleController.js");
+    const register = read("client/citizenDash/citizenRegister.js");
     assert.match(server, /ALLOW_NO_SMTP_FOR_STAFF_RECOVERY/);
     assert.match(config, /ALLOW_NO_SMTP_FOR_STAFF_RECOVERY/);
-    assert.match(lifecycle, /CITIZEN_EMAIL_VERIFICATION_REQUIRED/);
+    assert.doesNotMatch(lifecycle, /CITIZEN_EMAIL_VERIFICATION_REQUIRED/);
+    assert.match(lifecycle, /redirectTo: "\/citizenDash\/profile"/);
+    assert.match(register, /window\.location\.replace\(redirectTo\)/);
 });
 
 console.log(`

@@ -60,11 +60,11 @@ if (IS_PRODUCTION) {
     const missingMailSettings = requiredMailSettings.filter(name => !String(process.env[name] || "").trim());
     const allowStaffRecoveryWithoutSmtp = String(process.env.ALLOW_NO_SMTP_FOR_STAFF_RECOVERY || "false").toLowerCase() === "true";
     if (missingMailSettings.length && !allowStaffRecoveryWithoutSmtp) {
-        throw new Error("Production account email delivery requires: " + missingMailSettings.join(", ") + ". To deploy staff-only activation-code recovery without email, explicitly set ALLOW_NO_SMTP_FOR_STAFF_RECOVERY=true.");
+        throw new Error("Production account email delivery requires: " + missingMailSettings.join(", ") + ". To start the demo without email, explicitly set ALLOW_NO_SMTP_FOR_STAFF_RECOVERY=true; password-reset links and email delivery will remain unavailable until SMTP is configured.");
     }
 
     if (missingMailSettings.length && allowStaffRecoveryWithoutSmtp) {
-        console.warn("SMTP is not configured. Staff activation-code recovery is enabled; Citizen self-registration is disabled until email verification is configured.");
+        console.warn("SMTP is not configured. Email-based password-reset links cannot be delivered. Citizen self-registration is enabled for immediate profile setup but does not independently verify ownership of the email address.");
     } else {
         const mailPlaceholders = [
             ["SMTP_HOST", /example\.com|smtp\.example|your[-_ ]/i],
@@ -315,25 +315,6 @@ function setInspectorDashboardHeaders(res) {
         "font-src 'self' data: https://fonts.gstatic.com",
         "img-src 'self' data: blob: https://unpkg.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org",
         "connect-src 'self' https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://router.project-osrm.org",
-        "worker-src 'self' blob:"
-    ].join("; "));
-}
-
-
-function setCitizenDashboardHeaders(res) {
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Content-Security-Policy", [
-        "default-src 'self'",
-        "base-uri 'self'",
-        "form-action 'self'",
-        "frame-ancestors 'none'",
-        "object-src 'none'",
-        "script-src 'self' https://unpkg.com",
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
-        "font-src 'self' data: https://fonts.gstatic.com",
-        "img-src 'self' data: blob: https://unpkg.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org",
-        "connect-src 'self' https://tile.openstreetmap.org https://*.tile.openstreetmap.org",
         "worker-src 'self' blob:"
     ].join("; "));
 }
@@ -719,7 +700,20 @@ app.get(
     requirePageRole("citizen"),
     requireCompletedCitizenProfile,
     (req, res) => {
-        setCitizenDashboardHeaders(res);
+        res.setHeader(
+            "Content-Security-Policy",
+            [
+                "default-src 'self'",
+                "base-uri 'self'",
+                "form-action 'self'",
+                "frame-ancestors 'none'",
+                "object-src 'none'",
+                "script-src 'self'",
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+                "font-src 'self' https://fonts.gstatic.com",
+                "img-src 'self' data:"
+            ].join("; ")
+        );
         return res.sendFile(
             path.join(__dirname, "../client/citizenDash/citizenDash.html")
         );
@@ -731,7 +725,20 @@ app.get(
     requirePageRole("citizen"),
     requireCompletedCitizenProfile,
     (req, res) => {
-        setCitizenDashboardHeaders(res);
+        res.setHeader(
+            "Content-Security-Policy",
+            [
+                "default-src 'self'",
+                "base-uri 'self'",
+                "form-action 'self'",
+                "frame-ancestors 'none'",
+                "object-src 'none'",
+                "script-src 'self'",
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+                "font-src 'self' https://fonts.gstatic.com",
+                "img-src 'self' data:"
+            ].join("; ")
+        );
         return res.sendFile(
             path.join(__dirname, "../client/citizenDash/citizenDash.html")
         );

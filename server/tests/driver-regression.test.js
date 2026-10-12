@@ -182,10 +182,10 @@ test("Inspector fleet registry lets an eligible unlinked Driver receive an email
 
 test("Driver can set an initial password through the existing single-use reset flow", () => {
     const lifecycle = read("server/controllers/accountLifecycleController.js");
-    const eligibleRoles = /\["citizen", "driver", "sanitary_inspector", "assistant_commissioner", "deputy_commissioner"\]\.includes\(user\.role\) && user\.status === "active"/;
-    const resetRoles = /\["citizen", "driver", "sanitary_inspector", "assistant_commissioner", "deputy_commissioner"\]\.includes\(row\.role\) \|\| row\.status !== "active"/;
-    assert.match(lifecycle, eligibleRoles);
-    assert.match(lifecycle, resetRoles);
+    const approvedRoles = /\["citizen", "driver", "sanitary_inspector", "assistant_commissioner", "deputy_commissioner"\]/;
+    assert.match(lifecycle, /function findEligiblePasswordResetTarget\(/);
+    assert.match(lifecycle, /AND u\.status = 'active'/);
+    assert.match(lifecycle, new RegExp(approvedRoles.source + "\\.includes\\(row\\.role\\)"));
     assert.match(lifecycle, /INSERT INTO citizen_account_security \(user_id, email_verified_at, session_version\)[\s\S]*VALUES \(\?, NULL, 1\)[\s\S]*ON DUPLICATE KEY UPDATE[\s\S]*session_version = session_version \+ 1/);
     assert.match(lifecycle, /used_at IS NULL AND t\.expires_at > UTC_TIMESTAMP\(3\)/);
     assert.match(lifecycle, /UPDATE citizen_account_tokens SET used_at = COALESCE\(used_at, UTC_TIMESTAMP\(3\)\) WHERE user_id = \? AND used_at IS NULL/);

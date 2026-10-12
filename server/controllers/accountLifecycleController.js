@@ -59,24 +59,18 @@ function absoluteOrigin(req) {
 function emailDeliveryMode() {
     if (devLinksAllowed()) return "development_link";
     if (isEmailConfigured()) return "smtp";
-    if (String(process.env.NODE_ENV || "").toLowerCase() === "production" &&
-        String(process.env.ALLOW_NO_SMTP_FOR_STAFF_RECOVERY || "false").toLowerCase() === "true") {
-        return "staff_activation_code";
-    }
     return "not_configured";
 }
 
-function staffRecoveryOnlyMode() {
-    return String(process.env.NODE_ENV || "").toLowerCase() === "production" &&
-        String(process.env.ALLOW_NO_SMTP_FOR_STAFF_RECOVERY || "false").toLowerCase() === "true" &&
-        !isEmailConfigured();
-}
 
 function emailDeliveryHelp() {
     if (devLinksAllowed()) {
         return "Local development links are enabled. Open the local link shown below to continue.";
     }
     if (!isEmailConfigured()) {
+        if (String(process.env.NODE_ENV || "").toLowerCase() === "production") {
+            return "Email delivery is not configured on this server. Password-reset links cannot be sent until an administrator configures SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS and SMTP_FROM.";
+        }
         return "Email delivery is not configured. For local testing, set ALLOW_DEV_EMAIL_LINKS=true in the project-root .env and restart the server, or configure SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS and SMTP_FROM.";
     }
     return "The email server is configured. If the message does not arrive, check the server terminal for the sanitized SMTP error code, confirm SMTP credentials and sender verification, and check Spam/Junk.";
@@ -194,18 +188,11 @@ async function registerCitizen(req, res) {
     if (!email || !validEmail(email)) return sendValidationError(res, "INVALID_EMAIL", "Enter a valid email address.");
     if (!validPassword(password)) return sendValidationError(res, "INVALID_PASSWORD", "Password must be at least 12 characters and no more than 72 UTF-8 bytes.");
     if (password !== confirmation) return sendValidationError(res, "PASSWORD_MISMATCH", "Password and confirmation do not match.");
-    if (staffRecoveryOnlyMode()) {
-        return res.status(503).json({
-            success: false,
-            code: "CITIZEN_EMAIL_VERIFICATION_REQUIRED",
-            message: "Citizen self-registration requires email verification. Please contact a SWACHHITRA administrator for account setup."
-        });
-    }
 
     const passwordHash = await bcrypt.hash(password, 12);
     const connection = await db.getConnection();
     let userId;
-    let token;
+
     try {
         await connection.beginTransaction();
         const [insert] = await connection.execute(
@@ -213,11 +200,21 @@ async function registerCitizen(req, res) {
             [email, passwordHash]
         );
         userId = Number(insert.insertId);
+
+        /*
+         * Requested demo onboarding: Citizens can create an account and
+         * immediately complete their profile without an email-verification
+         * round trip. This intentionally does NOT prove ownership of the
+         * mailbox; users must enter an address they control so password-reset
+         * email can reach them. Re-enable verified/pending signup if the site
+         * later adopts mandatory email ownership verification.
+         */
         await connection.execute(
-            "INSERT INTO citizen_account_security (user_id, email_verified_at, session_version) VALUES (?, NULL, 0)",
+            `INSERT INTO citizen_account_security
+                (user_id, email_verified_at, session_version)
+             VALUES (?, UTC_TIMESTAMP(3), 0)`,
             [userId]
         );
-        token = await createToken(connection, userId, "email_verification");
         await connection.commit();
     } catch (error) {
         try { await connection.rollback(); } catch { /* preserve original error */ }
@@ -225,7 +222,7 @@ async function registerCitizen(req, res) {
             return res.status(409).json({
                 success: false,
                 code: "EMAIL_ALREADY_REGISTERED",
-                message: "An account with this email already exists. Sign in or request account help."
+                message: "An account with this email already exists. Sign in or use Forgot Password."
             });
         }
         console.error("Citizen registration failed.", error?.code || "database_error");
@@ -234,47 +231,50 @@ async function registerCitizen(req, res) {
         connection.release();
     }
 
-    let emailSent = false;
-    let emailError = null;
-    let emailResult = null;
+    // Establish a fresh session so the Citizen can proceed straight to the
+    // protected profile/location setup page after successful registration.
     try {
-        emailResult = await sendVerification(req, email, token);
-        emailSent = emailResult.sent === true;
-    } catch (error) {
-        emailError = error;
-        reportEmailDeliveryError(error, "Verification");
-    }
+        await new Promise((resolve, reject) => {
+            req.session.regenerate(error => error ? reject(error) : resolve());
+        });
+        req.session.userId = userId;
+        req.session.email = email;
+        req.session.role = "citizen";
+        req.session.sessionVersion = 0;
+        await new Promise((resolve, reject) => {
+            req.session.save(error => error ? reject(error) : resolve());
+        });
 
-    const deliveryStatus = emailResultStatus(emailResult, emailError);
-    const response = {
-        success: true,
-        verificationRequired: true,
-        emailSent,
-        emailDeliveryStatus: deliveryStatus,
-        emailDeliveryMode: emailDeliveryMode(),
-        message: emailSent
-            ? "Account created. Check your inbox and Spam/Junk folder for the verification email before signing in."
-            : deliveryStatus === "not_configured"
-                ? "Account created, but this server cannot send email yet. Enable local development links or configure SMTP as described below."
-                : "Account created, but the verification email was not delivered. Check the server terminal and SMTP configuration, then request a new link."
-    };
-    if (devLinksAllowed()) {
-        response.developmentVerificationPath = relativeLink("/verifyEmail", token);
-        if (!emailSent) response.message = "Account created. Use the local development verification link below; SMTP email delivery is not available or did not succeed.";
+        return res.status(201).json({
+            success: true,
+            accountCreated: true,
+            authenticated: true,
+            emailVerified: true,
+            redirectTo: "/citizenDash/profile",
+            message: "Citizen account created. Continue to create your profile and confirm your Ward."
+        });
+    } catch (error) {
+        console.error("Citizen post-registration session failed.", error?.code || "session_error");
+        // The account is already committed; allow the user to sign in normally.
+        return res.status(201).json({
+            success: true,
+            accountCreated: true,
+            authenticated: false,
+            redirectTo: "/login",
+            message: "Your account was created. Sign in with your email and password to continue to your profile."
+        });
     }
-    if (deliveryStatus === "not_configured") response.deliveryHelp = emailDeliveryHelp();
-    else if (deliveryStatus === "failed" || deliveryStatus === "not_sent") response.deliveryHelp = emailDeliveryHelp();
-    return res.status(201).json(response);
 }
 
 async function requestEmailVerification(req, res) {
     const email = normalizeEmail(req.body?.email);
     if (!email || !validEmail(email)) return sendValidationError(res, "INVALID_EMAIL", "Enter a valid email address.");
-    if (staffRecoveryOnlyMode()) {
+    if (!isEmailConfigured() && !devLinksAllowed()) {
         return res.json({
             success: true,
-            emailDeliveryMode: "staff_activation_code",
-            message: "Email verification for Citizen accounts requires email delivery to be configured. Driver and Sanitary Inspector password activation uses one-time codes issued by the authority responsible for the current assignment."
+            message: "If this address belongs to an unverified Citizen account, a verification link will be sent when email delivery is configured.",
+            emailDeliveryMode: "not_configured",
+            deliveryHelp: emailDeliveryHelp()
         });
     }
 
@@ -323,7 +323,7 @@ async function confirmEmailVerification(req, res) {
     try {
         await connection.beginTransaction();
         const [rows] = await connection.execute(
-            `SELECT t.id AS token_id, t.user_id, u.role, u.status
+            `SELECT t.id AS token_id, t.user_id, u.email, u.role, u.status
              FROM citizen_account_tokens t
              JOIN users u ON u.id = t.user_id
              WHERE t.token_hash = ? AND t.purpose = 'email_verification'
@@ -360,31 +360,164 @@ async function confirmEmailVerification(req, res) {
     }
 }
 
+/*
+ * Password reset is assignment-aware for staff:
+ * - Drivers must have a linked login that matches their Inspector-managed
+ *   Driver Registry email, an active Ward/Zone/Division, and an active
+ *   Inspector assigned to that same Ward by an active AC.
+ * - Inspectors must have an assigned active Ward/Division and still be
+ *   assigned by an active AC in that Division. Their official email must
+ *   match the account email.
+ * - Assistant Commissioners need an active Division profile.
+ * - Citizens and the city-wide Deputy Commissioner retain standard email
+ *   reset behavior.
+ * The identical eligibility predicate is reused at token redemption so an
+ * assignment being removed after the email request invalidates the link.
+ */
+const PASSWORD_RESET_ELIGIBILITY_SQL = `(
+    u.role = 'citizen'
+    OR u.role = 'deputy_commissioner'
+    OR (
+        u.role = 'assistant_commissioner'
+        AND EXISTS (
+            SELECT 1
+            FROM user_profiles ac_profile
+            INNER JOIN divisions ac_division
+                ON ac_division.id = ac_profile.division_id
+               AND ac_division.status = 'active'
+            WHERE ac_profile.user_id = u.id
+              AND ac_profile.division_id IS NOT NULL
+        )
+    )
+    OR (
+        u.role = 'sanitary_inspector'
+        AND EXISTS (
+            SELECT 1
+            FROM user_profiles inspector_profile
+            INNER JOIN divisions inspector_division
+                ON inspector_division.id = inspector_profile.division_id
+               AND inspector_division.status = 'active'
+            INNER JOIN zones inspector_zone
+                ON inspector_zone.id = inspector_profile.zone_id
+               AND inspector_zone.status = 'active'
+            INNER JOIN wards inspector_ward
+                ON inspector_ward.id = inspector_profile.ward_id
+               AND inspector_ward.division_id = inspector_profile.division_id
+               AND inspector_ward.zone_id = inspector_profile.zone_id
+               AND inspector_ward.status = 'active'
+            INNER JOIN users assigning_ac
+                ON assigning_ac.id = inspector_profile.scope_assigned_by
+               AND assigning_ac.role = 'assistant_commissioner'
+               AND assigning_ac.status = 'active'
+            INNER JOIN user_profiles assigning_ac_profile
+                ON assigning_ac_profile.user_id = assigning_ac.id
+               AND assigning_ac_profile.division_id = inspector_profile.division_id
+            WHERE inspector_profile.user_id = u.id
+              AND LOWER(TRIM(inspector_profile.official_email)) = LOWER(u.email)
+        )
+    )
+    OR (
+        u.role = 'driver'
+        AND EXISTS (
+            SELECT 1
+            FROM drivers driver_registry
+            INNER JOIN wards driver_ward
+                ON driver_ward.id = driver_registry.assigned_ward_id
+               AND driver_ward.status = 'active'
+            INNER JOIN zones driver_zone
+                ON driver_zone.id = driver_ward.zone_id
+               AND driver_zone.status = 'active'
+            INNER JOIN divisions driver_division
+                ON driver_division.id = driver_ward.division_id
+               AND driver_division.status = 'active'
+            INNER JOIN user_profiles driver_profile
+                ON driver_profile.user_id = u.id
+               AND driver_profile.ward_id = driver_ward.id
+               AND driver_profile.division_id = driver_ward.division_id
+               AND driver_profile.zone_id = driver_ward.zone_id
+            INNER JOIN user_profiles assigned_inspector_profile
+                ON assigned_inspector_profile.ward_id = driver_ward.id
+               AND assigned_inspector_profile.division_id = driver_ward.division_id
+            INNER JOIN users assigned_inspector
+                ON assigned_inspector.id = assigned_inspector_profile.user_id
+               AND assigned_inspector.role = 'sanitary_inspector'
+               AND assigned_inspector.status = 'active'
+            INNER JOIN users assigning_ac
+                ON assigning_ac.id = assigned_inspector_profile.scope_assigned_by
+               AND assigning_ac.role = 'assistant_commissioner'
+               AND assigning_ac.status = 'active'
+            INNER JOIN user_profiles assigning_ac_profile
+                ON assigning_ac_profile.user_id = assigning_ac.id
+               AND assigning_ac_profile.division_id = driver_ward.division_id
+            WHERE driver_registry.user_id = u.id
+              AND driver_registry.status <> 'inactive'
+              AND LOWER(TRIM(driver_registry.email)) = LOWER(u.email)
+              AND LOWER(COALESCE(NULLIF(driver_profile.official_email, ''), u.email)) = LOWER(u.email)
+        )
+    )
+)`;
+
+async function findEligiblePasswordResetTarget(executor, email, userId = null) {
+    const whereUserId = userId === null || userId === undefined ? "" : " AND u.id = ?";
+    const params = [normalizeEmail(email)];
+    if (whereUserId) params.push(Number(userId));
+
+    const [rows] = await executor.execute(
+        `SELECT u.id, u.email, u.role, u.status
+         FROM users u
+         WHERE LOWER(u.email) = ?
+           AND u.status = 'active'
+           AND ${PASSWORD_RESET_ELIGIBILITY_SQL}
+           ${whereUserId}
+         LIMIT 1`,
+        params
+    );
+    return rows[0] || null;
+}
+
+async function invalidateOutstandingPasswordResetTokens(userId) {
+    await db.execute(
+        `UPDATE citizen_account_tokens
+         SET used_at = COALESCE(used_at, UTC_TIMESTAMP(3))
+         WHERE user_id = ? AND purpose = 'password_reset' AND used_at IS NULL`,
+        [Number(userId)]
+    );
+}
+
 async function requestPasswordReset(req, res) {
     const email = normalizeEmail(req.body?.email);
     if (!email || !validEmail(email)) return sendValidationError(res, "INVALID_EMAIL", "Enter a valid email address.");
 
-    if (staffRecoveryOnlyMode()) {
-        return res.json({
-            success: true,
-            emailDeliveryMode: "staff_activation_code",
-            message: "For a Driver account, request a one-time recovery code from the Sanitary Inspector responsible for the Driver's Ward. For a Sanitary Inspector account, request a code from the Assistant Commissioner who assigned the Inspector. The authority must issue the code from a signed-in SWACHHITRA account."
-        });
-    }
+    const smtpConfigured = isEmailConfigured();
+    const localDevelopmentLinks = !smtpConfigured && devLinksAllowed();
+    const deliveryMode = smtpConfigured
+        ? "smtp"
+        : localDevelopmentLinks
+            ? "development_link"
+            : "not_configured";
 
     let developmentResetPath;
     try {
-        const [rows] = await db.execute(
-            `SELECT u.id, u.email, u.role, u.status
-             FROM users u WHERE u.email = ? LIMIT 1`,
-            [email]
-        );
-        const user = rows[0];
-        if (user && ["citizen", "driver", "sanitary_inspector", "assistant_commissioner", "deputy_commissioner"].includes(user.role) && user.status === "active") {
+        // Unassigned/inactive staff and unknown addresses receive the exact
+        // same public response as valid accounts; no reset URL is returned.
+        const user = await findEligiblePasswordResetTarget(db, email);
+        if (user && (smtpConfigured || localDevelopmentLinks)) {
             const token = await issueTokenForUser(Number(user.id), "password_reset");
-            try { await sendPasswordReset(req, user.email, token); }
-            catch (error) { reportEmailDeliveryError(error, "Password reset"); }
-            if (devLinksAllowed()) developmentResetPath = relativeLink("/resetPassword", token);
+            if (smtpConfigured) {
+                try {
+                    const mailResult = await sendPasswordReset(req, user.email, token);
+                    if (mailResult?.sent !== true) {
+                        await invalidateOutstandingPasswordResetTokens(Number(user.id));
+                        reportEmailDeliveryError({ code: mailResult?.reason || "not_sent" }, "Password reset");
+                    }
+                } catch (error) {
+                    try { await invalidateOutstandingPasswordResetTokens(Number(user.id)); } catch { /* do not expose delivery internals */ }
+                    reportEmailDeliveryError(error, "Password reset");
+                }
+            } else {
+                // This branch is restricted to local development by devLinksAllowed().
+                developmentResetPath = relativeLink("/resetPassword", token);
+            }
         }
     } catch (error) {
         console.error("Password reset request failed.", error?.code || "database_error");
@@ -393,17 +526,17 @@ async function requestPasswordReset(req, res) {
 
     const response = {
         success: true,
-        message: "If this address belongs to an eligible active SWACHHITRA account, password reset instructions will be sent. Check Inbox and Spam/Junk.",
-        emailDeliveryMode: emailDeliveryMode()
+        message: "If this address belongs to an eligible active SWACHHITRA account and its current assignment permits recovery, a password reset link will be sent by email. Check Inbox and Spam/Junk.",
+        emailDeliveryMode: deliveryMode
     };
+
     if (developmentResetPath) {
         response.developmentResetPath = developmentResetPath;
-        response.message = "If this is an eligible active SWACHHITRA account, use the local development password-reset link below. The link appears only for eligible accounts.";
-    } else if (response.emailDeliveryMode === "not_configured") {
-        response.deliveryHelp = emailDeliveryHelp();
-    } else if (response.emailDeliveryMode === "smtp") {
+        response.message = "If this address belongs to an eligible active SWACHHITRA account, use the local development reset link below.";
+    } else {
         response.deliveryHelp = emailDeliveryHelp();
     }
+
     return res.json(response);
 }
 
@@ -420,7 +553,7 @@ async function resetPassword(req, res) {
     try {
         await connection.beginTransaction();
         const [rows] = await connection.execute(
-            `SELECT t.id AS token_id, t.user_id, u.role, u.status
+            `SELECT t.id AS token_id, t.user_id, u.email, u.role, u.status
              FROM citizen_account_tokens t
              JOIN users u ON u.id = t.user_id
              WHERE t.token_hash = ? AND t.purpose = 'password_reset'
@@ -432,6 +565,19 @@ async function resetPassword(req, res) {
         if (!row || !["citizen", "driver", "sanitary_inspector", "assistant_commissioner", "deputy_commissioner"].includes(row.role) || row.status !== "active") {
             await connection.rollback();
             return sendValidationError(res, "INVALID_OR_EXPIRED_TOKEN", "This reset link is invalid or expired. Request a new link.");
+        }
+
+        // Re-check role-specific assignment at redemption. If an Inspector
+        // lost the Ward/AC assignment or a Driver lost their Registry link
+        // after the email was requested, the link is no longer accepted.
+        const eligibleAtRedemption = await findEligiblePasswordResetTarget(
+            connection,
+            row.email,
+            Number(row.user_id)
+        );
+        if (!eligibleAtRedemption) {
+            await connection.rollback();
+            return sendValidationError(res, "INVALID_OR_EXPIRED_TOKEN", "This reset link is invalid, expired, or the account's required assignment is no longer active.");
         }
 
         const passwordHash = await bcrypt.hash(password, 12);
@@ -446,7 +592,10 @@ async function resetPassword(req, res) {
 
         if (row.role === "citizen") {
             const [securityUpdate] = await connection.execute(
-                "UPDATE citizen_account_security SET session_version = session_version + 1 WHERE user_id = ?",
+                `UPDATE citizen_account_security
+                 SET email_verified_at = COALESCE(email_verified_at, UTC_TIMESTAMP(3)),
+                     session_version = session_version + 1
+                 WHERE user_id = ?`,
                 [row.user_id]
             );
             if (securityUpdate.affectedRows !== 1) throw new Error("Citizen account security record is missing.");

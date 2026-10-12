@@ -56,15 +56,30 @@ async function main() {
         assert.match(controller, /used_at IS NULL AND t\.expires_at > UTC_TIMESTAMP\(3\)/);
     });
 
-    await test("Password reset is available to active users in approved roles without changing Citizen verification rules", async () => {
+    await test("Staff password reset links are gated by current assignments", async () => {
         const controller = file("server/controllers/accountLifecycleController.js");
-        assert.match(controller, /\["citizen", "driver", "sanitary_inspector", "assistant_commissioner", "deputy_commissioner"\]\.includes\(user\.role\) && user\.status === "active"/);
-        assert.match(controller, /\["citizen", "driver", "sanitary_inspector", "assistant_commissioner", "deputy_commissioner"\]\.includes\(row\.role\) \|\| row\.status !== "active"/);
-        assert.match(controller, /WHERE id = \? AND role = \? AND status = 'active'/);
-        assert.match(controller, /INSERT INTO citizen_account_security \(user_id, email_verified_at, session_version\)[\s\S]*VALUES \(\?, NULL, 1\)[\s\S]*ON DUPLICATE KEY UPDATE[\s\S]*session_version = session_version \+ 1/);
+        assert.match(controller, /function findEligiblePasswordResetTarget\(/);
+        assert.match(controller, /driver_registry\.user_id = u\.id/);
+        assert.match(controller, /LOWER\(TRIM\(driver_registry\.email\)\) = LOWER\(u\.email\)/);
+        assert.match(controller, /LOWER\(TRIM\(inspector_profile\.official_email\)\) = LOWER\(u\.email\)/);
+        assert.match(controller, /inspector_profile\.scope_assigned_by/);
+        assert.match(controller, /assigning_ac\.role = 'assistant_commissioner'/);
+        assert.match(controller, /findEligiblePasswordResetTarget\(\s*connection,\s*row\.email,\s*Number\(row\.user_id\)\)/);
         assert.match(controller, /If this address belongs to an eligible active SWACHHITRA account/);
-        // Email verification remains restricted to Citizens.
+        assert.match(controller, /UPDATE users SET password_hash = \? WHERE id = \? AND role = \? AND status = 'active'/);
+        assert.match(controller, /session_version = session_version \+ 1/);
+        // Email verification confirmation remains restricted to Citizen tokens.
         assert.match(controller, /if \(!row \|\| row\.role !== "citizen" \|\| row\.status !== "active"\)/);
+    });
+
+    await test("Citizen signup creates a session and redirects to profile setup", async () => {
+        const controller = file("server/controllers/accountLifecycleController.js");
+        const registerScript = file("client/citizenDash/citizenRegister.js");
+        assert.match(controller, /VALUES \(\?, UTC_TIMESTAMP\(3\), 0\)/);
+        assert.match(controller, /req\.session\.regenerate/);
+        assert.match(controller, /req\.session\.role = "citizen"/);
+        assert.match(controller, /redirectTo: "\/citizenDash\/profile"/);
+        assert.match(registerScript, /window\.location\.replace\(redirectTo\)/);
     });
 
     await test("Login and middleware enforce email verification and session-version revocation", async () => {
@@ -103,7 +118,7 @@ async function main() {
         ]) assert.ok(fs.existsSync(path.join(PROJECT_ROOT, name)), `${name} should exist`);
         assert.match(file("client/login/login.html"), /href="\/forgotPassword"/);
         assert.match(file("client/login/login.js"), /EMAIL_NOT_VERIFIED/);
-        assert.match(file("client/citizenDash/citizenRegister.js"), /developmentVerificationPath/);
+        assert.match(file("client/citizenDash/citizenRegister.js"), /redirectTo/);
     });
 
     await test("Production requires SMTP unless the explicit staff-only recovery mode is enabled", async () => {
@@ -116,8 +131,10 @@ async function main() {
         assert.match(server, /ALLOW_DEV_EMAIL_LINKS must not be enabled in production/);
         assert.match(server, /cleanupExpiredAccountTokens/);
         assert.match(checker, /ALLOW_NO_SMTP_FOR_STAFF_RECOVERY/);
-        assert.match(lifecycle, /CITIZEN_EMAIL_VERIFICATION_REQUIRED/);
-        assert.match(lifecycle, /staff_activation_code/);
+        assert.match(lifecycle, /Email delivery is not configured on this server/);
+        assert.match(lifecycle, /Citizen account created/);
+        assert.doesNotMatch(lifecycle.slice(lifecycle.indexOf("async function requestPasswordReset"), lifecycle.indexOf("async function resetPassword")), /staff_activation_code|recovery code process/i);
+        assert.match(server, /Password-reset links cannot be delivered/);
         for (const setting of ["SMTP_HOST", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"]) assert.ok(server.includes(setting));
         assert.match(mail, /disableFileAccess: true/);
         assert.match(mail, /disableUrlAccess: true/);
@@ -142,6 +159,29 @@ async function main() {
         const mapScript = file("client/citizenDash/citizenProfile.js");
         assert.match(mapScript, /tileLayer\.on\("tileerror"/);
         assert.match(mapScript, /citizenMapTileStatus/);
+    });
+
+    await test("Forgot/reset password pages use email links only and hide staff-code controls", async () => {
+        const forgotHtml = file("client/accountSecurity/forgotPassword.html");
+        const forgotJs = file("client/accountSecurity/forgotPassword.js");
+        const resetHtml = file("client/accountSecurity/resetPassword.html");
+        const resetJs = file("client/accountSecurity/resetPassword.js");
+        assert.doesNotMatch(forgotHtml, /I already have a recovery code|Authority: issue a staff code|recovery code|issueRecoveryCode/i);
+        assert.match(forgotJs, /Send password reset link/);
+        assert.doesNotMatch(forgotJs, /staff_activation_code|recoveryCode|issueRecoveryCode/i);
+        assert.doesNotMatch(resetHtml, /recoveryCode|One-time recovery code/i);
+        assert.match(resetJs, /\/api\/auth\/password\/reset/);
+        assert.doesNotMatch(resetJs, /reset-assigned-staff|recoveryCode/i);
+    });
+
+    await test("Assistant Commissioner bootstrap script binds the account to a real active Division and Deputy Commissioner", async () => {
+        const script = file("server/scripts/createAssistantCommissioner.js");
+        assert.match(script, /role !== "deputy_commissioner"/);
+        assert.match(script, /division\.status !== "active"/);
+        assert.match(script, /scope_assigned_by/);
+        assert.match(script, /division_id/);
+        assert.match(script, /bcrypt\.hash\(bootstrapPassword, 12\)/);
+        assert.match(script, /connection\.rollback\(\)/);
     });
 
     await test("Account mail flows expose safe delivery-mode help and generate host-correct local links", async () => {

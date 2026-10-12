@@ -71,7 +71,8 @@ async function main() {
     await test("Password recovery supports provisioned staff and retains Citizen-only email verification", () => {
         const lifecycle = file("server/controllers/accountLifecycleController.js");
         const approvedRoles = /\["citizen", "driver", "sanitary_inspector", "assistant_commissioner", "deputy_commissioner"\]/;
-        assert.match(lifecycle, new RegExp(approvedRoles.source + "\\.includes\\(user\\.role\\)"));
+        assert.match(lifecycle, /function findEligiblePasswordResetTarget\(/);
+        assert.match(lifecycle, /AND u\.status = 'active'/);
         assert.match(lifecycle, new RegExp(approvedRoles.source + "\\.includes\\(row\\.role\\)"));
         assert.match(lifecycle, /if \(!row \|\| row\.role !== "citizen" \|\| row\.status !== "active"\)/);
         assert.match(lifecycle, /If this address belongs to an eligible active SWACHHITRA account/);

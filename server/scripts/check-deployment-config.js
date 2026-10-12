@@ -88,9 +88,9 @@ if (productionMode) {
     const missingMailSettings = requiredMailSettings.filter(name => !value(name));
     const staffRecoveryWithoutSmtp = value("ALLOW_NO_SMTP_FOR_STAFF_RECOVERY").toLowerCase() === "true";
     if (missingMailSettings.length && !staffRecoveryWithoutSmtp) {
-        for (const name of missingMailSettings) errors.push(`${name} must be configured for production email delivery, or explicitly enable ALLOW_NO_SMTP_FOR_STAFF_RECOVERY=true for the staff-only demo mode.`);
+        for (const name of missingMailSettings) errors.push(`${name} must be configured for email-based password-reset links, or explicitly enable ALLOW_NO_SMTP_FOR_STAFF_RECOVERY=true to start the demo without email delivery.`);
     } else if (missingMailSettings.length && staffRecoveryWithoutSmtp) {
-        warnings.push("SMTP is not configured. Driver/Inspector password activation will use assignment-authorized one-time codes; Citizen registration is disabled until email is configured.");
+        warnings.push("SMTP is not configured. Email-based password-reset links cannot be delivered. Citizen registration is enabled for immediate profile setup but does not independently verify email ownership.");
     }
     if (!missingMailSettings.length) {
         for (const name of requiredMailSettings) {
@@ -106,7 +106,7 @@ if (productionMode) {
         warnings.push("ALLOW_DEV_EMAIL_LINKS is enabled for local development. Never deploy with it enabled.");
     }
     if (!value("SMTP_HOST") || !value("SMTP_USER") || !value("SMTP_PASS") || !value("SMTP_FROM")) {
-        warnings.push("SMTP is not fully configured. Verification/reset emails will not be delivered in local development; use the development link flow.");
+        warnings.push("SMTP is not fully configured. Password-reset and verification emails will not be delivered in local development; enable local development links or configure SMTP.");
     }
     warnings.push("Development mode is not a production security sign-off.");
 }
