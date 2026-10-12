@@ -889,3 +889,137 @@ body.auth-body .button-primary:hover:not(:disabled) { background: #1f4618; borde
 .citizen-app .notice.success, .citizen-body .notice.success { color: #1f7349; border-color: #cfe5cb; background: var(--green-soft); }
 .citizen-app .notice.warning, .citizen-body .notice.warning { color: #875e1b; border-color: #ead7a8; background: #fff2d5; }
 .citizen-app .notice.error, .citizen-body .notice.error { color: #8f322b; border-color: #efc8c1; background: #fdecea; }
+
+
+/* Live collection tracking - Citizen view, using the same green truck cue as AC. */
+.citizen-live-tracking-card {
+    max-width: 1420px;
+    margin: 15px auto 0;
+    padding: 18px;
+    border: 1px solid var(--line, #dfe5d8);
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: var(--shadow-xs, 0 2px 8px rgba(20,44,14,.045));
+}
+.citizen-live-tracking-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+.citizen-live-tracking-header h2 {
+    margin: 3px 0 5px;
+    color: var(--ink, #182116);
+    font-size: clamp(19px, 2vw, 25px);
+}
+.citizen-live-tracking-header p:not(.section-eyebrow) {
+    color: var(--muted, #778172);
+    line-height: 1.55;
+    max-width: 760px;
+}
+.citizen-live-tracking-actions {
+    display: flex;
+    align-items: flex-end;
+    flex-direction: column;
+    gap: 9px;
+    flex: 0 0 auto;
+}
+.citizen-live-tracking-status {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    color: #42623a;
+    background: #edf5e8;
+    font-size: 12px;
+    font-weight: 800;
+}
+.citizen-live-tracking-status.error {
+    color: #9a362c;
+    background: #fdecea;
+}
+.citizen-live-tracking-status.pending {
+    color: #8b6418;
+    background: #fff4d8;
+}
+.citizen-live-tracking-map-wrap {
+    height: 390px;
+    overflow: hidden;
+    border: 1px solid var(--line, #dfe5d8);
+    border-radius: 13px;
+    background: #edf3e9;
+}
+.citizen-live-tracking-map {
+    width: 100%;
+    height: 100%;
+    background: #edf3e9;
+}
+.citizen-live-tracking-map .leaflet-control-attribution {
+    font-size: 10px;
+}
+.citizen-live-tracking-note {
+    margin-top: 10px;
+    color: var(--muted, #778172);
+    font-size: 12px;
+    line-height: 1.5;
+}
+.citizen-live-truck-marker {
+    position: relative;
+    isolation: isolate;
+    overflow: visible;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    color: #fff;
+    background: #416d27;
+    box-shadow: 0 4px 12px rgba(18,43,12,.24);
+}
+.citizen-live-truck-marker svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.citizen-live-truck-marker.gps-live {
+    background: #1f873a;
+    box-shadow: 0 0 0 3px #fff, 0 0 0 5px #35b653, 0 0 0 8px rgba(42,172,70,.34), 0 5px 13px rgba(18,43,12,.28);
+}
+.citizen-live-truck-marker.gps-live::before,
+.citizen-live-truck-marker.gps-live::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: -5px;
+    border: 2px solid rgba(20,139,53,.9);
+    border-radius: 50%;
+    background: rgba(52,211,85,.42);
+    opacity: 0;
+    pointer-events: none;
+    animation: citizen-live-truck-pulse 2s cubic-bezier(.16,.75,.28,1) infinite;
+}
+.citizen-live-truck-marker.gps-live::after { animation-delay: 1s; }
+@keyframes citizen-live-truck-pulse {
+    0% { transform: scale(.78); opacity: .82; }
+    100% { transform: scale(1.9); opacity: 0; }
+}
+.citizen-live-tracking-popup { display: flex; flex-direction: column; gap: 4px; min-width: 170px; }
+.citizen-live-tracking-popup strong { color: #213021; }
+.citizen-live-tracking-popup span { color: #556055; font-size: 12px; }
+@media (max-width: 760px) {
+    .citizen-live-tracking-card { margin-top: 10px; padding: 12px; }
+    .citizen-live-tracking-header { flex-direction: column; }
+    .citizen-live-tracking-actions { align-items: flex-start; }
+    .citizen-live-tracking-map-wrap { height: 330px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .citizen-live-truck-marker.gps-live::before,
+    .citizen-live-truck-marker.gps-live::after { animation: none !important; opacity: .3; }
+}

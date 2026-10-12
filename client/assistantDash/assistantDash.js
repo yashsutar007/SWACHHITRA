@@ -1939,53 +1939,134 @@ document.addEventListener("DOMContentLoaded", () => {
             ? state.inspectors
             : [];
 
-        inspectors.forEach(inspector => {
-            const polygon = inspector?.operational_area?.polygon;
+        const wardById = new Map();
 
-            if (
-                !Array.isArray(polygon) ||
-                polygon.length < 3 ||
-                polygon.some(point => !validOperationalMapPoint(point))
-            ) {
+        function usableWardBoundary(boundary) {
+            const polygon = boundary?.polygon;
+            return (
+                Array.isArray(polygon) &&
+                polygon.length >= 3 &&
+                polygon.every(validOperationalMapPoint)
+            );
+        }
+
+        function addWardRecord(ward, preferredBoundary) {
+            const wardId = Number(ward?.id);
+            if (!Number.isSafeInteger(wardId) || wardId <= 0) {
                 return;
             }
 
-            const ward = inspector?.scope || {};
+            const existing = wardById.get(wardId) || {};
+            const candidate = [
+                preferredBoundary,
+                ward?.planning_boundary,
+                ward?.boundary,
+                existing.boundary
+            ].find(usableWardBoundary) || null;
+
+            wardById.set(wardId, {
+                ...existing,
+                ...ward,
+                id: wardId,
+                number: ward?.number ?? ward?.ward_number ?? existing.number ?? wardId,
+                code: ward?.code ?? ward?.ward_code ?? existing.code ?? null,
+                name: ward?.name ?? ward?.ward_name ?? existing.name ?? null,
+                boundary: candidate
+            });
+        }
+
+        // The Overview map already carries each Ward's effective boundary.
+        (Array.isArray(state.mapData?.wards) ? state.mapData.wards : [])
+            .forEach(ward => addWardRecord(ward, ward?.boundary));
+
+        // Prefer the exact planning boundary rendered in the Wards tab.
+        (Array.isArray(state.wards) ? state.wards : [])
+            .forEach(ward => addWardRecord(ward, ward?.planning_boundary));
+
+        const inspectorsByWard = new Map();
+
+        inspectors.forEach(inspector => {
+            if (inspector?.assignment_state !== "assigned") {
+                return;
+            }
+
+            const wardId = Number(inspector?.scope?.ward_id);
+            if (!Number.isSafeInteger(wardId) || wardId <= 0) {
+                return;
+            }
+
+            const ward = wardById.get(wardId);
+            if (!ward || !usableWardBoundary(ward.boundary)) {
+                return;
+            }
+
+            if (!inspectorsByWard.has(wardId)) {
+                inspectorsByWard.set(wardId, {
+                    ward,
+                    inspectors: []
+                });
+            }
+
+            inspectorsByWard.get(wardId).inspectors.push(inspector);
+        });
+
+        const assignedWards = Array.from(inspectorsByWard.values()).sort(
+            (a, b) => Number(a.ward.number) - Number(b.ward.number)
+        );
+
+        assignedWards.forEach(({ ward, inspectors: assignedInspectors }) => {
+            const inspectorNames = assignedInspectors.map(inspector =>
+                cleanText(
+                    inspector?.full_name || inspector?.email,
+                    `Inspector ${inspector?.user_id || ""}`.trim()
+                )
+            );
+
+            const wardLabel = `Ward ${ward.number ?? ward.id}` +
+                (ward.name ? `: ${ward.name}` : "");
+            const source = ward.boundary.source || "unknown";
+            const sourceLabel = source === "official"
+                ? "Official verified Ward boundary"
+                : source === "assistant_defined"
+                    ? "AC-defined operational Ward boundary"
+                    : source === "development"
+                        ? "Development/demo Ward boundary"
+                        : "Configured Ward boundary";
+
+            // One polygon per Ward avoids stacking identical fills when a
+            // Ward has more than one assigned Inspector.
             const layer = L.polygon(
-                polygon,
+                ward.boundary.polygon,
                 {
                     color: "#245b36",
                     weight: 4,
-                    opacity: 0.95,
+                    opacity: 1,
                     fillColor: "#78a96b",
                     fillOpacity: 0.24
                 }
             ).addTo(state.overviewMap);
 
             layer.bindTooltip(
-                `${escapeHTML(inspector.full_name || inspector.email || "Inspector")} • Inspector assigned operational area`,
+                `${escapeHTML(wardLabel)} • Assigned to: ${escapeHTML(inspectorNames.join(", "))}`,
                 { sticky: true }
             );
 
-            layer.bindPopup(
-                `
-                    <div class="truck-popup">
-                        <strong>${escapeHTML(inspector.full_name || inspector.email || "Inspector")}</strong>
-                        <span>Ward: ${escapeHTML(
-                            ward.ward_name
-                                ? `Ward ${ward.ward_number}: ${ward.ward_name}`
-                                : "Unassigned"
-                        )}</span>
-                        <span>Layer: Inspector assigned operational area</span>
-                        <small>This is the Inspector's saved operational area. It is shown separately from the Ward boundary and is not the Ward boundary itself.</small>
-                    </div>
-                `
-            );
+            layer.bindPopup(`
+                <div class="truck-popup">
+                    <strong>${escapeHTML(wardLabel)}</strong>
+                    <span>Assigned Inspector(s): ${escapeHTML(inspectorNames.join(", "))}</span>
+                    <span>Boundary: ${escapeHTML(sourceLabel)}</span>
+                    <small>
+                        This highlight uses the same configured Ward boundary
+                        shown in the Wards tab. The Inspector-specific smaller
+                        operational-area polygon is not used as the Ward boundary.
+                    </small>
+                </div>
+            `);
 
             state.overviewMapInspectorAreas.push(layer);
         });
     }
-
     async function renderOverviewMapRoutes() {
         if (
             !state.overviewMap ||
@@ -5392,6 +5473,12 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         renderWards();
+
+        // The Wards tab carries the saved planning boundary. Refresh the
+        // Overview map after these rows load so Inspector highlights use it.
+        if (state.mapData && state.overviewMap) {
+            await refreshOverviewMap();
+        }
     }
 
     async function loadInspectors() {
@@ -5407,9 +5494,8 @@ document.addEventListener("DOMContentLoaded", () => {
         renderCoverage();
 
         // Map rendering can finish before the Inspector query because the
-        // dashboard loads data in parallel. Refresh once the Inspector
-        // operational areas are available so the smaller saved areas are
-        // actually visible on the Overview map.
+        // dashboard loads data in parallel. Refresh once assignments are
+        // available so each assigned Ward boundary is highlighted.
         if (state.mapData && state.overviewMap) {
             await refreshOverviewMap();
         }

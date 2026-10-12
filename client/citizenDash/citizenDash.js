@@ -13,6 +13,15 @@
         loading: false
     };
 
+    let citizenLiveMap = null;
+    let citizenLiveWardLayer = null;
+    const citizenLiveMarkers = new Map();
+    let citizenLivePollTimer = null;
+    let citizenLivePollInFlight = false;
+    let citizenLivePollingStopped = false;
+    let citizenLiveInitialViewSet = false;
+    let citizenLiveWardId = null;
+
     function setNotice(message, type = "") {
         const element = $("dashboardNotice");
         if (!element) return;
@@ -410,6 +419,246 @@
         }
     }
 
+    function setCitizenLiveTrackingStatus(message, kind = "") {
+        const element = $("citizenLiveTrackingStatus");
+        if (!element) return;
+        element.textContent = String(message || "");
+        element.className = `citizen-live-tracking-status ${kind}`.trim();
+    }
+
+    function citizenGpsFreshness(vehicle, now = Date.now()) {
+        const recordedAt = vehicle?.location?.recordedAt;
+        if (!recordedAt) return { state: "unknown", label: "GPS timestamp unavailable" };
+        const timestamp = new Date(recordedAt).getTime();
+        if (!Number.isFinite(timestamp)) return { state: "unknown", label: "GPS timestamp unavailable" };
+        const ageSeconds = Math.max(0, Math.floor((now - timestamp) / 1000));
+        const ageLabel = ageSeconds < 60
+            ? `${ageSeconds}s ago`
+            : ageSeconds < 3600
+                ? `${Math.floor(ageSeconds / 60)}m ago`
+                : `${Math.floor(ageSeconds / 3600)}h ago`;
+        if (ageSeconds <= 30) return { state: "live", label: `Live · ${ageLabel}` };
+        if (ageSeconds <= 120) return { state: "delayed", label: `Delayed · ${ageLabel}` };
+        return { state: "stale", label: `Last fix · ${ageLabel}` };
+    }
+
+    function citizenValidVehiclePoint(vehicle) {
+        const latitude = Number(vehicle?.location?.latitude);
+        const longitude = Number(vehicle?.location?.longitude);
+        if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) return null;
+        if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) return null;
+        if (vehicle?.location?.latitude === null || vehicle?.location?.longitude === null) return null;
+        return [latitude, longitude];
+    }
+
+    function createCitizenLiveTruckIcon(vehicle) {
+        if (!window.L) return null;
+        const gpsState = citizenGpsFreshness(vehicle).state;
+        return L.divIcon({
+            className: "",
+            html: `<div class="citizen-live-truck-marker gps-${gpsState}" role="img" aria-label="Collection truck, ${gpsState} GPS">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 6.5h11v9H3z"></path>
+                    <path d="M14 10h4l3 3v2.5h-7z"></path>
+                    <circle cx="7" cy="18" r="2"></circle>
+                    <circle cx="18" cy="18" r="2"></circle>
+                </svg>
+            </div>`,
+            iconSize: [28, 28],
+            iconAnchor: [14, 14],
+            popupAnchor: [0, -14]
+        });
+    }
+
+    function buildCitizenTruckPopup(vehicle) {
+        const popup = el("div", "citizen-live-tracking-popup");
+        const title = el("strong", "", vehicle.vehicleNumber || "Collection vehicle");
+        const status = el("span", "", `Vehicle status: ${String(vehicle.status || "unknown").replace(/_/g, " ")}`);
+        const routeName = vehicle.assignment?.routeName || vehicle.assignment?.routeCode || "Active collection route";
+        const route = el("span", "", `Route: ${routeName}`);
+        const gps = citizenGpsFreshness(vehicle);
+        const location = el("span", "", gps.label);
+        popup.append(title, status, route, location);
+        const accuracy = Number(vehicle.location?.accuracyMeters);
+        if (Number.isFinite(accuracy) && accuracy >= 0) {
+            popup.append(el("span", "", `Reported GPS accuracy: ±${Math.round(accuracy)} m`));
+        }
+        return popup;
+    }
+
+    function setupCitizenLiveMap() {
+        const element = $("citizenLiveTrackingMap");
+        if (!element || !window.L) {
+            setCitizenLiveTrackingStatus("Map library unavailable. Refresh the page to retry.", "error");
+            return false;
+        }
+        if (citizenLiveMap) return true;
+        try {
+            citizenLiveMap = L.map(element, {
+                zoomControl: true,
+                scrollWheelZoom: false,
+                attributionControl: true
+            }).setView([16.705, 74.243], 13);
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                maxZoom: 19,
+                attribution: "&copy; OpenStreetMap contributors"
+            }).addTo(citizenLiveMap);
+            window.setTimeout(() => citizenLiveMap?.invalidateSize({ pan: false }), 100);
+            return true;
+        } catch (error) {
+            console.error("Citizen live map initialization failed:", error);
+            setCitizenLiveTrackingStatus("Unable to initialize the map.", "error");
+            return false;
+        }
+    }
+
+    function updateCitizenWardBoundary(ward) {
+        const wardId = Number(ward?.id);
+        if (Number.isSafeInteger(wardId) && wardId > 0 && citizenLiveWardId !== wardId) {
+            citizenLiveWardId = wardId;
+            citizenLiveInitialViewSet = false;
+        }
+        const polygon = ward?.boundary?.polygon;
+        const validPolygon = Array.isArray(polygon) && polygon.length >= 3 && polygon.every(point =>
+            Array.isArray(point) && point.length >= 2 &&
+            Number.isFinite(Number(point[0])) && Number(point[0]) >= -90 && Number(point[0]) <= 90 &&
+            Number.isFinite(Number(point[1])) && Number(point[1]) >= -180 && Number(point[1]) <= 180
+        );
+        if (citizenLiveWardLayer) {
+            citizenLiveMap?.removeLayer(citizenLiveWardLayer);
+            citizenLiveWardLayer = null;
+        }
+        if (citizenLiveMap && validPolygon) {
+            citizenLiveWardLayer = L.polygon(polygon, {
+                color: "#6e875f",
+                weight: 2,
+                dashArray: ward.boundary.source === "official" ? "5 4" : "7 6",
+                fillColor: "#d6e2ce",
+                fillOpacity: 0.12
+            }).addTo(citizenLiveMap);
+            citizenLiveWardLayer.bindPopup(
+                `Ward ${String(ward.number ?? "")} ${String(ward.name || "")}`.trim()
+            );
+            if (!citizenLiveInitialViewSet) {
+                citizenLiveMap.fitBounds(citizenLiveWardLayer.getBounds(), { padding: [24, 24], maxZoom: 16 });
+                citizenLiveInitialViewSet = true;
+            }
+        }
+    }
+
+    function updateCitizenTruckMarkers(vehicles) {
+        const listedIds = new Set();
+        vehicles.forEach(vehicle => {
+            const id = Number(vehicle.databaseId);
+            if (!Number.isSafeInteger(id) || id <= 0) return;
+            listedIds.add(id);
+            const point = citizenValidVehiclePoint(vehicle);
+            let marker = citizenLiveMarkers.get(id);
+            if (!point) {
+                if (marker) {
+                    citizenLiveMap.removeLayer(marker);
+                    citizenLiveMarkers.delete(id);
+                }
+                return;
+            }
+            const icon = createCitizenLiveTruckIcon(vehicle);
+            if (!marker) {
+                marker = L.marker(point, { icon, title: String(vehicle.vehicleNumber || "Collection vehicle") });
+                marker.addTo(citizenLiveMap);
+                citizenLiveMarkers.set(id, marker);
+            } else {
+                marker.setLatLng(point);
+                marker.setIcon(icon);
+                marker.options.title = String(vehicle.vehicleNumber || "Collection vehicle");
+            }
+            marker.bindPopup(buildCitizenTruckPopup(vehicle));
+        });
+
+        for (const [id, marker] of citizenLiveMarkers.entries()) {
+            if (!listedIds.has(id)) {
+                citizenLiveMap.removeLayer(marker);
+                citizenLiveMarkers.delete(id);
+            }
+        }
+    }
+
+    async function pollCitizenLiveTracking() {
+        if (citizenLivePollingStopped || citizenLivePollInFlight || document.hidden) return;
+        if (!setupCitizenLiveMap()) return;
+        citizenLivePollInFlight = true;
+        const refreshButton = $("refreshCitizenLiveTracking");
+        if (refreshButton) refreshButton.disabled = true;
+        try {
+            const result = await api("/api/citizen/live-tracking");
+            updateCitizenWardBoundary(result.ward);
+            const vehicles = Array.isArray(result.vehicles) ? result.vehicles : [];
+            updateCitizenTruckMarkers(vehicles);
+            const located = vehicles.filter(citizenValidVehiclePoint).length;
+            if (!result.ward) {
+                setCitizenLiveTrackingStatus("Confirm your service Ward to view local collection trucks.", "pending");
+            } else if (!vehicles.length) {
+                setCitizenLiveTrackingStatus(`Ward ${result.ward.number}: no active collection vehicles assigned right now.`, "");
+            } else {
+                setCitizenLiveTrackingStatus(`${located} of ${vehicles.length} vehicle${vehicles.length === 1 ? "" : "s"} with a location · updates every ${Number(result.refreshAfterSeconds) || 10}s`, "");
+            }
+        } catch (error) {
+            console.error("Citizen live tracking poll failed:", error);
+            if (error.status === 401 || error.status === 403) {
+                citizenLivePollingStopped = true;
+                setCitizenLiveTrackingStatus("Sign in again to view live collection tracking.", "error");
+                return;
+            }
+            setCitizenLiveTrackingStatus("Live locations could not be refreshed. Retrying shortly.", "error");
+        } finally {
+            citizenLivePollInFlight = false;
+            if (refreshButton) refreshButton.disabled = false;
+            if (!citizenLivePollingStopped && citizenLivePollTimer === null) {
+                citizenLivePollTimer = window.setTimeout(() => {
+                    citizenLivePollTimer = null;
+                    pollCitizenLiveTracking();
+                }, 10000);
+            }
+        }
+    }
+
+    function startCitizenLiveTrackingPolling() {
+        citizenLivePollingStopped = false;
+        pollCitizenLiveTracking();
+    }
+
+    $("refreshCitizenLiveTracking")?.addEventListener("click", () => {
+        if (citizenLivePollTimer !== null) {
+            window.clearTimeout(citizenLivePollTimer);
+            citizenLivePollTimer = null;
+        }
+        pollCitizenLiveTracking();
+    });
+
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden && !citizenLivePollingStopped) {
+            if (citizenLivePollTimer !== null) {
+                window.clearTimeout(citizenLivePollTimer);
+                citizenLivePollTimer = null;
+            }
+            pollCitizenLiveTracking();
+        }
+    });
+
+    window.addEventListener("pagehide", () => {
+        citizenLivePollingStopped = true;
+        if (citizenLivePollTimer !== null) {
+            window.clearTimeout(citizenLivePollTimer);
+            citizenLivePollTimer = null;
+        }
+    });
+
+    window.addEventListener("pageshow", () => {
+        if (!document.hidden && citizenLivePollingStopped) {
+            citizenLivePollingStopped = false;
+            pollCitizenLiveTracking();
+        }
+    });
+
     async function initialize() {
         let me;
         try {
@@ -431,6 +680,7 @@
                 return;
             }
             populateProfile(profileResult);
+            startCitizenLiveTrackingPolling();
             await loadCsrfToken();
             await loadComplaints(false);
         } catch (error) {

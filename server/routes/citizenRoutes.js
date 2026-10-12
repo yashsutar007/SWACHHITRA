@@ -7,6 +7,7 @@ const {
 const {
     getCitizenProfile,
     getCitizenWardAreas,
+    getCitizenLiveTracking,
     saveCitizenProfile,
     getMyComplaints,
     createCitizenComplaint,
@@ -20,6 +21,7 @@ router.use(requireRole("citizen"));
 router.get("/security/csrf-token", issueCitizenCsrfToken);
 router.get("/profile", getCitizenProfile);
 router.get("/ward-areas", getCitizenWardAreas);
+router.get("/live-tracking", getCitizenLiveTracking);
 router.post("/profile", protectCitizenMutation, saveCitizenProfile);
 
 // Citizen complaint APIs. The controller derives the complaint Ward from

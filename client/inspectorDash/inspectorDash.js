@@ -130,6 +130,11 @@ const logoutButton =
             "truckLayerButton"
         );
 
+    const trackingMapFullscreenButton =
+        document.getElementById(
+            "trackingMapFullscreenButton"
+        );
+
     const mapPlus =
         document.getElementById(
             "mapPlus"
@@ -2937,17 +2942,10 @@ closeNotificationDrawer?.addEventListener(
     ========================================================= */
 
     function createTruckIcon(vehicle) {
-        if (
-            typeof window.L ===
-            "undefined"
-        ) {
+        if (typeof window.L === "undefined") {
             return null;
         }
 
-        const statusKey =
-            getMapStatusKey(
-                vehicle
-            );
         const gpsState = getVehicleGpsFreshness(vehicle).state;
         const gpsLabel = gpsState === "live"
             ? "live GPS"
@@ -2958,16 +2956,16 @@ closeNotificationDrawer?.addEventListener(
                     : "GPS unavailable";
         const markerLabel = `${String(vehicle.id || "Vehicle")} truck, ${gpsLabel}`;
 
+        // Match the Assistant Commissioner marker: green truck for every
+        // vehicle state, with GPS freshness conveyed by a live pulse and popup.
         return L.divIcon({
             className: "",
             html: `
-                <div class="custom-truck-marker ${escapeHTML(
-                    statusKey
-                )} gps-${escapeHTML(gpsState)}" data-gps-state="${escapeHTML(gpsState)}" role="img" aria-label="${escapeHTML(markerLabel)}">
-                    <svg
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                    >
+                <div class="custom-truck-marker gps-${escapeHTML(gpsState)}"
+                     data-gps-state="${escapeHTML(gpsState)}"
+                     role="img"
+                     aria-label="${escapeHTML(markerLabel)}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M3 6.5h11v9H3z"></path>
                         <path d="M14 10h4l3 3v2.5h-7z"></path>
                         <circle cx="7" cy="18" r="2"></circle>
@@ -3113,6 +3111,89 @@ closeNotificationDrawer?.addEventListener(
             return null;
         }
     }
+
+
+
+    function getTrackingMapFullscreenTarget() {
+        return trackingMapElement?.closest(".overview-map-card") ||
+            trackingMapElement?.closest(".overview-map-section") ||
+            trackingMapElement?.parentElement?.parentElement ||
+            trackingMapElement;
+    }
+
+    function updateTrackingMapFullscreenButton() {
+        if (!trackingMapFullscreenButton) return;
+        const target = getTrackingMapFullscreenTarget();
+        const isNativeFullscreen = Boolean(
+            target && document.fullscreenElement === target
+        );
+        const isFallbackFullscreen = Boolean(
+            target?.classList.contains("inspector-map-fullscreen-fallback")
+        );
+        const isActive = isNativeFullscreen || isFallbackFullscreen;
+        trackingMapFullscreenButton.textContent = isActive
+            ? "Exit full screen"
+            : "Full screen";
+        trackingMapFullscreenButton.setAttribute("aria-pressed", String(isActive));
+        trackingMapFullscreenButton.setAttribute(
+            "aria-label",
+            isActive ? "Exit collection map full screen" : "Open collection map in full screen"
+        );
+        trackingMapFullscreenButton.title = isActive ? "Exit full screen" : "Open map in full screen";
+    }
+
+    function invalidateInspectorMapsSoon() {
+        window.setTimeout(() => {
+            overviewMap?.invalidateSize({ pan: false });
+            routeMap?.invalidateSize({ pan: false });
+        }, 180);
+    }
+
+    async function toggleTrackingMapFullscreen() {
+        const target = getTrackingMapFullscreenTarget();
+        if (!target) return;
+
+        const isNativeFullscreen = document.fullscreenElement === target;
+        const isFallbackFullscreen = target.classList.contains("inspector-map-fullscreen-fallback");
+
+        try {
+            if (isNativeFullscreen) {
+                await document.exitFullscreen();
+            } else if (isFallbackFullscreen) {
+                target.classList.remove("inspector-map-fullscreen-fallback");
+                document.body.classList.remove("inspector-map-fallback-open");
+            } else if (typeof target.requestFullscreen === "function") {
+                await target.requestFullscreen();
+            } else {
+                target.classList.add("inspector-map-fullscreen-fallback");
+                document.body.classList.add("inspector-map-fallback-open");
+            }
+        } catch (error) {
+            // Some browsers restrict native fullscreen; use the CSS fallback.
+            target.classList.toggle("inspector-map-fullscreen-fallback", !isFallbackFullscreen);
+            document.body.classList.toggle("inspector-map-fallback-open", !isFallbackFullscreen);
+            console.warn("Native fullscreen unavailable; using map fullscreen fallback.", error);
+        }
+
+        updateTrackingMapFullscreenButton();
+        invalidateInspectorMapsSoon();
+    }
+
+    document.addEventListener("fullscreenchange", () => {
+        updateTrackingMapFullscreenButton();
+        invalidateInspectorMapsSoon();
+    });
+
+    document.addEventListener("keydown", event => {
+        if (event.key !== "Escape") return;
+        const target = getTrackingMapFullscreenTarget();
+        if (target?.classList.contains("inspector-map-fullscreen-fallback")) {
+            target.classList.remove("inspector-map-fullscreen-fallback");
+            document.body.classList.remove("inspector-map-fallback-open");
+            updateTrackingMapFullscreenButton();
+            invalidateInspectorMapsSoon();
+        }
+    });
 
     function initializeMaps() {
         overviewMap = setupMap(trackingMapElement);
@@ -3745,6 +3826,15 @@ closeNotificationDrawer?.addEventListener(
             }
         }
     }
+
+    trackingMapFullscreenButton?.addEventListener(
+        "click",
+        () => {
+            toggleTrackingMapFullscreen().catch(error => {
+                console.error("Unable to toggle collection map fullscreen.", error);
+            });
+        }
+    );
 
     mapPlus?.addEventListener(
         "click",

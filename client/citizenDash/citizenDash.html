@@ -6,6 +6,8 @@
     <meta name="description" content="SWACHHITRA Citizen Portal for Ward-based sanitation complaints and tracking">
     <title>SWACHHITRA | Citizen Portal</title>
     <link rel="stylesheet" href="/citizenDash/citizenDash.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="/citizenDash/citizenDash.js" defer></script>
 </head>
 <body class="citizen-body">
@@ -139,6 +141,24 @@
                     <div class="kpi-main-line"><strong class="kpi-number" id="statResolved">—</strong><span class="status-pill green">Completed</span></div>
                     <p class="kpi-description">Sanitation issues marked as resolved.</p>
                 </article>
+            </section>
+
+            <section class="citizen-live-tracking-card" aria-labelledby="citizenLiveTrackingHeading">
+                <div class="citizen-live-tracking-header">
+                    <div>
+                        <p class="section-eyebrow">WARD COLLECTION TRACKING</p>
+                        <h2 id="citizenLiveTrackingHeading">Live collection vehicles</h2>
+                        <p>View the latest reported location of collection trucks operating in your confirmed service Ward.</p>
+                    </div>
+                    <div class="citizen-live-tracking-actions">
+                        <span id="citizenLiveTrackingStatus" class="citizen-live-tracking-status" role="status" aria-live="polite">Preparing live map…</span>
+                        <button id="refreshCitizenLiveTracking" class="secondary-button" type="button">Refresh location</button>
+                    </div>
+                </div>
+                <div class="citizen-live-tracking-map-wrap">
+                    <div id="citizenLiveTrackingMap" class="citizen-live-tracking-map" role="region" aria-label="Live collection vehicle map"></div>
+                </div>
+                <p class="citizen-live-tracking-note">Locations update periodically when driver GPS is available. A marker may remain at its last reported position when a truck's GPS signal is delayed or unavailable.</p>
             </section>
 
             <section class="citizen-layout-grid">

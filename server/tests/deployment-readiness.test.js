@@ -56,6 +56,45 @@ async function main() {
         assert.match(source, /connect-src 'self' https:\/\/tile\.openstreetmap\.org https:\/\/\*\.tile\.openstreetmap\.org/);
     });
 
+    await test("Citizen live tracking is protected, ward-scoped and supported by the map CSP", () => {
+        const routes = read("server/routes/citizenRoutes.js");
+        const controller = read("server/controllers/citizenController.js");
+        const server = read("server/server.js");
+        const html = read("client/citizenDash/citizenDash.html");
+        const js = read("client/citizenDash/citizenDash.js");
+        const css = read("client/citizenDash/citizenDash.css");
+        assert.match(routes, /router\.use\(requireRole\("citizen"\)\)/);
+        assert.match(routes, /router\.get\("\/live-tracking", getCitizenLiveTracking\)/);
+        assert.match(controller, /async function getCitizenLiveTracking\(req, res\)/);
+        assert.match(controller, /WHERE r\.ward_id = \?/);
+        assert.match(controller, /WHERE u\.id = \?/);
+        assert.match(server, /function setCitizenDashboardHeaders\(res\)/);
+        assert.match(server, /script-src 'self' https:\/\/unpkg\.com/);
+        assert.match(server, /img-src 'self' data: blob: https:\/\/unpkg\.com https:\/\/tile\.openstreetmap\.org https:\/\/\*\.tile\.openstreetmap\.org/);
+        assert.match(html, /id="citizenLiveTrackingMap"/);
+        assert.match(html, /leaflet@1\.9\.4\/dist\/leaflet\.js/);
+        assert.match(js, /\/api\/citizen\/live-tracking/);
+        assert.match(css, /\.citizen-live-truck-marker/);
+    });
+
+    await test("Inspector tracking map has fullscreen control and AC-matching green markers", () => {
+        const html = read("client/inspectorDash/inspectorDash.html");
+        const js = read("client/inspectorDash/inspectorDash.js");
+        const css = read("client/inspectorDash/inspectorDash.css");
+        const assistant = read("client/assistantDash/assistantDash.js");
+        const acHtml = read("client/assistantDash/assistantDash.html");
+        assert.match(html, /id="trackingMapFullscreenButton"/);
+        assert.match(js, /function toggleTrackingMapFullscreen\(\)/);
+        assert.match(js, /class="custom-truck-marker gps-\$\{escapeHTML\(gpsState\)\}"/);
+        assert.match(css, /\.custom-truck-marker \{[\s\S]{0,350}background: #416d27/);
+        assert.match(assistant, /function renderOverviewMapInspectorAreas\(\)/);
+        const inspectorAreaFunction = assistant.match(/function renderOverviewMapInspectorAreas\(\) \{[\s\S]*?\n    \}/)?.[0] || "";
+        assert.match(inspectorAreaFunction, /inspector\?\.scope\?\.ward_id/);
+        assert.match(inspectorAreaFunction, /ward\.boundary\.polygon/);
+        assert.doesNotMatch(inspectorAreaFunction, /operational_area\?\.polygon/);
+        assert.match(acHtml, /Inspector-assigned Ward boundary/);
+    });
+
     await test("Production configuration checker exists and never prints configured secret values", () => {
         const source = read("server/scripts/check-deployment-config.js");
         assert.match(source, /--production/);

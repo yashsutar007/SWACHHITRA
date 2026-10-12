@@ -2691,7 +2691,7 @@ a {
   font-size: 16px;
 }
 
-/* Dynamic truck markers */
+/* Dynamic truck markers — match the Assistant Commissioner map */
 .custom-truck-marker {
   position: relative;
   isolation: isolate;
@@ -2700,24 +2700,47 @@ a {
   height: 28px;
   display: grid;
   place-items: center;
-  border: 3px solid #fff;
+  border: 2px solid #ffffff;
   border-radius: 50%;
-  color: #fff;
-  background: #2f8a3d;
-  box-shadow: 0 5px 13px rgba(0,0,0,0.23);
+  color: #ffffff;
+  background: #416d27;
+  box-shadow: 0 4px 12px rgba(18, 43, 12, 0.24);
   font-size: 16px;
   transition: transform 0.18s ease;
 }
 
-/* Live GPS marker: a vivid green filled halo with two visible expanding pulses. */
+/* Explicit SVG styling makes the truck a white outline, not a black fill. */
+.custom-truck-marker svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Keep the truck badge the same dark green for every GPS/route state. */
+.custom-truck-marker.gps-live,
+.custom-truck-marker.gps-delayed,
+.custom-truck-marker.gps-stale,
+.custom-truck-marker.gps-unknown,
+.custom-truck-marker.collecting,
+.custom-truck-marker.enroute,
+.custom-truck-marker.delayed {
+  background: #416d27;
+  color: #ffffff;
+}
+
+/* Live status is distinguished by a surrounding pulse, not by changing the truck colour. */
 .custom-truck-marker.gps-live {
   z-index: 2;
-  background: #1f873a;
   box-shadow:
     0 0 0 3px #ffffff,
     0 0 0 5px #35b653,
     0 0 0 8px rgba(42, 172, 70, 0.34),
-    0 5px 13px rgba(0, 0, 0, 0.25);
+    0 4px 12px rgba(18, 43, 12, 0.28);
 }
 
 .custom-truck-marker.gps-live::before,
@@ -2733,7 +2756,7 @@ a {
   opacity: 0;
   pointer-events: none;
   will-change: transform, opacity;
-  animation: truck-live-pulse 2.0s cubic-bezier(0.16, 0.75, 0.28, 1) infinite;
+  animation: truck-live-pulse 2s cubic-bezier(0.16, 0.75, 0.28, 1) infinite;
 }
 
 .custom-truck-marker.gps-live::after {
@@ -2764,25 +2787,19 @@ a {
   }
 }
 
-.custom-truck-marker.collecting {
-  background: #4f8b3e;
+.custom-truck-marker:hover {
+  transform: scale(1.10);
 }
 
-.custom-truck-marker.enroute {
-  background: #c48a17;
-}
-
-.custom-truck-marker.delayed {
-  background: #c74f44;
-}
-
-.custom-truck-marker.gps-delayed {
-  background: #b7791f;
-}
-
-.custom-truck-marker.gps-stale,
-.custom-truck-marker.gps-unknown {
-  background: #788078;
+@media (prefers-reduced-motion: reduce) {
+  .custom-truck-marker.gps-live::before,
+  .custom-truck-marker.gps-live::after {
+    animation: none !important;
+    opacity: 0.18;
+    transform: scale(1.3);
+    background: rgba(34, 197, 94, 0.18);
+    border-color: rgba(22, 163, 74, 0.22);
+  }
 }
 
 .truck-popup .truck-gps-state {
@@ -3716,5 +3733,54 @@ a {
     animation: none !important;
     opacity: 0.34;
     transform: scale(1.12);
+  }
+}
+
+
+/* Inspector collection map full-screen preview. */
+.overview-map-card:fullscreen,
+.overview-map-section:fullscreen,
+.inspector-map-fullscreen-fallback {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 99990 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+  background: var(--white, #fff) !important;
+}
+
+.overview-map-card:fullscreen .overview-map-wrap,
+.overview-map-section:fullscreen .overview-map-wrap,
+.inspector-map-fullscreen-fallback .overview-map-wrap {
+  height: calc(100vh - 78px) !important;
+  min-height: 300px;
+}
+
+.overview-map-card:fullscreen #trackingMap,
+.overview-map-section:fullscreen #trackingMap,
+.inspector-map-fullscreen-fallback #trackingMap {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+body.inspector-map-fallback-open {
+  overflow: hidden !important;
+}
+
+@media (max-width: 700px) {
+  .overview-map-card:fullscreen .overview-map-wrap,
+  .overview-map-section:fullscreen .overview-map-wrap,
+  .inspector-map-fullscreen-fallback .overview-map-wrap {
+    height: calc(100vh - 112px) !important;
+    min-height: 220px;
+  }
+
+  #trackingMapFullscreenButton {
+    padding-inline: 7px;
+    font-size: 12px;
   }
 }

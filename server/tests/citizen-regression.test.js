@@ -99,10 +99,28 @@ async function main() {
         );
     });
 
+    await test("Citizen live tracking page contract keeps the map scoped and avoids driver identity", async () => {
+        const routes = fs.readFileSync(path.join(PROJECT_ROOT, "server/routes/citizenRoutes.js"), "utf8");
+        const controller = fs.readFileSync(path.join(PROJECT_ROOT, "server/controllers/citizenController.js"), "utf8");
+        const html = fs.readFileSync(path.join(PROJECT_ROOT, "client/citizenDash/citizenDash.html"), "utf8");
+        const js = fs.readFileSync(path.join(PROJECT_ROOT, "client/citizenDash/citizenDash.js"), "utf8");
+        assert.match(routes, /router\.use\(requireRole\("citizen"\)\)/);
+        assert.match(routes, /router\.get\("\/live-tracking", getCitizenLiveTracking\)/);
+        assert.match(controller, /WHERE r\.ward_id = \?/);
+        assert.doesNotMatch(controller.match(/async function getCitizenLiveTracking\(req, res\)[\s\S]*?\n\}/)?.[0] || "", /driver_name|phone|mobile_number/);
+        assert.match(html, /id="citizenLiveTrackingMap"/);
+        assert.match(js, /\/api\/citizen\/live-tracking/);
+    });
+
     await test("Health endpoint is available", async () => {
         const r = await request("/api/health");
         assertStatus(r.status, 200, "health");
         assert.equal(r.body?.success, true);
+    });
+
+    await test("Citizen live tracking endpoint requires Citizen authentication", async () => {
+        const r = await request("/api/citizen/live-tracking");
+        assert.ok([302, 401, 403].includes(r.status), `anonymous live-tracking request should be rejected, received ${r.status}`);
     });
 
     await test("API responses include no-store cache protection and baseline security headers", async () => {
@@ -252,6 +270,24 @@ async function main() {
             }, citizenCookie);
             assertStatus(r.status, 400, "client scope injection");
             assert.equal(r.body?.code, "CLIENT_SCOPE_FORBIDDEN");
+        });
+
+        await test("Citizen live tracking returns only the saved Ward's active vehicles", async () => {
+            const r = await request("/api/citizen/live-tracking", {}, citizenCookie);
+            assertStatus(r.status, 200, "Citizen live tracking");
+            assert.equal(r.body?.success, true);
+            assert.ok(Array.isArray(r.body?.vehicles));
+            if (citizenWardId) {
+                assert.equal(Number(r.body?.ward?.id), Number(citizenWardId));
+                for (const vehicle of r.body.vehicles) {
+                    assert.equal(Number(vehicle?.assignment?.ward?.id), Number(citizenWardId));
+                    assert.equal(Object.prototype.hasOwnProperty.call(vehicle, "driver"), false);
+                }
+            } else {
+                assert.equal(r.body?.ward, null);
+                assert.equal(r.body?.vehicles?.length, 0);
+            }
+            assert.match(String(r.response.headers.get("cache-control") || ""), /no-store/i);
         });
 
         await test("Citizen can load only the complaint list API for their session", async () => {

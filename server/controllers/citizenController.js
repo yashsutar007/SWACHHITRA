@@ -876,9 +876,172 @@ async function cancelCitizenComplaint(req, res) {
     }
 }
 
+async function getCitizenLiveTracking(req, res) {
+    try {
+        const userId = Number(req.currentUser?.id);
+        if (!Number.isSafeInteger(userId) || userId <= 0) {
+            throw createError("A signed-in Citizen account is required.", 401);
+        }
+
+        // Derive the Ward from the authenticated Citizen's saved profile.
+        // No Ward/Division parameter is accepted from the browser.
+        const [profiles] = await db.execute(
+            `
+            SELECT
+                u.id AS user_id,
+                u.role,
+                u.status AS user_status,
+                p.ward_id,
+                w.ward_number,
+                w.ward_code,
+                w.ward_name,
+                w.zone_id,
+                w.division_id
+            FROM users u
+            INNER JOIN user_profiles p ON p.user_id = u.id
+            LEFT JOIN wards w
+                ON w.id = p.ward_id
+               AND w.zone_id = p.zone_id
+               AND (w.division_id = p.division_id OR (w.division_id IS NULL AND p.division_id IS NULL))
+               AND w.status = 'active'
+            LEFT JOIN zones z ON z.id = w.zone_id AND z.status = 'active'
+            LEFT JOIN divisions d ON d.id = w.division_id AND d.status = 'active'
+            WHERE u.id = ?
+            LIMIT 1
+            `,
+            [userId]
+        );
+
+        const profile = profiles[0];
+        if (!profile || profile.role !== "citizen" || profile.user_status !== "active") {
+            throw createError("The active Citizen profile could not be found.", 403);
+        }
+
+        const baseResponse = {
+            success: true,
+            generatedAt: new Date().toISOString(),
+            refreshAfterSeconds: 10
+        };
+
+        if (!profile.ward_id || !profile.ward_code || !profile.ward_number) {
+            return res.set("Cache-Control", "no-store, private").json({
+                ...baseResponse,
+                ward: null,
+                vehicles: [],
+                message: "A service Ward is not currently confirmed on this profile."
+            });
+        }
+
+        const wardId = Number(profile.ward_id);
+        const boundary = await getWardPlanningBoundary(
+            wardId,
+            profile.ward_code,
+            db
+        );
+
+        const [rows] = await db.execute(
+            `
+            SELECT
+                v.id AS vehicle_id,
+                v.vehicle_number,
+                v.status AS vehicle_status,
+                v.current_latitude,
+                v.current_longitude,
+                v.current_location_accuracy_meters,
+                v.current_location_heading_degrees,
+                v.current_location_speed_mps,
+                v.last_location_at,
+                ra.status AS assignment_status,
+                r.route_code,
+                r.route_name,
+                r.ward_id AS route_ward_id,
+                rw.ward_number AS route_ward_number,
+                rw.ward_code AS route_ward_code,
+                rw.ward_name AS route_ward_name
+            FROM vehicles v
+            INNER JOIN route_assignments ra
+                ON ra.id = (
+                    SELECT MAX(ra2.id)
+                    FROM route_assignments ra2
+                    WHERE ra2.vehicle_id = v.id
+                )
+            INNER JOIN routes r ON r.id = ra.route_id
+            INNER JOIN wards rw ON rw.id = r.ward_id AND rw.status = 'active'
+            WHERE r.ward_id = ?
+              AND ra.status IN ('active', 'delayed')
+              AND r.status IN ('active', 'delayed')
+              AND v.status NOT IN ('maintenance', 'inactive')
+            ORDER BY
+                CASE WHEN ra.status = 'delayed' OR v.status = 'delayed' THEN 0 ELSE 1 END,
+                v.vehicle_number,
+                v.id
+            `,
+            [wardId]
+        );
+
+        const vehicles = rows.map(row => {
+            const rawLatitude = row.current_latitude;
+            const rawLongitude = row.current_longitude;
+            const latitude = rawLatitude === null || rawLatitude === undefined ? null : Number(rawLatitude);
+            const longitude = rawLongitude === null || rawLongitude === undefined ? null : Number(rawLongitude);
+            const validCoordinates =
+                latitude !== null && longitude !== null &&
+                Number.isFinite(latitude) && latitude >= -90 && latitude <= 90 &&
+                Number.isFinite(longitude) && longitude >= -180 && longitude <= 180;
+
+            const numberOrNull = value => value === null || value === undefined || !Number.isFinite(Number(value))
+                ? null
+                : Number(value);
+
+            return {
+                databaseId: Number(row.vehicle_id),
+                vehicleNumber: row.vehicle_number,
+                status: row.vehicle_status,
+                location: validCoordinates ? {
+                    latitude,
+                    longitude,
+                    accuracyMeters: numberOrNull(row.current_location_accuracy_meters),
+                    headingDegrees: numberOrNull(row.current_location_heading_degrees),
+                    speedMetersPerSecond: numberOrNull(row.current_location_speed_mps),
+                    recordedAt: complaintDateToIso(row.last_location_at)
+                } : null,
+                assignment: {
+                    status: row.assignment_status,
+                    routeCode: row.route_code,
+                    routeName: row.route_name,
+                    ward: {
+                        id: Number(row.route_ward_id),
+                        number: Number(row.route_ward_number),
+                        code: row.route_ward_code,
+                        name: row.route_ward_name
+                    }
+                }
+            };
+        });
+
+        return res.set("Cache-Control", "no-store, private").json({
+            ...baseResponse,
+            ward: {
+                id: wardId,
+                number: Number(profile.ward_number),
+                code: profile.ward_code,
+                name: profile.ward_name,
+                boundary: boundary ? {
+                    source: boundary.source,
+                    polygon: boundary.polygon
+                } : null
+            },
+            vehicles
+        });
+    } catch (error) {
+        return sendError(res, "Unable to load live Ward collection tracking.", error);
+    }
+}
+
 module.exports = {
     getCitizenProfile,
     getCitizenWardAreas,
+    getCitizenLiveTracking,
     saveCitizenProfile,
     findWardAtPoint,
     getMyComplaints,
