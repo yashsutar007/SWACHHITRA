@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="Review your official account information. Your assigned Division is controlled by supervisory administration."
+    >
+
+    <title>SWACHHITRA | Assistant Commissioner Profile</title>
+
+    <link rel="stylesheet" href="/assistantProfile/assistantProfile.css">
+    <script src="/assistantProfile/assistantProfile.js" defer></script>
+    <script src="/profile/profileCore.js" defer></script>
+</head>
+
+<body data-profile-role="assistant_commissioner">
+
+<main class="profile-page">
+
+    <div class="background-orb orb-one" aria-hidden="true"></div>
+    <div class="background-orb orb-two" aria-hidden="true"></div>
+    <div class="background-grid" aria-hidden="true"></div>
+
+
+    <section class="profile-wrapper">
+
+        <!-- Brand bar -->
+        <div class="brand-bar">
+
+            <div class="brand">
+
+                <div class="brand-header">
+                    <img
+                        src="/assets/logo.png"
+                        alt="SWACHHITRA Logo"
+                        class="brand-logo"
+                    >
+                </div>
+
+                <div>
+                    <h1>SWACHHITRA</h1>
+
+                    <p>
+                        Smart Waste Collection &amp;
+                        Route Management System
+                    </p>
+                </div>
+
+            </div>
+
+
+            <button
+                type="button"
+                id="backButton"
+                class="back-button"
+                aria-label="Go back"
+            >
+                <span aria-hidden="true">←</span>
+                Back
+            </button>
+
+        </div>
+
+
+        <!-- Profile card -->
+        <section class="profile-card">
+
+            <div class="profile-header">
+
+                <div class="header-top">
+
+                    <div>
+
+                        <p class="eyebrow">
+                            ACCOUNT PROFILE
+                        </p>
+
+                        <h2 id="profileTitle">
+                            Assistant Commissioner Profile
+                        </h2>
+
+                        <p
+                            id="profileSubtitle"
+                            class="profile-subtitle"
+                        >
+                            Review your official account information. Your assigned Division is controlled by supervisory administration.
+                        </p>
+
+                    </div>
+
+
+                    <div
+                        class="profile-symbol"
+                        aria-hidden="true"
+                    >
+                        <span id="roleInitial">U</span>
+                    </div>
+
+                </div>
+
+
+                <div class="role-strip">
+
+                    <div class="role-info">
+
+                        <span
+                            class="role-dot"
+                            aria-hidden="true"
+                        ></span>
+
+                        <span>
+                            Selected Account Type
+                        </span>
+
+                    </div>
+
+
+                    <span
+                        id="selectedRole"
+                        class="role-badge"
+                    >
+                        User
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <form
+                id="profileForm"
+                novalidate
+            >
+
+                <!--
+                    profile.js generates role-specific fields here.
+                -->
+                <div
+                    id="profileFields"
+                    class="profile-fields"
+                ></div>
+
+
+                <div
+                    id="profileMessage"
+                    class="profile-message"
+                    aria-live="polite"
+                    role="status"
+                ></div>
+
+
+                <div class="form-footer">
+
+                    <p class="required-note">
+                        <span aria-hidden="true">*</span>
+                        Required fields
+                    </p>
+
+
+                    <button
+                        type="submit"
+                        id="submitButton"
+                        class="submit-button"
+                    >
+
+                        <span id="submitText">
+                            Save Profile
+                        </span>
+
+                        <span
+                            class="button-arrow"
+                            aria-hidden="true"
+                        >
+                            →
+                        </span>
+
+                    </button>
+
+                </div>
+
+            </form>
+
+        </section>
+
+
+        <!-- Footer -->
+        <p class="page-footer">
+            SWACHHITRA
+            <span aria-hidden="true">•</span>
+            Smarter Routes. Cleaner Cities.
+        </p>
+
+    </section>
+
+</main>
+
+</body>
+</html>

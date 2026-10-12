@@ -15,6 +15,7 @@ const {
     updateRouteStop,
     deleteRouteStop,
     getVehicles,
+    getLiveTracking,
     createVehicle,
     updateVehicle,
     deleteVehicle,
@@ -63,6 +64,7 @@ router.get(
 router.get("/overview", getOverview);
 router.get("/routes", getRoutes);
 router.get("/vehicles", getVehicles);
+router.get("/live-tracking", getLiveTracking);
 router.get("/drivers", getDrivers);
 router.get("/assignments", getAssignments);
 router.get("/collections", getCollections);

@@ -55,6 +55,9 @@ function transporterFor(config) {
             host: config.host,
             port: config.port,
             secure: config.secure,
+            // On submission ports such as 587, refuse to send credentials or
+            // message contents unless STARTTLS has been negotiated.
+            requireTLS: !config.secure,
             auth: config.auth,
             connectionTimeout: 10000,
             greetingTimeout: 10000,

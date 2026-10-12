@@ -757,6 +757,15 @@
                                 </strong>
                             </span>
 
+                            <span
+                                class="live-tracking-status pending"
+                                id="liveTrackingStatus"
+                                role="status"
+                                aria-live="polite"
+                            >
+                                Live GPS updates waiting...
+                            </span>
+
                             <button
                                 type="button"
                                 data-tab="routes"
@@ -1682,6 +1691,85 @@
 
         </div>
 
+    </div>
+
+
+    <!-- =========================================================
+         DRIVER LOGIN EMAIL + ACCOUNT MODAL
+         ========================================================= -->
+    <div
+        class="modal"
+        id="driverAccountModal"
+        aria-hidden="true"
+    >
+        <div
+            class="modal-overlay"
+            data-close-modal="driverAccountModal"
+        ></div>
+
+        <div
+            class="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="driverAccountModalTitle"
+        >
+            <div class="modal-header-green">
+                <div>
+                    <span>STAFF ACCESS</span>
+                    <h2 id="driverAccountModalTitle">Create Driver Login</h2>
+                    <p>Assign a unique email address for this Driver's SWACHHITRA login.</p>
+                </div>
+                <button
+                    class="modal-close white-close"
+                    type="button"
+                    data-close-modal="driverAccountModal"
+                    aria-label="Close Driver account dialog"
+                >
+                    ×
+                </button>
+            </div>
+
+            <form id="driverAccountForm" class="modal-form">
+                <input type="hidden" name="driver_id" id="driverAccountDriverId">
+
+                <p class="modal-help" id="driverAccountDriverSummary" aria-live="polite">
+                    Selected Driver
+                </p>
+
+                <div class="form-grid-2">
+                    <label class="form-grid-full" for="driverAccountEmail">
+                        Driver login email
+                        <input
+                            type="email"
+                            id="driverAccountEmail"
+                            name="email"
+                            maxlength="190"
+                            autocomplete="email"
+                            placeholder="driver@organization.example"
+                            required
+                        >
+                        <small class="modal-help">Use an email address assigned to and accessible by this Driver. It must not belong to another account.</small>
+                    </label>
+                </div>
+
+                <p class="modal-help" id="driverAccountHelp">
+                    This assigns the email to the SWACHHITRA login; it does not create an external email mailbox. A new Driver receives a random undisclosed initial password and must use Forgot Password to set a private password.
+                </p>
+
+                <div class="modal-footer">
+                    <button
+                        type="button"
+                        class="secondary-button"
+                        data-close-modal="driverAccountModal"
+                    >
+                        Cancel
+                    </button>
+                    <button type="submit" class="primary-button" id="driverAccountSubmitButton">
+                        Assign Email &amp; Create Login
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
 

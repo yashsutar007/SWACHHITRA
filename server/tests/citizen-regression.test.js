@@ -14,6 +14,7 @@ let failed = 0;
 let skipped = 0;
 let citizenCookie = "";
 let inspectorCookie = "";
+let inspectorCsrfToken = "";
 let csrfToken = "";
 let citizenUserId = null;
 let citizenWardId = null;
@@ -90,7 +91,12 @@ async function main() {
 
     await test("Inspector complaint status update route is registered for Sanitary Inspectors", async () => {
         const routes = fs.readFileSync(path.join(PROJECT_ROOT, "server/routes/inspectorRoutes.js"), "utf8");
-        assert.match(routes, /router\.put\(\s*["']\/complaints\/:id["']\s*,\s*requireInspectorWrite\s*,\s*updateComplaint\s*\)/s);
+        // The route must retain both role authorization and CSRF/origin/rate-limit
+        // middleware before reaching the mutation controller.
+        assert.match(
+            routes,
+            /router\.put\(\s*["']\/complaints\/:id["']\s*,\s*requireInspectorWrite\s*,\s*requireInspectorMutationSecurity\s*,\s*updateComplaint\s*\)/s
+        );
     });
 
     await test("Health endpoint is available", async () => {
@@ -356,6 +362,17 @@ async function main() {
                         "Integration test requires an Inspector assigned to the Citizen's exact Ward"
                     );
 
+                    // Inspector writes require a session-bound CSRF token. Fetch a token using
+                    // the Inspector's own authenticated session; do not reuse the Citizen token.
+                    const inspectorCsrfResponse = await request(
+                        "/api/inspector/security/csrf-token",
+                        {},
+                        inspectorCookie
+                    );
+                    assertStatus(inspectorCsrfResponse.status, 200, "Inspector CSRF token");
+                    inspectorCsrfToken = String(inspectorCsrfResponse.body?.csrfToken || "");
+                    assert.ok(inspectorCsrfToken.length >= 32, "Inspector CSRF token should be present");
+
                     const marker = `SWACHHITRA regression handoff ${Date.now()} ${Math.random().toString(16).slice(2)}`;
                     const createResponse = await request("/api/citizen/complaints", {
                         method: "POST",
@@ -391,7 +408,10 @@ async function main() {
 
                     const statusUpdate = await request(`/api/inspector/complaints/${integrationComplaintId}`, {
                         method: "PUT",
-                        headers: { "Content-Type": "application/json" },
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRF-Token": inspectorCsrfToken
+                        },
                         body: JSON.stringify({ status: "in_progress" })
                     }, inspectorCookie);
                     assertStatus(statusUpdate.status, 200, "Inspector complaint status update");

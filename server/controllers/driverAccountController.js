@@ -126,7 +126,17 @@ async function createDriverLoginAccount(req, res) {
             );
         }
 
-        const email = normalizeEmail(driver.email);
+        // The Inspector may assign/correct the login email in the account modal.
+        // Keep backward compatibility with older clients by falling back to the
+        // email already stored in the Driver Registry when the field is omitted.
+        const emailWasProvided = Object.prototype.hasOwnProperty.call(
+            req.body || {},
+            "email"
+        );
+        const requestedEmail = emailWasProvided
+            ? req.body.email
+            : driver.email;
+        const email = normalizeEmail(requestedEmail);
         const employeeId = String(driver.employee_id || "").trim();
         const fullName = String(driver.full_name || "").trim();
 
@@ -295,6 +305,19 @@ async function createDriverLoginAccount(req, res) {
                 "This employee ID is already used by another account profile. Resolve the duplicate before linking."
             );
         }
+
+        // Persist the selected login email on the Registry record in the same
+        // transaction as account creation/linking. A failed later step rolls
+        // this update back, so the Registry cannot be left half-updated.
+        await connection.execute(
+            `
+            UPDATE drivers
+            SET email = ?
+            WHERE id = ?
+              AND user_id IS NULL
+            `,
+            [email, driverId]
+        );
 
         const profileValues = [
             fullName,

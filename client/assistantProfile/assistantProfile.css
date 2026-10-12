@@ -1,0 +1,10 @@
+/* Assistant Commissioner Profile: role-specific stylesheet using the shared SWACHHITRA profile design system. */
+@import url("/profile/profile.css");
+
+body[data-profile-role="assistant_commissioner"] .profile-card {
+    border-top: 3px solid var(--olive, #416d27);
+}
+
+body[data-profile-role="assistant_commissioner"] .role-badge {
+    letter-spacing: 0.015em;
+}

@@ -38,7 +38,7 @@ async function request(route) {
 }
 
 async function main() {
-    console.log("SWACHHITRA Part 7 deployment readiness checks");
+    console.log("SWACHHITRA deployment readiness checks");
     console.log(`Base URL: ${BASE_URL}\n`);
 
     await test("Production startup requires HTTPS APP_ORIGIN and explicit TRUST_PROXY", () => {
@@ -83,14 +83,58 @@ async function main() {
         assert.equal(pkg.scripts["test:deployment"], "node tests/deployment-readiness.test.js");
     });
 
-    await test("Deployment runbook and safe environment template exist", () => {
+    await test("README contains production deployment checklist and environment template is complete", () => {
         const example = read(".env.example");
-        const guidePath = path.join(PROJECT_ROOT, "DEPLOYMENT_READINESS_Citizen_Part7.txt");
-        assert.ok(fs.existsSync(guidePath), "deployment guide missing");
+        const readme = read("README.md");
+        assert.match(readme, /## Production Deployment Checklist/);
+        assert.match(readme, /Do not deploy with .*ALLOW_DEV_EMAIL_LINKS=true/);
         assert.match(example, /ALLOW_DEV_EMAIL_LINKS=true/);
         assert.match(example, /DB_CONNECTION_LIMIT/);
         assert.match(example, /SESSION_TTL_HOURS/);
-        assert.match(fs.readFileSync(guidePath, "utf8"), /Do not deploy with ALLOW_DEV_EMAIL_LINKS=true/);
+    });
+
+    await test("Session store startup checks schema without runtime DDL and uses consistent expiry comparison", () => {
+        const store = read("server/config/mysqlSessionStore.js");
+        const serverSource = read("server/server.js");
+        assert.match(store, /async assertTableExists\(\)/);
+        assert.match(store, /information_schema\.TABLES/);
+        assert.doesNotMatch(store, /CREATE TABLE IF NOT EXISTS/);
+        assert.doesNotMatch(store, /TRUNCATE TABLE/i);
+        assert.match(store, /DELETE FROM \${this\.tableName}/);
+        assert.match(store, /expires IS NOT NULL AND expires <= \?/);
+        assert.match(serverSource, /await sessionStore\.assertTableExists\(\)/);
+    });
+
+    await test("Inspector dashboard has a dedicated CSP and private no-store headers", () => {
+        const source = read("server/server.js");
+        assert.match(source, /function setInspectorDashboardHeaders\(res\)/);
+        assert.match(source, /function setInspectorDashboardHeaders\(res\)[\s\S]*?Content-Security-Policy/);
+        const shortRoute = source.slice(source.indexOf('// Protected Sanitary Inspector dashboard'), source.indexOf('// Protected Assistant Commissioner dashboard'));
+        const directRoute = source.slice(source.indexOf('"/inspectorDash/inspectorDash.html"'), source.indexOf('"/assistantDash/assistantDash.html"'));
+        assert.match(shortRoute, /setInspectorDashboardHeaders\(res\)/);
+        assert.match(directRoute, /setInspectorDashboardHeaders\(res\)/);
+    });
+
+    await test("GPS accuracy, heading and speed are stored and returned to the Inspector", () => {
+        const schema = read("database/schema.sql");
+        const migration = read("database/migrations/SWACHHITRA_20261012_vehicle_gps_metadata.sql");
+        const driver = read("server/controllers/driverController.js");
+        const inspector = read("server/controllers/inspectorController.js");
+        const inspectorJs = read("client/inspectorDash/inspectorDash.js");
+        for (const field of ["current_location_accuracy_meters", "current_location_heading_degrees", "current_location_speed_mps"]) {
+            assert.match(schema, new RegExp(field));
+            assert.match(migration, new RegExp(field));
+            assert.match(driver, new RegExp(field));
+            assert.match(inspector, new RegExp(field));
+        }
+        assert.match(inspectorJs, /Reported GPS accuracy/);
+    });
+
+    await test("Package declares supported Node range and patched Nodemailer release line", () => {
+        const pkg = JSON.parse(read("server/package.json"));
+        assert.equal(pkg.engines?.node, ">=20.0.0");
+        assert.equal(pkg.dependencies?.nodemailer, "^10.1.0");
+        assert.ok(pkg.scripts["test:static"]);
     });
 
     await test("Live health endpoint responds with safe headers", async () => {

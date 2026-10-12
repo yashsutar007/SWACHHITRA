@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SWACHHITRA Driver account profile">
+    <title>SWACHHITRA | Driver Profile</title>
+    <link rel="stylesheet" href="/driverProfile/driverProfile.css">
+    <script src="/driverProfile/driverProfile.js" defer></script>
+</head>
+<body data-profile-role="driver">
+<main class="profile-page">
+    <div class="background-orb orb-one" aria-hidden="true"></div>
+    <div class="background-orb orb-two" aria-hidden="true"></div>
+    <div class="background-grid" aria-hidden="true"></div>
+    <section class="profile-wrapper">
+        <div class="brand-bar">
+            <div class="brand">
+                <div class="brand-header"><img src="/assets/logo.png" alt="SWACHHITRA Logo" class="brand-logo"></div>
+                <div><h1>SWACHHITRA</h1><p>Smart Waste Collection &amp; Route Management System</p></div>
+            </div>
+            <a class="back-button" href="/driverDash/" aria-label="Return to Driver Dashboard"><span aria-hidden="true">←</span> Dashboard</a>
+        </div>
+        <section class="profile-card">
+            <div class="profile-header">
+                <div class="header-top">
+                    <div>
+                        <p class="eyebrow">DRIVER ACCOUNT</p>
+                        <h2 id="driverProfileTitle">Driver Profile</h2>
+                        <p class="profile-subtitle">Your official identity, licence and Ward assignment are maintained by the Inspector's Driver Registry.</p>
+                    </div>
+                    <div class="profile-symbol" aria-hidden="true"><span>D</span></div>
+                </div>
+                <div class="role-strip">
+                    <div class="role-info"><span class="role-dot" aria-hidden="true"></span><span>Account Type</span></div>
+                    <span class="role-badge">Driver</span>
+                </div>
+            </div>
+            <div id="driverProfileNotice" class="profile-message show" role="status" aria-live="polite">Loading your Driver Registry details…</div>
+            <div id="driverProfileDetails" class="driver-profile-details" aria-live="polite"></div>
+            <div class="driver-profile-actions">
+                <a class="submit-button" href="/driverDash/">Open Driver Dashboard <span class="button-arrow" aria-hidden="true">→</span></a>
+                <a class="back-button" href="/forgotPassword">Change / reset password</a>
+            </div>
+        </section>
+        <p class="page-footer">SWACHHITRA <span aria-hidden="true">•</span> Smarter Routes. Cleaner Cities.</p>
+    </section>
+</main>
+</body>
+</html>

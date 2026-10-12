@@ -1,7 +1,7 @@
 -- ================================================================
 -- SWACHHITRA DATABASE SCHEMA BASELINE
--- Source: mysqldump --no-data snapshot of the current swachhitra DB
--- MySQL server version in snapshot: 8.0.44
+-- Maintained baseline, initially generated from a mysqldump --no-data
+-- snapshot of MySQL 8.0.44 and updated with current application schema changes.
 -- ================================================================
 -- SAFETY:
 --   * This file contains CREATE TABLE IF NOT EXISTS only.
@@ -78,6 +78,9 @@ CREATE TABLE IF NOT EXISTS `vehicles` (
   `status` enum('available','en_route','collecting','delayed','maintenance','inactive') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'available',
   `current_latitude` decimal(10,7) DEFAULT NULL,
   `current_longitude` decimal(10,7) DEFAULT NULL,
+  `current_location_accuracy_meters` decimal(8,2) DEFAULT NULL,
+  `current_location_heading_degrees` decimal(6,2) DEFAULT NULL,
+  `current_location_speed_mps` decimal(7,3) DEFAULT NULL,
   `last_location_at` datetime DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

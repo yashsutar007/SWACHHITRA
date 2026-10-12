@@ -3,16 +3,48 @@
 const express = require("express");
 const { requireRole } = require("../middleware/authMiddleware");
 const {
+    ensureDriverCsrfToken,
+    requireDriverMutationSecurity
+} = require("../middleware/driverSecurityMiddleware");
+const {
     getMyDriver,
-    getMyAssignments
+    getMyAssignments,
+    startMyAssignment,
+    updateMyStop,
+    reportMyAssignmentDelay,
+    completeMyAssignment,
+    updateMyLocation
 } = require("../controllers/driverController");
 
 const router = express.Router();
 
-// Every endpoint in this router is available only to an active Driver login.
+// All Driver endpoints resolve identity from the authenticated session.
 router.use(requireRole("driver"));
 
+router.get("/security/csrf-token", ensureDriverCsrfToken);
 router.get("/me", getMyDriver);
 router.get("/assignments", getMyAssignments);
+router.post("/location", requireDriverMutationSecurity, updateMyLocation);
+
+router.post(
+    "/assignments/:assignmentId/start",
+    requireDriverMutationSecurity,
+    startMyAssignment
+);
+router.post(
+    "/stops/:stopId/status",
+    requireDriverMutationSecurity,
+    updateMyStop
+);
+router.post(
+    "/assignments/:assignmentId/delay",
+    requireDriverMutationSecurity,
+    reportMyAssignmentDelay
+);
+router.post(
+    "/assignments/:assignmentId/complete",
+    requireDriverMutationSecurity,
+    completeMyAssignment
+);
 
 module.exports = router;

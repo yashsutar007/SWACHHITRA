@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SWACHHITRA Driver assignments and route dashboard">
+    <title>SWACHHITRA | Driver Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.12.0/dist/maplibre-gl.css">
+    <link rel="stylesheet" href="/driverDash/driverDash.css">
+    <script src="https://unpkg.com/maplibre-gl@5.12.0/dist/maplibre-gl.js" defer></script>
+    <script src="/driverDash/driverDash.js" defer></script>
+</head>
+<body>
+<div class="sanitary-app driver-app" id="driverApp">
+    <div class="mobile-backdrop" id="mobileBackdrop" aria-hidden="true"></div>
+    <aside class="sidebar" id="sidebar" aria-label="Driver navigation">
+        <div class="sidebar-brand-section">
+            <a class="sidebar-brand" href="/driverDash/" aria-label="SWACHHITRA Driver home">
+                <div class="sidebar-logo"><img src="/assets/logo.png" alt="SWACHHITRA logo"></div>
+                <div class="sidebar-brand-text"><strong>SWACHHITRA</strong><span>Smart Waste Collection &amp; Route Management System</span></div>
+            </a>
+            <div class="sidebar-role"><span class="role-indicator" aria-hidden="true"></span><div><span class="role-label">ROLE:</span><strong>DRIVER</strong></div></div>
+        </div>
+        <nav class="sidebar-navigation" aria-label="Driver dashboard sections">
+            <div class="navigation-group">
+                <span class="navigation-title">My Work</span>
+                <a class="navigation-item active" href="#overview" data-driver-nav="overview"><span class="navigation-item-left"><span class="navigation-icon" aria-hidden="true">▦</span><span>Overview</span></span><span class="navigation-active-dot"></span></a>
+                <a class="navigation-item" href="#routes" data-driver-nav="routes"><span class="navigation-item-left"><span class="navigation-icon" aria-hidden="true">↪</span><span>My Routes</span></span><span class="navigation-count muted-count" id="routeNavCount">—</span></a>
+                <a class="navigation-item" href="/driverProfile/"><span class="navigation-item-left"><span class="navigation-icon" aria-hidden="true">◎</span><span>My Profile</span></span></a>
+            </div>
+        </nav>
+        <div class="sidebar-bottom">
+            <div class="system-status"><span class="system-status-dot"></span><span id="sidebarStatusText">Connected</span></div>
+            <button class="logout-link" id="logoutButton" type="button"><span class="logout-icon" aria-hidden="true">⇥</span><span>Logout</span></button>
+        </div>
+    </aside>
+
+    <button class="mobile-menu-button" id="mobileMenuButton" type="button" aria-label="Open navigation" aria-expanded="false"><span></span><span></span><span></span></button>
+
+    <main class="main-area">
+        <header class="top-header">
+            <button class="sidebar-toggle-button" id="sidebarToggleButton" type="button" aria-label="Collapse sidebar" aria-expanded="true" title="Collapse sidebar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7"></path></svg></button>
+            <div class="driver-header-title"><p class="eyebrow">FIELD OPERATIONS</p><h1>Driver Dashboard</h1></div>
+            <div class="header-right">
+                <div class="system-status" id="systemStatus"><span class="system-status-dot"></span><span id="systemStatusText">Loading account…</span></div>
+                <div class="header-separator"></div>
+                <a class="header-user" href="/driverProfile/" aria-label="Open Driver profile"><span class="header-avatar" id="headerAvatar">DR</span><span class="header-user-details"><strong id="headerDriverName">Driver</strong><small id="headerDriverWard">Loading assignment…</small></span></a>
+            </div>
+        </header>
+
+        <div class="page-content">
+            <section class="tab-panel active" id="panel-overview">
+                <div class="overview-banner driver-overview-banner">
+                    <div><div class="shift-pill"><span></span> YOUR ASSIGNMENTS</div><h2>Welcome, <span id="welcomeDriverName">Driver</span></h2><p>View only your assigned routes on the map, share your live device location while on an active route, record collection stops and report delays.</p></div>
+                    <div class="overview-actions"><a class="primary-button" href="#routes">View my routes <span aria-hidden="true">→</span></a><a class="secondary-button" href="/driverProfile/">View profile</a></div>
+                </div>
+
+                <div class="kpi-section driver-kpis" aria-label="Assignment summary">
+                    <article class="kpi-card"><div class="kpi-header"><span>ACTIVE ASSIGNMENTS</span><span class="kpi-icon">↪</span></div><div class="kpi-main-line"><strong class="kpi-value" id="assignmentCount">—</strong></div><p class="kpi-footnote">Routes currently assigned to you</p></article>
+                    <article class="kpi-card"><div class="kpi-header"><span>PENDING STOPS</span><span class="kpi-icon amber">◷</span></div><div class="kpi-main-line"><strong class="kpi-value" id="pendingStopCount">—</strong></div><p class="kpi-footnote">Stops not yet marked collected or skipped</p></article>
+                    <article class="kpi-card"><div class="kpi-header"><span>COMPLETED STOPS</span><span class="kpi-icon">✓</span></div><div class="kpi-main-line"><strong class="kpi-value" id="completedStopCount">—</strong></div><p class="kpi-footnote">Completed stops in current assignments</p></article>
+                    <article class="kpi-card"><div class="kpi-header"><span>DELAYED ROUTES</span><span class="kpi-icon amber">!</span></div><div class="kpi-main-line"><strong class="kpi-value" id="delayedAssignmentCount">—</strong></div><p class="kpi-footnote">Assignments currently marked delayed</p></article>
+                </div>
+
+                <section class="driver-panel content-card" aria-labelledby="vehiclePanelTitle">
+                    <div class="panel-header"><div><p class="eyebrow">ASSIGNED VEHICLE</p><h2 id="vehiclePanelTitle">Vehicle details</h2><p class="panel-description">This information comes from the current route assignment.</p></div><span class="system-status" id="vehicleStatusBadge">Loading…</span></div>
+                    <div class="vehicle-summary-grid" id="vehicleSummary"><div class="loading-state">Loading vehicle information…</div></div>
+                </section>
+
+
+                <section class="driver-panel content-card driver-navigation-panel" id="driverNavigation" aria-labelledby="driverNavigationTitle">
+                    <div class="panel-header driver-navigation-header">
+                        <div>
+                            <p class="eyebrow">ROUTE NAVIGATION</p>
+                            <h2 id="driverNavigationTitle">My route map</h2>
+                            <p class="panel-description">Only routes assigned to your Driver account are selectable here. Start a route to share your GPS position and follow the truck on the map.</p>
+                        </div>
+                        <span class="system-status" id="driverMapStatus">Preparing map…</span>
+                    </div>
+                    <div class="driver-map-controls">
+                        <label class="driver-map-route-label" for="driverMapRouteSelector">Assigned route
+                            <select id="driverMapRouteSelector" aria-label="Select one of your assigned routes">
+                                <option value="">Loading assigned routes…</option>
+                            </select>
+                        </label>
+                        <div class="driver-map-control-buttons">
+                            <button type="button" class="secondary-button compact-action" id="driverMapFitButton">Fit route</button>
+                            <button type="button" class="secondary-button compact-action" id="driverMap3dButton" aria-pressed="false">3D view</button>
+                            <button type="button" class="primary-button compact-action" id="driverMapStartButton" disabled>Start selected route</button>
+                            <button type="button" class="secondary-button compact-action" id="driverMapStopButton" hidden>Stop GPS sharing</button>
+                        </div>
+                    </div>
+                    <div class="driver-map-notice" id="driverMapNotice" role="status" aria-live="polite">Loading your assigned routes…</div>
+                    <div class="driver-map-frame">
+                        <div id="driverRouteMap" aria-label="Three-dimensional style map showing your assigned route and collection stops"></div>
+                        <div class="driver-map-hud" id="driverMapHud" hidden>
+                            <span class="driver-map-hud-kicker">SWACHHITRA LIVE NAVIGATION</span>
+                            <strong id="driverMapHudTitle">Route ready</strong>
+                            <span id="driverMapHudDetail">Choose Start route to move the truck marker.</span>
+                            <div class="driver-map-progress-track"><span id="driverMapProgressBar"></span></div>
+                            <span class="driver-map-hud-footnote" id="driverMapHudFootnote" data-state="pending">Waiting for device GPS · location sharing starts with your route</span>
+                        </div>
+                        <div class="driver-map-map-controls-label">Map data © OpenStreetMap contributors · OpenFreeMap</div>
+                    </div>
+                    <div class="driver-map-legend" aria-label="Map legend">
+                        <span><i class="legend-dot legend-pending"></i> Pending stop</span>
+                        <span><i class="legend-dot legend-completed"></i> Processed stop</span>
+                        <span><i class="legend-truck">▰</i> Truck marker</span>
+                        <span class="driver-map-legend-note">Road routing requires stop coordinates and an internet connection.</span>
+                    </div>
+                </section>
+
+                <section class="driver-panel content-card" id="routes" aria-labelledby="routesPanelTitle">
+                    <div class="panel-header driver-routes-header"><div><p class="eyebrow">ROUTE PLAN</p><h2 id="routesPanelTitle">My assigned routes</h2><p class="panel-description">Only assignments linked to your authenticated Driver account are shown.</p></div><label class="driver-search-label" for="routeSearch">Filter routes<input id="routeSearch" type="search" placeholder="Search route code or name" autocomplete="off"></label></div>
+                    <div id="driverDashboardNotice" class="driver-notice" role="status" aria-live="polite">Loading your assignments…</div>
+                    <div id="routeList" class="driver-route-list"></div>
+                </section>
+            </section>
+        </div>
+    </main>
+</div>
+</body>
+</html>

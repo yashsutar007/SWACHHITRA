@@ -1,0 +1,56 @@
+/* Driver profile page uses the SWACHHITRA profile design system. */
+@import url("/profile/profile.css");
+
+.driver-profile-details {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    padding: 26px 34px 10px;
+}
+
+.driver-profile-field {
+    min-width: 0;
+    padding: 14px 16px;
+    border: 1px solid var(--border, #dfe5d8);
+    border-radius: 12px;
+    background: #fbfcf8;
+}
+
+.driver-profile-field dt {
+    margin-bottom: 7px;
+    color: var(--text-muted, #6e796d);
+    font-size: 0.77rem;
+    font-weight: 700;
+    letter-spacing: .045em;
+    text-transform: uppercase;
+}
+
+.driver-profile-field dd {
+    margin: 0;
+    color: var(--text-main, #203021);
+    font-size: 1rem;
+    font-weight: 650;
+    overflow-wrap: anywhere;
+}
+
+.driver-profile-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 22px 34px 30px;
+}
+
+.driver-profile-actions .submit-button,
+.driver-profile-actions .back-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+
+@media (max-width: 680px) {
+    .driver-profile-details { grid-template-columns: 1fr; padding: 22px 20px 8px; }
+    .driver-profile-actions { padding: 18px 20px 24px; flex-direction: column; }
+    .driver-profile-actions a { width: 100%; }
+}

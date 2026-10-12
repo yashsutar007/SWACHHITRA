@@ -42,16 +42,24 @@ class MySQLSessionStore extends session.Store {
         }
     }
 
-    async ensureTable() {
-        await this.pool.execute(`
-            CREATE TABLE IF NOT EXISTS ${this.tableName} (
-                session_id VARCHAR(255) NOT NULL,
-                expires DATETIME(3) NULL,
-                data MEDIUMTEXT NOT NULL,
-                PRIMARY KEY (session_id),
-                INDEX idx_${this.tableName}_expires (expires)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        `);
+    // Runtime credentials should not require CREATE/ALTER privileges.
+    // The table is part of database/schema.sql and is checked at startup.
+    async assertTableExists() {
+        const [rows] = await this.pool.execute(
+            `SELECT TABLE_NAME
+             FROM information_schema.TABLES
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = ?
+             LIMIT 1`,
+            [this.tableName]
+        );
+
+        if (!Array.isArray(rows) || rows.length !== 1) {
+            throw new Error(
+                `Required MySQL session table "${this.tableName}" is missing. ` +
+                "Apply database/schema.sql or the approved database migration before starting SWACHHITRA."
+            );
+        }
     }
 
     get(sid, callback) {
@@ -129,7 +137,10 @@ class MySQLSessionStore extends session.Store {
     }
 
     clear(callback) {
-        this.pool.execute(`TRUNCATE TABLE ${this.tableName}`)
+        // Express-session's clear() should not require DROP/TRUNCATE privileges.
+        // DELETE is sufficient for the dedicated sessions table and stays within
+        // the application's ordinary session-store permissions.
+        this.pool.execute(`DELETE FROM ${this.tableName}`)
             .then(() => callback?.(null))
             .catch(error => callback?.(error));
     }
@@ -161,8 +172,12 @@ class MySQLSessionStore extends session.Store {
     }
 
     async clearExpired() {
+        // Pass a JavaScript Date through the same mysql2 serialization path as
+        // set()/touch(). DATETIME has no timezone; comparing it to
+        // UTC_TIMESTAMP() can shift expiry cleanup by the host timezone offset.
         await this.pool.execute(
-            `DELETE FROM ${this.tableName} WHERE expires IS NOT NULL AND expires <= UTC_TIMESTAMP(3)`
+            `DELETE FROM ${this.tableName} WHERE expires IS NOT NULL AND expires <= ?`,
+            [new Date()]
         );
     }
 

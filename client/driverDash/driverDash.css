@@ -1,0 +1,187 @@
+/* Use the Inspector dashboard CSS as the shared design-system source of truth. */
+@import url("/inspectorDash/inspectorDash.css");
+
+.driver-app .sidebar-brand-text span { font-size: 12px; }
+.driver-app .sidebar-bottom { padding: 0 14px 22px; display: grid; gap: 12px; }
+.driver-app .logout-link { width: 100%; min-height: 44px; display:flex; align-items:center; gap:10px; padding:0 14px; border:1px solid rgba(255,255,255,.12); border-radius:12px; color:#f4f7ef; background:rgba(255,255,255,.045); text-align:left; font-weight:700; }
+.driver-app .logout-link:hover { background:rgba(157,108,16,.30); }
+.driver-app .top-header { justify-content:flex-start; }
+.driver-app .driver-header-title { min-width:0; }
+.driver-app .driver-header-title .eyebrow { margin:0 0 3px; }
+.driver-app .driver-header-title h1 { font-size:18px; line-height:1.2; color:var(--ink); }
+.driver-app .header-right { margin-left:auto; }
+.driver-app .driver-overview-banner h2 { font-size:clamp(25px,3vw,34px); line-height:1.2; margin:12px 0 8px; color:var(--ink); }
+.driver-app .driver-overview-banner p { max-width:800px; color:var(--muted); line-height:1.65; }
+.driver-app .driver-overview-banner .overview-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.driver-app .driver-overview-banner .overview-actions a { min-height:42px; padding:0 15px; border-radius:10px; display:inline-flex; align-items:center; gap:8px; font-weight:800; }
+.driver-app .driver-kpis { margin-bottom:18px; }
+.driver-app .kpi-value { color:var(--ink); font-size:34px; font-weight:800; line-height:1; }
+.driver-app .kpi-footnote { margin-top:8px; color:var(--muted); font-size:13px; line-height:1.45; }
+.driver-app .driver-panel { margin-top:18px; padding:22px; border:1px solid var(--border); border-radius:var(--radius); background:var(--white); box-shadow:var(--shadow-xs); }
+.driver-app .panel-header { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:18px; }
+.driver-app .panel-header h2 { margin:4px 0 5px; font-size:21px; font-weight:800; color:var(--ink); }
+.driver-app .panel-description { color:var(--muted); font-size:14px; line-height:1.5; }
+.driver-app .vehicle-summary-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+.driver-app .vehicle-summary-item { padding:14px; border:1px solid var(--border); border-radius:12px; background:#fbfcf8; min-width:0; }
+.driver-app .vehicle-summary-item span { display:block; margin-bottom:7px; color:var(--muted); font-family:"JetBrains Mono",monospace; font-size:11px; text-transform:uppercase; letter-spacing:.08em; }
+.driver-app .vehicle-summary-item strong { display:block; color:var(--ink); overflow-wrap:anywhere; font-size:15px; }
+.driver-app .driver-routes-header { align-items:flex-end; }
+.driver-app .driver-search-label { width:min(340px,100%); color:var(--muted); font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
+.driver-app .driver-search-label input { margin-top:7px; width:100%; min-height:42px; padding:9px 12px; color:var(--ink); border:1px solid var(--border); border-radius:10px; background:white; font:inherit; text-transform:none; letter-spacing:normal; }
+.driver-app .driver-notice { margin:12px 0; padding:12px 14px; border-radius:10px; color:#4e6146; background:#f1f6ed; line-height:1.5; }
+.driver-app .driver-notice.error { color:#8f322b; background:#fff0ed; }
+.driver-app .driver-notice.warning { color:#865a05; background:#fff4de; }
+.driver-app .driver-route-list { display:grid; gap:14px; }
+.driver-app .route-card { border:1px solid var(--border); border-radius:14px; overflow:hidden; background:#fff; }
+.driver-app .route-card-header { padding:17px 18px; display:flex; justify-content:space-between; gap:12px; align-items:flex-start; background:#f7faf4; border-bottom:1px solid var(--border); }
+.driver-app .route-card-header h3 { margin:3px 0 4px; color:var(--ink); font-size:18px; font-weight:800; }
+.driver-app .route-code { font-family:"JetBrains Mono",monospace; color:var(--muted); font-size:12px; letter-spacing:.035em; }
+.driver-app .status-pill { padding:6px 10px; display:inline-flex; align-items:center; border-radius:999px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; white-space:nowrap; color:#3f5e36; background:#e9f5e8; }
+.driver-app .status-pill.delayed { color:#875700; background:#fff0cf; }
+.driver-app .status-pill.cancelled,.driver-app .status-pill.rejected { color:#8f322b; background:#fdecea; }
+.driver-app .status-pill.pending,.driver-app .status-pill.legacy_unreviewed { color:#71510c; background:#fff4de; }
+.driver-app .route-metadata { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; padding:15px 18px; }
+.driver-app .route-metadata div { min-width:0; }
+.driver-app .route-metadata span { display:block; margin-bottom:5px; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+.driver-app .route-metadata strong { display:block; color:var(--ink); font-size:13px; overflow-wrap:anywhere; }
+.driver-app .stop-list { border-top:1px solid var(--border); padding:12px 18px 17px; }
+.driver-app .stop-list h4 { margin:0 0 10px; font-size:13px; color:var(--ink-2); }
+.driver-app .stop-row { display:grid; grid-template-columns:34px minmax(0,1fr) auto; align-items:center; gap:10px; padding:10px 0; border-top:1px solid #eef1eb; }
+.driver-app .stop-number { width:29px; height:29px; display:grid; place-items:center; border-radius:9px; color:var(--olive-dark); background:var(--sage-2); font-size:12px; font-weight:800; }
+.driver-app .stop-name { min-width:0; color:var(--ink); font-weight:700; overflow-wrap:anywhere; }
+.driver-app .stop-address { display:block; margin-top:3px; color:var(--muted); font-size:12px; font-weight:400; }
+.driver-app .stop-status { color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; white-space:nowrap; }
+.driver-app .stop-status.collected { color:#2d763a; }
+.driver-app .stop-status.skipped { color:#8a6330; }
+.driver-app .loading-state,.driver-app .empty-state { padding:26px 15px; text-align:center; color:var(--muted); line-height:1.6; }
+.driver-app .empty-state strong { display:block; margin-bottom:6px; color:var(--ink); }
+.driver-app .driver-dashboard-footer { margin:22px 0 5px; color:var(--muted); font-size:12px; }
+@media (max-width:1050px) { .driver-app .vehicle-summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:760px) { .driver-app .panel-header,.driver-app .driver-routes-header { flex-direction:column; align-items:stretch; } .driver-app .driver-search-label { width:100%; } .driver-app .route-metadata { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:560px) { .driver-app .vehicle-summary-grid { grid-template-columns:1fr; } .driver-app .route-card-header { flex-direction:column; } .driver-app .stop-row { grid-template-columns:30px minmax(0,1fr); } .driver-app .stop-status { grid-column:2; } .driver-app .driver-overview-banner .overview-actions { width:100%; } .driver-app .driver-overview-banner .overview-actions a { justify-content:center; width:100%; } }
+
+
+/* Part 3 route workflow controls */
+.driver-route-actions,
+.driver-stop-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem;
+    margin-top: 1rem;
+}
+.driver-stop-actions { margin-left: auto; justify-content: flex-end; }
+.compact-action { min-height: 36px; padding: 0.5rem 0.8rem; font-size: 0.82rem; line-height: 1.2; }
+.text-action {
+    border: 0; background: transparent; color: var(--color-danger, #9b2c2c);
+    font: inherit; font-size: 0.82rem; font-weight: 650; padding: 0.45rem 0.55rem;
+    cursor: pointer; border-radius: 8px;
+}
+.text-action:hover, .text-action:focus-visible { background: rgba(155, 44, 44, 0.08); outline-offset: 2px; }
+.driver-route-actions button:disabled, .driver-stop-actions button:disabled { opacity: 0.6; cursor: wait; }
+@media (max-width: 760px) {
+    .driver-route-actions { display: grid; grid-template-columns: 1fr; }
+    .driver-route-actions > button { width: 100%; }
+    .driver-stop-actions { margin-left: 0; justify-content: flex-start; grid-column: 1 / -1; }
+}
+
+
+/* Part 4 — Driver 3D-style route navigation map */
+.driver-app .driver-navigation-panel { padding:22px; }
+.driver-app .driver-navigation-header { align-items:flex-start; }
+.driver-app #driverMapStatus { white-space:nowrap; }
+.driver-app .driver-map-controls { display:flex; align-items:flex-end; justify-content:space-between; gap:14px; flex-wrap:wrap; margin:0 0 12px; }
+.driver-app .driver-map-route-label { display:grid; gap:7px; min-width:min(320px,100%); color:var(--muted); font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+.driver-app .driver-map-route-label select { min-height:42px; width:100%; padding:9px 12px; border:1px solid var(--border); border-radius:10px; background:#fff; color:var(--ink); font:inherit; font-size:14px; font-weight:650; letter-spacing:normal; text-transform:none; }
+.driver-app .driver-map-control-buttons { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:8px; }
+.driver-app .driver-map-control-buttons button { min-height:38px; }
+.driver-app .driver-map-notice { margin:10px 0 12px; padding:11px 13px; border:1px solid #e1e8d9; border-radius:10px; background:#f4f8ef; color:#45583c; font-size:13px; line-height:1.5; }
+.driver-app .driver-map-notice:empty { display:none; }
+.driver-app .driver-map-notice.warning { color:#815600; background:#fff5df; border-color:#f4dfb3; }
+.driver-app .driver-map-notice.error { color:#8e3029; background:#fff0ed; border-color:#f3d2cc; }
+.driver-app .driver-map-frame { position:relative; width:100%; height:clamp(340px,55vw,590px); min-height:340px; overflow:hidden; border:1px solid #d7dfd0; border-radius:15px; background:linear-gradient(145deg,#e9eee5,#dbe6d7); isolation:isolate; }
+.driver-app #driverRouteMap { position:absolute; inset:0; width:100%; height:100%; }
+.driver-app .driver-map-hud { position:absolute; z-index:4; top:14px; left:14px; width:min(320px,calc(100% - 28px)); display:grid; gap:6px; padding:14px; border:1px solid rgba(255,255,255,.65); border-radius:14px; background:rgba(255,255,255,.95); box-shadow:0 10px 32px rgba(28,43,24,.18); pointer-events:none; }
+.driver-app .driver-map-hud[hidden] { display:none; }
+.driver-app .driver-map-hud-kicker { color:#5c7150; font-size:9px; font-weight:900; letter-spacing:.12em; }
+.driver-app .driver-map-hud strong { color:#1d2b18; font-size:17px; line-height:1.25; }
+.driver-app .driver-map-hud > span:not(.driver-map-hud-kicker):not(.driver-map-hud-footnote) { color:#586452; font-size:12px; line-height:1.4; }
+.driver-app .driver-map-progress-track { height:5px; overflow:hidden; margin-top:5px; border-radius:99px; background:#e3e9df; }
+.driver-app .driver-map-progress-track span { display:block; height:100%; width:0; border-radius:inherit; background:#2e6d32; transition:width .15s linear; }
+.driver-app .driver-map-hud-footnote { color:#7b8575; font-size:10px; line-height:1.4; }
+.driver-app .driver-map-hud-footnote[data-state="live"] { color:#237a37; font-weight:800; }
+.driver-app .driver-map-hud-footnote[data-state="warning"] { color:#946200; font-weight:700; }
+.driver-app .driver-map-hud-footnote[data-state="error"] { color:#b42318; font-weight:700; }
+.driver-app .driver-map-map-controls-label { position:absolute; z-index:3; right:5px; bottom:3px; padding:3px 6px; border-radius:4px; color:#394535; background:rgba(255,255,255,.82); font-size:9px; pointer-events:none; }
+.driver-app .driver-map-legend { display:flex; align-items:center; flex-wrap:wrap; gap:12px 18px; margin:13px 1px 0; color:var(--muted); font-size:11px; }
+.driver-app .driver-map-legend span { display:inline-flex; align-items:center; gap:6px; }
+.driver-app .legend-dot { width:10px; height:10px; display:inline-block; border-radius:50%; border:2px solid white; box-shadow:0 0 0 1px #8b9983; }
+.driver-app .legend-pending { background:#d88b1f; }
+.driver-app .legend-completed { background:#3f8b4a; }
+.driver-app .legend-truck { display:inline-grid; place-items:center; width:17px; height:17px; border-radius:5px; background:#245a2a; color:#fff; font-size:10px; }
+.driver-app .driver-map-legend-note { flex-basis:100%; color:#7b8575; }
+.driver-app .driver-map-stop-marker { display:flex; flex-direction:column; align-items:center; transform:translateY(2px); filter:drop-shadow(0 2px 3px rgba(25,40,23,.25)); cursor:pointer; }
+.driver-app .driver-map-stop-pin { min-width:27px; height:27px; display:grid; place-items:center; padding:0 5px; border:2px solid #fff; border-radius:50% 50% 50% 4px; background:#d88b1f; color:#fff; font-size:10px; font-weight:900; transform:rotate(-45deg); }
+.driver-app .driver-map-stop-pin span { transform:rotate(45deg); }
+.driver-app .driver-map-stop-marker.processed .driver-map-stop-pin { background:#348148; }
+/* A real top-down truck cutout: no circular badge, border, or badge shadow. */
+.driver-app .driver-truck-marker {
+    width: 20px;
+    height: 60px;
+    display: block;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+    pointer-events: auto;
+}
+.driver-app .driver-truck-marker-icon {
+    width: 100%;
+    height: 100%;
+    display: block;
+    transform-origin: 50% 50%;
+    transition: transform 100ms linear;
+    will-change: transform;
+}
+.driver-app .driver-truck-marker-image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    user-select: none;
+    pointer-events: none;
+    filter: drop-shadow(0 1.5px 1.5px rgba(0,0,0,.26));
+}
+.driver-app .driver-truck-marker-fallback {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: 31px;
+}
+.driver-app .driver-truck-marker-fallback .driver-truck-marker-icon {
+    display: grid;
+    place-items: center;
+}
+.driver-app .driver-truck-marker-fallback .driver-truck-marker-image { display: none; }
+.driver-app .maplibregl-ctrl-group { overflow:hidden; border-radius:10px!important; box-shadow:0 2px 12px rgba(20,35,18,.15)!important; }
+.driver-app .maplibregl-popup-content { border-radius:10px; padding:10px 13px; font:600 12px/1.45 Arial,sans-serif; }
+.driver-app .driver-map-control-buttons button:disabled { opacity:.52; cursor:not-allowed; }
+@media (max-width:760px) {
+  .driver-app .driver-navigation-panel { padding:15px; }
+  .driver-app .driver-map-controls { align-items:stretch; }
+  .driver-app .driver-map-route-label { min-width:100%; }
+  .driver-app .driver-map-control-buttons { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:100%; }
+  .driver-app .driver-map-control-buttons button { width:100%; }
+  .driver-app .driver-map-frame { height:420px; min-height:320px; }
+  .driver-app .driver-map-hud { top:9px; left:9px; width:min(300px,calc(100% - 18px)); padding:11px; }
+}
+@media (max-width:420px) {
+  .driver-app .driver-map-control-buttons { grid-template-columns:1fr; }
+  .driver-app .driver-map-frame { height:360px; }
+}

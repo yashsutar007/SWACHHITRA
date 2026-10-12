@@ -3308,6 +3308,141 @@ async function deleteRouteStop(
  * VEHICLES
  * ---------------------------------------------------------
  */
+/**
+ * GET /api/inspector/live-tracking
+ *
+ * Return only active/delayed route vehicles in the authenticated user's
+ * operational scope. Keep this response deliberately small because it is
+ * polled frequently by the Inspector map. Coordinates are the last persisted
+ * browser GPS fix; clients must check recordedAt and must not assume a stale
+ * fix represents the vehicle's current position.
+ */
+async function getLiveTracking(req, res) {
+    try {
+        const scope = await getScopeContext(req);
+        const scopeFilter = vehicleManagementScope(scope, {
+            routeAlias: "r",
+            assignmentAlias: "ra"
+        });
+
+        const [rows] = await db.execute(
+            `
+            SELECT
+                v.id,
+                v.vehicle_number,
+                v.status AS vehicle_status,
+                v.current_latitude,
+                v.current_longitude,
+                v.current_location_accuracy_meters,
+                v.current_location_heading_degrees,
+                v.current_location_speed_mps,
+                v.last_location_at,
+                ra.id AS assignment_id,
+                ra.status AS assignment_status,
+                r.route_code,
+                r.route_name,
+                r.zone_id AS route_zone_id,
+                z.zone_code AS route_zone_code,
+                z.zone_name AS route_zone_name,
+                r.ward_id AS route_ward_id,
+                w.ward_number AS route_ward_number,
+                w.ward_code AS route_ward_code,
+                w.ward_name AS route_ward_name,
+                d.id AS driver_id,
+                d.employee_id AS driver_employee_id,
+                d.full_name AS driver_name
+            FROM vehicles v
+            ${latestAssignmentJoin("v", "vehicle_id", "ra")}
+            INNER JOIN routes r
+                ON r.id = ra.route_id
+            LEFT JOIN zones z
+                ON z.id = r.zone_id
+            LEFT JOIN wards w
+                ON w.id = r.ward_id
+            LEFT JOIN drivers d
+                ON d.id = ra.driver_id
+            WHERE ra.status IN ('active', 'delayed')
+              AND r.status IN ('active', 'delayed')
+              AND v.status NOT IN ('maintenance', 'inactive')
+              ${scopeFilter.sql}
+            ORDER BY
+                CASE WHEN ra.status = 'delayed' OR v.status = 'delayed' THEN 0 ELSE 1 END,
+                v.vehicle_number,
+                v.id
+            `,
+            scopeFilter.params
+        );
+
+        const vehicles = rows.map(row => {
+            const hasCoordinates =
+                row.current_latitude !== null && row.current_latitude !== undefined &&
+                row.current_longitude !== null && row.current_longitude !== undefined;
+
+            const latitude = hasCoordinates ? Number(row.current_latitude) : null;
+            const longitude = hasCoordinates ? Number(row.current_longitude) : null;
+            const validCoordinates = hasCoordinates &&
+                Number.isFinite(latitude) && latitude >= -90 && latitude <= 90 &&
+                Number.isFinite(longitude) && longitude >= -180 && longitude <= 180;
+
+            return {
+                databaseId: Number(row.id),
+                vehicleNumber: row.vehicle_number,
+                status: row.vehicle_status,
+                location: validCoordinates
+                    ? {
+                        latitude,
+                        longitude,
+                        accuracyMeters: row.current_location_accuracy_meters === null || row.current_location_accuracy_meters === undefined
+                            ? null
+                            : Number(row.current_location_accuracy_meters),
+                        headingDegrees: row.current_location_heading_degrees === null || row.current_location_heading_degrees === undefined
+                            ? null
+                            : Number(row.current_location_heading_degrees),
+                        speedMetersPerSecond: row.current_location_speed_mps === null || row.current_location_speed_mps === undefined
+                            ? null
+                            : Number(row.current_location_speed_mps),
+                        recordedAt: isoOrNull(row.last_location_at)
+                    }
+                    : null,
+                assignment: {
+                    id: Number(row.assignment_id),
+                    status: row.assignment_status,
+                    routeCode: row.route_code,
+                    routeName: row.route_name,
+                    driver: row.driver_id === null ? null : {
+                        id: Number(row.driver_id),
+                        employeeId: row.driver_employee_id,
+                        name: row.driver_name
+                    },
+                    zone: row.route_zone_id === null ? null : {
+                        id: Number(row.route_zone_id),
+                        code: row.route_zone_code,
+                        name: row.route_zone_name
+                    },
+                    ward: row.route_ward_id === null ? null : {
+                        id: Number(row.route_ward_id),
+                        number: row.route_ward_number === null ? null : Number(row.route_ward_number),
+                        code: row.route_ward_code,
+                        name: row.route_ward_name
+                    }
+                }
+            };
+        });
+
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+        res.setHeader("Pragma", "no-cache");
+        return res.json({
+            success: true,
+            generatedAt: new Date().toISOString(),
+            refreshAfterSeconds: 10,
+            vehicles
+        });
+    } catch (error) {
+        return sendServerError(res, "Unable to load live vehicle locations.", error);
+    }
+}
+
+
 async function getVehicles(
     req,
     res
@@ -6993,6 +7128,7 @@ module.exports = {
     deleteRouteStop,
 
     getVehicles,
+    getLiveTracking,
     createVehicle,
     updateVehicle,
     deleteVehicle,

@@ -1366,11 +1366,12 @@ a {
 
 .map-footer {
   min-height: 43px;
-  padding: 0 15px;
+  padding: 8px 15px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px 14px;
   border-top: 1px solid #edf1e9;
   color: #7c8779;
   font-size: 16px;
@@ -1378,6 +1379,30 @@ a {
 
 .map-footer strong {
   color: #2f3a2f;
+}
+
+.live-tracking-status {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  color: #667365;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.live-tracking-status.live {
+  color: #237a37;
+}
+
+.live-tracking-status.delayed,
+.live-tracking-status.pending {
+  color: #946200;
+}
+
+.live-tracking-status.error,
+.live-tracking-status.stale {
+  color: #b42318;
 }
 
 .map-footer button {
@@ -2668,6 +2693,9 @@ a {
 
 /* Dynamic truck markers */
 .custom-truck-marker {
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
   width: 28px;
   height: 28px;
   display: grid;
@@ -2681,7 +2709,36 @@ a {
   transition: transform 0.18s ease;
 }
 
+/* Part 7: filled, translucent green live-GPS halo. The truck itself stays
+   readable above the halo; only fresh GPS markers pulse. */
+.custom-truck-marker.gps-live {
+  z-index: 2;
+}
+
+.custom-truck-marker.gps-live::before,
+.custom-truck-marker.gps-live::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -8px;
+  border: 1px solid rgba(22, 163, 74, 0.30);
+  border-radius: 50%;
+  background: rgba(34, 197, 94, 0.18);
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.06);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation: truck-live-pulse 2.2s cubic-bezier(0.16, 0.75, 0.28, 1) infinite;
+}
+
+.custom-truck-marker.gps-live::after {
+  animation-delay: 1.1s;
+  background: rgba(34, 197, 94, 0.14);
+}
+
 .custom-truck-marker svg {
+  position: relative;
+  z-index: 1;
   display: block;
   width: 16px;
   height: 16px;
@@ -2690,6 +2747,23 @@ a {
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+@keyframes truck-live-pulse {
+  0% {
+    transform: scale(0.62);
+    opacity: 0.62;
+    background: rgba(34, 197, 94, 0.22);
+  }
+  55% {
+    opacity: 0.24;
+    background: rgba(34, 197, 94, 0.12);
+  }
+  100% {
+    transform: scale(2.35);
+    opacity: 0;
+    background: rgba(34, 197, 94, 0.04);
+  }
 }
 
 .custom-truck-marker.collecting {
@@ -2704,8 +2778,52 @@ a {
   background: #c74f44;
 }
 
+.custom-truck-marker.gps-delayed {
+  background: #b7791f;
+}
+
+.custom-truck-marker.gps-stale,
+.custom-truck-marker.gps-unknown {
+  background: #788078;
+}
+
+.truck-popup .truck-gps-state {
+  font-weight: 800;
+}
+
+.truck-popup .truck-gps-coordinates {
+  color: #6b756b;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.truck-popup .truck-gps-state.live {
+  color: #237a37;
+}
+
+.truck-popup .truck-gps-state.delayed {
+  color: #946200;
+}
+
+.truck-popup .truck-gps-state.stale,
+.truck-popup .truck-gps-state.unknown {
+  color: #b42318;
+}
+
 .custom-truck-marker:hover {
   transform: scale(1.10);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .custom-truck-marker.gps-live::before,
+  .custom-truck-marker.gps-live::after {
+    animation: none;
+    opacity: 0.18;
+    transform: scale(1.3);
+    background: rgba(34, 197, 94, 0.18);
+    border-color: rgba(22, 163, 74, 0.22);
+  }
 }
 
 

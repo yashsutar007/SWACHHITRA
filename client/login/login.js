@@ -43,46 +43,34 @@ function setLoading(loading) {
  * responses. It is never used to grant access to a dashboard.
  */
 function getSafeRedirect(result) {
-    const loggedInRole = String(
-        result?.user?.role || ""
-    ).trim().toLowerCase();
+    const loggedInRole = String(result?.user?.role || "").trim().toLowerCase();
+    const profileComplete = result?.profileComplete === true;
+    if (!loggedInRole) return "/login";
 
-    const profileComplete =
-        result?.profileComplete === true;
-
-    if (!loggedInRole) {
-        return "/login";
-    }
-
-    /*
-     * A role's profile must be complete before entering an operational page.
-     * For a Sanitary Inspector this now means that the Assistant Commissioner
-     * has assigned the required Division + Ward through the backend.
-     */
     if (!profileComplete) {
-        return loggedInRole === "citizen"
-            ? "/citizenDash/profile"
-            : "/profile";
+        const profilePathByRole = {
+            citizen: "/citizenDash/profile",
+            driver: "/driverProfile/",
+            sanitary_inspector: "/inspectorProfile/",
+            assistant_commissioner: "/assistantProfile/",
+            deputy_commissioner: "/deputyCommissionerProfile/"
+        };
+        return profilePathByRole[loggedInRole] || "/login";
     }
 
+    // Keep this explicit allow-list: redirects are selected from the trusted
+    // authenticated role, never from a URL supplied by the request/browser.
     switch (loggedInRole) {
         case "assistant_commissioner":
             return "/assistantDash";
-
         case "sanitary_inspector":
             return "/inspectorDash";
-
-        /* Citizen has an address-confirmed dashboard; DC now has its protected
-         * city-wide overview. Driver remains on the shared profile until its module is built. */
         case "citizen":
             return "/citizenDash";
-
         case "deputy_commissioner":
             return "/deputyCommissionerDash";
-
         case "driver":
-            return "/profile";
-
+            return "/driverDash";
         default:
             return "/login";
     }

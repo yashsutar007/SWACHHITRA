@@ -112,6 +112,9 @@ const logoutButton =
             "trackingMap"
         );
 
+    const liveTrackingStatus =
+        document.getElementById("liveTrackingStatus");
+
     const routeMapElement =
         document.getElementById(
             "routeMap"
@@ -194,6 +197,36 @@ const activeRoutesList =
     const driverForm =
         document.getElementById(
             "driverForm"
+        );
+
+    const driverAccountModal =
+        document.getElementById(
+            "driverAccountModal"
+        );
+
+    const driverAccountForm =
+        document.getElementById(
+            "driverAccountForm"
+        );
+
+    const driverAccountDriverId =
+        document.getElementById(
+            "driverAccountDriverId"
+        );
+
+    const driverAccountEmail =
+        document.getElementById(
+            "driverAccountEmail"
+        );
+
+    const driverAccountDriverSummary =
+        document.getElementById(
+            "driverAccountDriverSummary"
+        );
+
+    const driverAccountSubmitButton =
+        document.getElementById(
+            "driverAccountSubmitButton"
         );
 
      const driverWardSelect =
@@ -324,6 +357,13 @@ const activeRoutesList =
     ========================================================= */
 
     let trucks = [];
+    let trackingVehicles = [];
+    let liveTrackingPollTimer = null;
+    let liveTrackingPollInFlight = false;
+    let liveTrackingInitialized = false;
+    let liveTrackingPollingStopped = false;
+    let liveTrackingRetryDelayMs = 10000;
+    let lastLiveTrackingErrorLogAt = 0;
     let routes = [];
     let reports = [];
     let drivers = [];
@@ -843,7 +883,18 @@ function normalizeVehicle(raw) {
         statusLabel:
             humanizeEnum(status),
 
-        location,
+        location: location ? {
+            ...location,
+            accuracyMeters: location.accuracyMeters === null || location.accuracyMeters === undefined
+                ? null
+                : Number(location.accuracyMeters),
+            headingDegrees: location.headingDegrees === null || location.headingDegrees === undefined
+                ? null
+                : Number(location.headingDegrees),
+            speedMetersPerSecond: location.speedMetersPerSecond === null || location.speedMetersPerSecond === undefined
+                ? null
+                : Number(location.speedMetersPerSecond)
+        } : null,
 
         position:
             location &&
@@ -1202,8 +1253,11 @@ function normalizeCollection(raw) {
         }
 
         if (response.status === 401) {
+            const error = new Error("Authentication required. Please sign in again.");
+            error.status = response.status;
+            error.code = result.code || "AUTHENTICATION_REQUIRED";
             window.location.href = "/login";
-            throw new Error("Authentication required.");
+            throw error;
         }
 
         const csrfRejected =
@@ -1217,21 +1271,34 @@ function normalizeCollection(raw) {
         }
 
         if (response.status === 403) {
-            throw new Error(
+            const error = new Error(
                 result.message ||
                 "You are not authorized to perform this operation."
             );
+            error.status = response.status;
+            error.code = result.code || "ACCESS_DENIED";
+            throw error;
         }
 
         if (response.status === 429) {
-            throw new Error(
+            const error = new Error(
                 result.message ||
                 "Too many update requests. Please wait briefly and try again."
             );
+            error.status = response.status;
+            error.code = result.code || "RATE_LIMITED";
+            const retryAfter = Number(response.headers.get("Retry-After"));
+            if (Number.isFinite(retryAfter) && retryAfter > 0) {
+                error.retryAfterMs = Math.min(retryAfter * 1000, 120000);
+            }
+            throw error;
         }
 
         if (!response.ok || result.success === false) {
-            throw new Error(result.message || "Request failed.");
+            const error = new Error(result.message || "Request failed.");
+            error.status = response.status;
+            error.code = result.code || "REQUEST_FAILED";
+            throw error;
         }
 
         return result;
@@ -1474,6 +1541,7 @@ async function loadDashboardData() {
     updateCollectionOperations();
 
     await refreshMaps();
+    updateLiveTrackingStatus();
 
     if (failed.length) {
         showToast(
@@ -2880,13 +2948,22 @@ closeNotificationDrawer?.addEventListener(
             getMapStatusKey(
                 vehicle
             );
+        const gpsState = getVehicleGpsFreshness(vehicle).state;
+        const gpsLabel = gpsState === "live"
+            ? "live GPS"
+            : gpsState === "delayed"
+                ? "delayed GPS"
+                : gpsState === "stale"
+                    ? "stale GPS"
+                    : "GPS unavailable";
+        const markerLabel = `${String(vehicle.id || "Vehicle")} truck, ${gpsLabel}`;
 
         return L.divIcon({
             className: "",
             html: `
                 <div class="custom-truck-marker ${escapeHTML(
                     statusKey
-                )}">
+                )} gps-${escapeHTML(gpsState)}" data-gps-state="${escapeHTML(gpsState)}" role="img" aria-label="${escapeHTML(markerLabel)}">
                     <svg
                         viewBox="0 0 24 24"
                         aria-hidden="true"
@@ -2904,7 +2981,35 @@ closeNotificationDrawer?.addEventListener(
         });
     }
 
+    function getVehicleGpsFreshness(vehicle, now = Date.now()) {
+        const recordedAt = vehicle?.location?.recordedAt;
+        if (!recordedAt) {
+            return { state: "unknown", label: "No GPS fix received", ageSeconds: null };
+        }
+
+        const timestamp = new Date(recordedAt).getTime();
+        if (!Number.isFinite(timestamp)) {
+            return { state: "unknown", label: "GPS timestamp unavailable", ageSeconds: null };
+        }
+
+        const ageSeconds = Math.max(0, Math.floor((now - timestamp) / 1000));
+        const ageLabel = ageSeconds < 60
+            ? `${ageSeconds}s ago`
+            : ageSeconds < 3600
+                ? `${Math.floor(ageSeconds / 60)}m ago`
+                : `${Math.floor(ageSeconds / 3600)}h ago`;
+
+        if (ageSeconds <= 30) {
+            return { state: "live", label: `Live · ${ageLabel}`, ageSeconds };
+        }
+        if (ageSeconds <= 120) {
+            return { state: "delayed", label: `Delayed · ${ageLabel}`, ageSeconds };
+        }
+        return { state: "stale", label: `Last known · ${ageLabel}`, ageSeconds };
+    }
+
     function createTruckPopup(vehicle) {
+        const gpsFreshness = getVehicleGpsFreshness(vehicle);
         return `
             <div class="truck-popup">
                 <strong>
@@ -2953,6 +3058,16 @@ closeNotificationDrawer?.addEventListener(
                         "—"
                     )}
                 </span>
+
+                <span class="truck-gps-state ${escapeHTML(gpsFreshness.state)}">
+                    GPS: ${escapeHTML(gpsFreshness.label)}
+                </span>
+                ${Array.isArray(vehicle.position) && vehicle.position.length === 2
+                    ? `<span class="truck-gps-coordinates">Coordinates: ${Number(vehicle.position[0]).toFixed(6)}, ${Number(vehicle.position[1]).toFixed(6)}</span>`
+                    : ""}
+                ${Number.isFinite(vehicle.location?.accuracyMeters)
+                    ? `<span class="truck-gps-accuracy">Reported GPS accuracy: ±${Math.round(vehicle.location.accuracyMeters)} m${vehicle.location.accuracyMeters > 100 ? " · approximate" : ""}</span>`
+                    : `<span class="truck-gps-accuracy">Reported GPS accuracy: unavailable</span>`}
             </div>
         `;
     }
@@ -3023,31 +3138,8 @@ closeNotificationDrawer?.addEventListener(
             });
         }
 
-        if (mapPlus) {
-            mapPlus.addEventListener("click", () => {
-                overviewMap?.zoomIn();
-                routeMap?.zoomIn();
-            });
-        }
-
-        if (mapMinus) {
-            mapMinus.addEventListener("click", () => {
-                overviewMap?.zoomOut();
-                routeMap?.zoomOut();
-            });
-        }
-
-        corridorButton?.addEventListener("click", async () => {
-            corridorsVisible = !corridorsVisible;
-            corridorButton.setAttribute("aria-pressed", String(corridorsVisible));
-            await refreshMaps();
-        });
-
-        truckLayerButton?.addEventListener("click", async () => {
-            trucksVisible = !trucksVisible;
-            truckLayerButton.setAttribute("aria-pressed", String(trucksVisible));
-            await refreshMaps();
-        });
+        // Map tool button handlers are registered once in the controls section below.
+        // Keeping them out of map initialization prevents duplicate zoom/toggle actions.
     }
 
     function clearMarkerMap(markerMap) {
@@ -3085,7 +3177,7 @@ closeNotificationDrawer?.addEventListener(
         }
 
         const locatedVehicles =
-            trucks.filter(vehicle =>
+            trackingVehicles.filter(vehicle =>
                 Array.isArray(vehicle.position) &&
                 vehicle.position.length === 2 &&
                 Number.isFinite(Number(vehicle.position[0])) &&
@@ -3407,6 +3499,182 @@ closeNotificationDrawer?.addEventListener(
             });
     }
 
+    function synchronizeVehicleMarkers(map, markerMap) {
+        if (!map) return;
+
+        if (!trucksVisible) {
+            clearMarkerMap(markerMap);
+            return;
+        }
+
+        const locatedVehicles = trackingVehicles.filter(vehicle =>
+            Array.isArray(vehicle.position) &&
+            vehicle.position.length === 2 &&
+            Number.isFinite(Number(vehicle.position[0])) &&
+            Number.isFinite(Number(vehicle.position[1]))
+        );
+        const currentIds = new Set(locatedVehicles.map(vehicle => String(vehicle.id)));
+
+        for (const [id, marker] of markerMap.entries()) {
+            if (!currentIds.has(String(id))) {
+                marker.remove();
+                markerMap.delete(id);
+            }
+        }
+
+        locatedVehicles.forEach(vehicle => {
+            const key = String(vehicle.id);
+            const icon = createTruckIcon(vehicle);
+            if (!icon) return;
+
+            const existing = markerMap.get(key);
+            if (existing) {
+                existing.setLatLng(vehicle.position);
+                existing.setIcon(icon);
+                existing.setPopupContent(createTruckPopup(vehicle));
+                existing.options.title = vehicle.id;
+                return;
+            }
+
+            const marker = L.marker(vehicle.position, {
+                icon,
+                title: vehicle.id
+            }).addTo(map).bindPopup(createTruckPopup(vehicle));
+            markerMap.set(key, marker);
+        });
+    }
+
+    function setLiveTrackingStatus(message, state = "pending") {
+        if (!liveTrackingStatus) return;
+        liveTrackingStatus.textContent = message;
+        liveTrackingStatus.classList.remove("live", "delayed", "pending", "stale", "error");
+        liveTrackingStatus.classList.add(state);
+    }
+
+    function updateLiveTrackingStatus() {
+        const now = Date.now();
+        let live = 0;
+        let delayed = 0;
+        let stale = 0;
+        let awaitingFix = 0;
+
+        trackingVehicles.forEach(vehicle => {
+            if (!Array.isArray(vehicle.position)) {
+                awaitingFix += 1;
+                return;
+            }
+            const freshness = getVehicleGpsFreshness(vehicle, now);
+            if (freshness.state === "live") live += 1;
+            else if (freshness.state === "delayed") delayed += 1;
+            else stale += 1;
+        });
+
+        const updatedAt = new Date(now).toLocaleTimeString();
+        const summary = `${live} live · ${delayed} delayed · ${stale} stale · ${awaitingFix} awaiting GPS`;
+        if (!trackingVehicles.length) {
+            setLiveTrackingStatus(`No active routes sharing GPS · checked ${updatedAt}`, "pending");
+        } else if (live > 0 && delayed === 0 && stale === 0 && awaitingFix === 0) {
+            setLiveTrackingStatus(`${summary} · updated ${updatedAt}`, "live");
+        } else if (live > 0 || delayed > 0) {
+            setLiveTrackingStatus(`${summary} · updated ${updatedAt}`, "delayed");
+        } else {
+            setLiveTrackingStatus(`${summary} · updated ${updatedAt}`, "stale");
+        }
+
+        if (truckLayerButton) {
+            truckLayerButton.textContent = `Active trucks (${trackingVehicles.length})`;
+        }
+    }
+
+    function scheduleLiveTrackingPoll(delayMs = liveTrackingRetryDelayMs) {
+        if (liveTrackingPollingStopped || document.visibilityState === "hidden") return;
+        if (liveTrackingPollTimer !== null) {
+            window.clearTimeout(liveTrackingPollTimer);
+            liveTrackingPollTimer = null;
+        }
+        liveTrackingPollTimer = window.setTimeout(() => {
+            liveTrackingPollTimer = null;
+            void pollLiveTracking();
+        }, Math.max(0, delayMs));
+    }
+
+    async function pollLiveTracking() {
+        if (liveTrackingPollingStopped || liveTrackingPollInFlight || document.visibilityState === "hidden") return;
+        liveTrackingPollInFlight = true;
+
+        try {
+            const response = await apiRequest("/api/inspector/live-tracking", {
+                cache: "no-store",
+                headers: { "Cache-Control": "no-cache" }
+            });
+            trackingVehicles = (Array.isArray(response.vehicles) ? response.vehicles : [])
+                .map(vehicle => normalizeVehicle(vehicle));
+
+            synchronizeVehicleMarkers(overviewMap, overviewMarkers);
+            synchronizeVehicleMarkers(routeMap, routeMarkers);
+            updateLiveTrackingStatus();
+            liveTrackingRetryDelayMs = 10000;
+
+            if (!liveTrackingInitialized) {
+                liveTrackingInitialized = true;
+                // First successful live response may add/remove markers; rebuild
+                // overlays once. Subsequent polls only move truck markers.
+                await refreshMaps();
+            }
+        } catch (error) {
+            const status = Number(error?.status || 0);
+            if (status === 403) {
+                // Do not hammer a forbidden endpoint every 10 seconds. Role/access
+                // failures need a session correction or a page reload, not retries.
+                liveTrackingPollingStopped = true;
+                setLiveTrackingStatus(
+                    "Live tracking access denied · sign in as a Sanitary Inspector and reload",
+                    "error"
+                );
+            } else if (status === 401) {
+                liveTrackingPollingStopped = true;
+                setLiveTrackingStatus("Session expired · sign in again", "error");
+            } else {
+                setLiveTrackingStatus("Live tracking connection interrupted · retrying safely", "error");
+                const now = Date.now();
+                if (now - lastLiveTrackingErrorLogAt >= 60000) {
+                    lastLiveTrackingErrorLogAt = now;
+                    console.warn("Inspector live tracking refresh failed:", error?.message || error);
+                }
+                liveTrackingRetryDelayMs = error?.retryAfterMs
+                    ? Math.max(10000, error.retryAfterMs)
+                    : Math.min(Math.max(10000, liveTrackingRetryDelayMs * 2), 60000);
+            }
+        } finally {
+            liveTrackingPollInFlight = false;
+            scheduleLiveTrackingPoll(liveTrackingRetryDelayMs);
+        }
+    }
+
+    function startLiveTrackingPolling() {
+        if (liveTrackingPollTimer !== null || liveTrackingPollInFlight || liveTrackingPollingStopped) return;
+        liveTrackingRetryDelayMs = 10000;
+        void pollLiveTracking();
+    }
+
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+            if (liveTrackingPollTimer !== null) {
+                window.clearTimeout(liveTrackingPollTimer);
+                liveTrackingPollTimer = null;
+            }
+            return;
+        }
+        if (!liveTrackingPollingStopped) scheduleLiveTrackingPoll(0);
+    });
+
+    window.addEventListener("pagehide", () => {
+        if (liveTrackingPollTimer !== null) {
+            window.clearTimeout(liveTrackingPollTimer);
+            liveTrackingPollTimer = null;
+        }
+    });
+
     async function refreshMaps() {
         clearMarkerMap(overviewMarkers);
         clearMarkerMap(routeMarkers);
@@ -3432,7 +3700,7 @@ closeNotificationDrawer?.addEventListener(
 
             const points = [];
 
-            trucks.forEach(vehicle => {
+            trackingVehicles.forEach(vehicle => {
                 if (Array.isArray(vehicle.position)) {
                     points.push(vehicle.position);
                 }
@@ -3460,7 +3728,7 @@ closeNotificationDrawer?.addEventListener(
                 routes.flatMap(getRouteOperationalPoints);
 
             const vehiclePoints =
-                trucks
+                trackingVehicles
                     .filter(vehicle => Array.isArray(vehicle.position))
                     .map(vehicle => vehicle.position);
 
@@ -3497,6 +3765,7 @@ closeNotificationDrawer?.addEventListener(
         () => {
             corridorsVisible =
                 !corridorsVisible;
+            corridorButton.setAttribute("aria-pressed", String(corridorsVisible));
 
             renderRouteLines();
 
@@ -3514,6 +3783,7 @@ closeNotificationDrawer?.addEventListener(
         () => {
             trucksVisible =
                 !trucksVisible;
+            truckLayerButton.setAttribute("aria-pressed", String(trucksVisible));
 
             refreshMaps();
 
@@ -4233,7 +4503,7 @@ function renderDriverRegistry() {
                                                 Login Linked
                                             </button>
                                         `
-                                        : driver.email && driver.email !== "—" && driver.status !== "inactive"
+                                        : driver.status !== "inactive"
                                             ? `
                                                 <button
                                                     type="button"
@@ -4241,7 +4511,7 @@ function renderDriverRegistry() {
                                                     data-fleet-action="create-driver-account"
                                                     data-driver-id="${Number(driver.databaseId)}"
                                                 >
-                                                    Create Login
+                                                    ${driver.email && driver.email !== "—" ? "Create Login" : "Assign Email & Create Login"}
                                                 </button>
                                             `
                                             : `
@@ -4249,7 +4519,7 @@ function renderDriverRegistry() {
                                                     type="button"
                                                     class="management-action-button"
                                                     disabled
-                                                    title="Add a valid email and activate the Driver before creating a login."
+                                                    title="Reactivate the Driver before creating a login."
                                                 >
                                                     Create Login
                                                 </button>
@@ -5747,6 +6017,67 @@ editRouteForm?.addEventListener(
         }
     );
 
+    driverAccountForm?.addEventListener(
+        "submit",
+        async event => {
+            event.preventDefault();
+
+            if (!driverAccountForm.checkValidity()) {
+                driverAccountForm.reportValidity();
+                return;
+            }
+
+            const driverId = Number(driverAccountDriverId?.value || 0);
+            const email = String(driverAccountEmail?.value || "")
+                .trim()
+                .toLowerCase();
+
+            if (!Number.isSafeInteger(driverId) || driverId <= 0) {
+                showToast("Select a valid Driver Registry record.");
+                return;
+            }
+
+            if (email.length > 190 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                showToast("Enter a valid email address for the Driver.");
+                driverAccountEmail?.focus();
+                return;
+            }
+
+            if (driverAccountSubmitButton) {
+                driverAccountSubmitButton.disabled = true;
+                driverAccountSubmitButton.textContent = "Creating login...";
+            }
+
+            try {
+                const result = await apiRequest(
+                    `/api/inspector/drivers/${driverId}/account`,
+                    {
+                        method: "POST",
+                        body: JSON.stringify({ email })
+                    }
+                );
+
+                closeModal(driverAccountModal);
+                driverAccountForm.reset();
+                await loadDashboardData();
+                showToast(
+                    result.message ||
+                    "Driver login created and linked. The Driver must use Forgot Password to set a private password."
+                );
+            } catch (error) {
+                console.error("Driver login provisioning failed:", error);
+                showToast(
+                    error.message || "Unable to create the Driver login."
+                );
+            } finally {
+                if (driverAccountSubmitButton) {
+                    driverAccountSubmitButton.disabled = false;
+                    driverAccountSubmitButton.innerHTML = "Assign Email &amp; Create Login";
+                }
+            }
+        }
+    );
+
     addVehicleButton?.addEventListener(
         "click",
         openAddVehicleModal
@@ -5893,47 +6224,28 @@ editRouteForm?.addEventListener(
                     return;
                 }
 
-                if (!driver.email || driver.email === "—") {
-                    showToast("Add a valid email to this Driver before creating a login.");
+                if (driver.status === "inactive") {
+                    showToast("Reactivate this Driver before creating a login.");
                     return;
                 }
 
-                const confirmed = window.confirm(
-                    `Create a SWACHHITRA login for ${driver.fullName} (${driver.email})? The Driver will use Forgot Password to set a private password.`
-                );
-
-                if (!confirmed) {
+                if (!driverAccountModal || !driverAccountForm || !driverAccountEmail || !driverAccountDriverId) {
+                    showToast("Driver login form is unavailable. Refresh the Inspector dashboard.");
                     return;
                 }
 
-                button.disabled = true;
-                button.textContent = "Creating...";
+                driverAccountForm.reset();
+                driverAccountDriverId.value = String(driverId);
+                driverAccountEmail.value = driver.email && driver.email !== "—"
+                    ? String(driver.email)
+                    : "";
 
-                try {
-                    const result = await apiRequest(
-                        `/api/inspector/drivers/${driverId}/account`,
-                        {
-                            method: "POST",
-                            body: JSON.stringify({})
-                        }
-                    );
-
-                    await loadDashboardData();
-                    showToast(
-                        result.message || "Driver login created and linked."
-                    );
-                } catch (error) {
-                    console.error("Driver login provisioning failed:", error);
-                    showToast(
-                        error.message || "Unable to create the Driver login."
-                    );
-                } finally {
-                    if (button.isConnected) {
-                        button.disabled = false;
-                        button.textContent = "Create Login";
-                    }
+                if (driverAccountDriverSummary) {
+                    driverAccountDriverSummary.textContent =
+                        `${driver.fullName || "Driver"} · ${driver.employeeId || "No employee ID"}`;
                 }
 
+                openModal(driverAccountModal);
                 return;
             }
 
@@ -7124,6 +7436,7 @@ editRouteForm?.addEventListener(
         try {
             await loadInspectorProfile();
             await loadDashboardData();
+            startLiveTrackingPolling();
         } catch (error) {
             console.error(
                 "Dashboard initialization failed:",

@@ -115,10 +115,20 @@ async function main() {
 
     await test("Citizen profile CSP permits the exact OpenStreetMap tile host", async () => {
         const server = file("server/server.js");
-        const imgMatches = server.match(/img-src 'self' data: blob: https:\/\/unpkg\.com https:\/\/tile\.openstreetmap\.org https:\/\/\*\.tile\.openstreetmap\.org/g) || [];
-        const connectMatches = server.match(/connect-src 'self' https:\/\/tile\.openstreetmap\.org https:\/\/\*\.tile\.openstreetmap\.org/g) || [];
-        assert.equal(imgMatches.length, 2, "both protected profile-page entry points should allow the base tile host");
-        assert.equal(connectMatches.length, 2, "both profile-page entry points should allow same-host and tile connections");
+        // Scope the assertion to the two Citizen profile routes. A shared profile
+        // CSP helper elsewhere in server.js may legitimately contain the same
+        // source expression and must not be counted as a Citizen route.
+        const citizenProfileStart = server.indexOf('app.get(\n    ["/citizenDash/profile", "/citizenDash/profile/"]');
+        const citizenProfileEnd = server.indexOf("// API routes", citizenProfileStart);
+        assert.ok(
+            citizenProfileStart >= 0 && citizenProfileEnd > citizenProfileStart,
+            "both protected Citizen profile entry points should be registered"
+        );
+        const citizenProfileRoutes = server.slice(citizenProfileStart, citizenProfileEnd);
+        const imgMatches = citizenProfileRoutes.match(/img-src 'self' data: blob: https:\/\/unpkg\.com https:\/\/tile\.openstreetmap\.org https:\/\/\*\.tile\.openstreetmap\.org/g) || [];
+        const connectMatches = citizenProfileRoutes.match(/connect-src 'self' https:\/\/tile\.openstreetmap\.org https:\/\/\*\.tile\.openstreetmap\.org/g) || [];
+        assert.equal(imgMatches.length, 2, "both protected Citizen profile entry points should allow the base tile host");
+        assert.equal(connectMatches.length, 2, "both protected Citizen profile entry points should allow same-host and tile connections");
         const mapScript = file("client/citizenDash/citizenProfile.js");
         assert.match(mapScript, /tileLayer\.on\("tileerror"/);
         assert.match(mapScript, /citizenMapTileStatus/);

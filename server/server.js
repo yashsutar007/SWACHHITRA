@@ -269,24 +269,167 @@ app.get("/login", (req, res) => {
 });
 
 // ---------------------------------------------------------
-// Protected profile page
+// Protected role-specific profile pages
 // ---------------------------------------------------------
-app.get(
-    ["/profile", "/profile/"],
-    requireAuth,
-    (req, res) => {
-        if (req.currentUser.role === "citizen") {
-            return res.redirect("/citizenDash/profile");
+const PROFILE_PATH_BY_ROLE = {
+    citizen: "/citizenDash/profile",
+    driver: "/driverProfile/",
+    sanitary_inspector: "/inspectorProfile/",
+    assistant_commissioner: "/assistantProfile/",
+    deputy_commissioner: "/deputyCommissionerProfile/"
+};
+
+function setPrivateProfileHeaders(res) {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Content-Security-Policy", [
+        "default-src 'self'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+        "object-src 'none'",
+        "script-src 'self'",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' data: https://fonts.gstatic.com",
+        "img-src 'self' data:",
+        "connect-src 'self'"
+    ].join("; "));
+}
+
+function setInspectorDashboardHeaders(res) {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Content-Security-Policy", [
+        "default-src 'self'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+        "object-src 'none'",
+        "script-src 'self' https://unpkg.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
+        "font-src 'self' data: https://fonts.gstatic.com",
+        "img-src 'self' data: blob: https://unpkg.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org",
+        "connect-src 'self' https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://router.project-osrm.org",
+        "worker-src 'self' blob:"
+    ].join("; "));
+}
+
+function redirectToOwnProfile(req, res) {
+    const target = PROFILE_PATH_BY_ROLE[req.currentUser.role];
+    if (!target) return res.status(403).send("No profile page is configured for this role.");
+    return res.redirect(target);
+}
+
+/*
+ * Role middleware alone is not enough to protect operational dashboards:
+ * a staff member could otherwise skip the login redirect and request a
+ * dashboard URL directly before their profile or jurisdiction is complete.
+ * This middleware runs AFTER requirePageRole(), so req.currentUser is trusted.
+ * Profile/setup pages deliberately do not use this guard; they must remain
+ * accessible to an authenticated user whose profile needs completion.
+ */
+function requireCompletedRoleProfile(role) {
+    return async (req, res, next) => {
+        const userId = Number(req.currentUser?.id);
+        if (!Number.isSafeInteger(userId) || userId <= 0 || req.currentUser?.role !== role) {
+            return res.redirect("/login");
         }
 
-        return res.sendFile(
-            path.join(
-                __dirname,
-                "../client/profile/profile.html"
-            )
-        );
-    }
-);
+        try {
+            const [profileRows] = await db.execute(
+                `SELECT full_name, employee_id, mobile_number, address, city,
+                        postal_code, address_latitude, address_longitude,
+                        division_id, zone_id, ward_id
+                 FROM user_profiles
+                 WHERE user_id = ?
+                 LIMIT 1`,
+                [userId]
+            );
+            const profile = profileRows[0] || null;
+            let complete = isProfileCompleteForRole(role, profile);
+
+            // A Driver profile row by itself is not sufficient: the account
+            // must still be linked to an eligible Driver Registry record.
+            if (complete && role === "driver") {
+                const [driverRows] = await db.execute(
+                    `SELECT id
+                     FROM drivers
+                     WHERE user_id = ?
+                       AND status <> 'inactive'
+                     LIMIT 1`,
+                    [userId]
+                );
+                complete = driverRows.length === 1;
+            }
+
+            if (!complete) {
+                return redirectToOwnProfile(req, res);
+            }
+
+            return next();
+        } catch (error) {
+            console.error(
+                `Profile completion guard failed for ${role}:`,
+                error?.code || "database_error"
+            );
+            return res.status(500).send("Unable to verify profile completion. Please try again.");
+        }
+    };
+}
+
+app.get(["/profile", "/profile/", "/profile/profile.html"], requireAuth, (req, res) => {
+    return redirectToOwnProfile(req, res);
+});
+
+// Role-specific profile URLs are protected even when someone requests the
+// direct HTML path rather than the short route.
+app.get(["/inspectorProfile", "/inspectorProfile/", "/inspectorProfile/inspectorProfile.html"],
+    requirePageRole("sanitary_inspector"), (req, res) => {
+        setPrivateProfileHeaders(res);
+        return res.sendFile(path.join(__dirname, "../client/inspectorProfile/inspectorProfile.html"));
+    });
+
+app.get(["/assistantProfile", "/assistantProfile/", "/assistantProfile/assistantProfile.html"],
+    requirePageRole("assistant_commissioner"), (req, res) => {
+        setPrivateProfileHeaders(res);
+        return res.sendFile(path.join(__dirname, "../client/assistantProfile/assistantProfile.html"));
+    });
+
+app.get(["/deputyCommissionerProfile", "/deputyCommissionerProfile/", "/deputyCommissionerProfile/deputyCommissionerProfile.html"],
+    requirePageRole("deputy_commissioner"), (req, res) => {
+        setPrivateProfileHeaders(res);
+        return res.sendFile(path.join(__dirname, "../client/deputyCommissionerProfile/deputyCommissionerProfile.html"));
+    });
+
+app.get(["/driverProfile", "/driverProfile/", "/driverProfile/driverProfile.html"],
+    requirePageRole("driver"), (req, res) => {
+        setPrivateProfileHeaders(res);
+        return res.sendFile(path.join(__dirname, "../client/driverProfile/driverProfile.html"));
+    });
+
+// ---------------------------------------------------------
+// Protected Driver dashboard — Part 2 (read-only assignments view)
+// ---------------------------------------------------------
+app.get(["/driverDash", "/driverDash/", "/driverDash/driverDash.html"],
+    requirePageRole("driver"),
+    requireCompletedRoleProfile("driver"), (req, res) => {
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Content-Security-Policy", [
+            "default-src 'self'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "frame-ancestors 'none'",
+            "object-src 'none'",
+            "script-src 'self' https://unpkg.com",
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
+            "font-src 'self' data: https://fonts.gstatic.com https://unpkg.com https://tiles.openfreemap.org https://*.openfreemap.org",
+            "img-src 'self' data: blob: https://tiles.openfreemap.org https://*.openfreemap.org",
+            "connect-src 'self' https://unpkg.com https://tiles.openfreemap.org https://*.openfreemap.org https://router.project-osrm.org",
+            "worker-src 'self' blob:"
+        ].join("; "));
+        return res.sendFile(path.join(__dirname, "../client/driverDash/driverDash.html"));
+    });
 
 // ---------------------------------------------------------
 // Protected Sanitary Inspector dashboard
@@ -294,7 +437,9 @@ app.get(
 app.get(
     ["/inspectorDash", "/inspectorDash/"],
     requirePageRole("sanitary_inspector"),
+    requireCompletedRoleProfile("sanitary_inspector"),
     (req, res) => {
+        setInspectorDashboardHeaders(res);
         return res.sendFile(
             path.join(
                 __dirname,
@@ -310,6 +455,7 @@ app.get(
 app.get(
     ["/assistantDash", "/assistantDash/"],
     requirePageRole("assistant_commissioner"),
+    requireCompletedRoleProfile("assistant_commissioner"),
     (req, res) => {
         res.setHeader(
             "Content-Security-Policy",
@@ -347,6 +493,7 @@ app.get(
         "/deputyCommissionerDash/deputyCommissionerDash.html"
     ],
     requirePageRole("deputy_commissioner"),
+    requireCompletedRoleProfile("deputy_commissioner"),
     (req, res) => {
         res.setHeader(
             "Content-Security-Policy",
@@ -383,7 +530,9 @@ app.get(
 app.get(
     "/inspectorDash/inspectorDash.html",
     requirePageRole("sanitary_inspector"),
+    requireCompletedRoleProfile("sanitary_inspector"),
     (req, res) => {
+        setInspectorDashboardHeaders(res);
         return res.sendFile(
             path.join(
                 __dirname,
@@ -396,6 +545,7 @@ app.get(
 app.get(
     "/assistantDash/assistantDash.html",
     requirePageRole("assistant_commissioner"),
+    requireCompletedRoleProfile("assistant_commissioner"),
     (req, res) => {
         res.setHeader(
             "Content-Security-Policy",
@@ -738,7 +888,7 @@ let accountTokenCleanupTimer = null;
 let shutdownStarted = false;
 
 async function startServer() {
-    await sessionStore.ensureTable();
+    await sessionStore.assertTableExists();
     sessionCleanupTimer = sessionStore.startCleanup();
     await cleanupExpiredAccountTokens();
     accountTokenCleanupTimer = setInterval(() => {
