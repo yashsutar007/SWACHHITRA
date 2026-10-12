@@ -67,6 +67,16 @@ if (productionMode) {
     requireValue("TRUST_PROXY", "TRUST_PROXY must be explicitly set for production.");
     checkInteger("TRUST_PROXY", 1, 0, 10);
     requireValue("DB_PASSWORD", "DB_PASSWORD must be set for production.");
+    if (value("DB_SSL").toLowerCase() !== "true") {
+        errors.push("DB_SSL must be true for production MySQL connections.");
+    }
+    const databaseCa = value("DB_SSL_CA_BASE64");
+    if (databaseCa) {
+        const decodedCa = Buffer.from(databaseCa, "base64").toString("utf8");
+        if (!decodedCa.includes("-----BEGIN CERTIFICATE-----") || !decodedCa.includes("-----END CERTIFICATE-----")) {
+            errors.push("DB_SSL_CA_BASE64 must be a Base64-encoded PEM CA certificate when provided.");
+        }
+    }
     if (value("DB_USER").toLowerCase() === "root") {
         errors.push("Use a dedicated least-privilege MySQL user instead of root in production.");
     }
@@ -92,7 +102,7 @@ if (productionMode) {
     warnings.push("Development mode is not a production security sign-off.");
 }
 
-if (!fs.existsSync(ENV_PATH)) {
+if (!fs.existsSync(ENV_PATH) && !productionMode) {
     errors.push("Project-root .env was not found. Copy .env.example to .env and configure it first.");
 }
 

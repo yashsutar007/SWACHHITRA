@@ -1,0 +1,13 @@
+.git
+**/.git
+.env*
+**/.env*
+node_modules
+**/node_modules
+*.log
+**/*.log
+.DS_Store
+Thumbs.db
+# Runtime image does not need schema dumps or database import files.
+database/
+server/swachhitra_schema_snapshot.sql

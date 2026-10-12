@@ -805,3 +805,87 @@ svg { display: block; width: 1em; height: 1em; fill: none; stroke: currentColor;
 @media (max-width: 640px) {
     .citizen-map-tile-status { top: 8px; width: calc(100% - 16px); padding: 8px 10px; font-size: 13px; }
 }
+
+/* =========================================================
+   SHARED INSPECTOR-DASH VISUAL ALIGNMENT — CITIZEN
+   Shared by the Citizen dashboard, profile and registration screens.
+   ========================================================= */
+:root {
+  --olive-950: #10230c; --olive-900: #193414; --olive-850: #25451b;
+  --olive-800: #2e531e; --olive-700: #416d27; --olive-600: #5b812f;
+  --olive: var(--olive-700); --olive-dark: var(--olive-800);
+  --lime: #d4ed8b; --lime-strong: #c1e46c; --sage: #e8efdc; --sage-2: #f0f4e9;
+  --page: #f7f8f3; --white: #fff; --ink: #182116; --ink-2: #40503d;
+  --muted: #778172; --line: #dfe5d8; --border: var(--line); --border-strong: #d0dbc9;
+  --danger: #c95743; --warning: #c88b32; --success: #3e8a43; --green: var(--success);
+  --green-soft: #e9f5e8; --blue: var(--olive-700); --blue-soft: var(--sage-2);
+  --shadow-xs: 0 2px 8px rgba(20,44,14,.045); --shadow-sm: 0 8px 22px rgba(20,44,14,.06);
+  --shadow: 0 18px 48px rgba(20,44,14,.09); --shadow-hover: 0 24px 58px rgba(20,44,14,.14);
+  --radius-sm: 10px; --radius: 16px; --radius-lg: 22px;
+}
+body.citizen-body, body.auth-body { color: var(--ink); background-color: var(--page); font-family: "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.citizen-app .navigation-item { color: #d0dacb; border-radius: 13px; transition: color .2s ease, background .2s ease, transform .2s ease, box-shadow .2s ease; }
+.citizen-app .navigation-item:hover { color: #fff; background: rgba(255,255,255,.065); transform: translateX(2px); }
+.citizen-app .navigation-item.active { color: var(--olive-900); background: var(--lime); box-shadow: 0 8px 22px rgba(201,239,129,.12); }
+.citizen-app .navigation-item.active:hover { color: var(--olive-900); background: #d6f68e; transform: none; }
+.citizen-app .kpi-card, .citizen-app .card-shell, .citizen-app .content-card, .citizen-app .complaint-card, .citizen-app .next-step-card, .citizen-body .content-card { border: 1px solid var(--line); border-radius: var(--radius); background: #fff; box-shadow: var(--shadow-xs); }
+.citizen-app .kpi-card, .citizen-app .content-card, .citizen-app .next-step-card { transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.citizen-app .kpi-card:hover, .citizen-app .content-card:hover, .citizen-app .next-step-card:hover { border-color: #c5d5bf; box-shadow: var(--shadow); transform: translateY(-2px); }
+.citizen-app .kpi-icon, .citizen-app .metric-symbol, .citizen-app .section-icon { color: var(--olive-800); background: var(--sage-2); border-radius: 9px; }
+.citizen-app .kpi-icon.blue, .citizen-app .kpi-icon.info, .citizen-app .kpi-icon.green { color: var(--olive-800); background: var(--sage); }
+.citizen-app .kpi-icon.amber { color: #9d6206; background: #fff2d5; }
+.citizen-app .primary-button, .citizen-app .button-primary { color: #fff; background: var(--olive-800); border-color: var(--olive-800); border-radius: 9px; box-shadow: 0 6px 16px rgba(39,80,31,.14); }
+.citizen-app .primary-button:hover:not(:disabled), .citizen-app .button-primary:hover:not(:disabled) { color: #fff; background: #1f4618; border-color: #1f4618; transform: translateY(-1px); box-shadow: 0 10px 22px rgba(39,80,31,.18); }
+.citizen-app .secondary-button, .citizen-app .button-secondary { color: var(--olive-800); border-color: var(--line); background: #fff; border-radius: 9px; }
+.citizen-app .secondary-button:hover:not(:disabled), .citizen-app .button-secondary:hover:not(:disabled) { color: var(--olive-900); border-color: #c5d5bf; background: var(--sage-2); transform: translateY(-1px); box-shadow: var(--shadow-xs); }
+.citizen-app .filter-tab { color: var(--muted); background: transparent; border-radius: 9px; transition: color .2s ease, background .2s ease, border-color .2s ease, transform .2s ease; }
+.citizen-app .filter-tab:hover { color: var(--olive-800); background: var(--sage-2); border-color: var(--line); transform: translateY(-1px); }
+.citizen-app .filter-tab.active { color: var(--olive-900); background: var(--lime); border-color: var(--lime-strong); box-shadow: 0 5px 13px rgba(20,44,14,.06); }
+.citizen-app .filter-tab span { color: var(--olive-800); background: var(--sage); }
+.citizen-app input:not([type="checkbox"]):not([type="radio"]), .citizen-app select, .citizen-app textarea, .citizen-body input:not([type="checkbox"]):not([type="radio"]), .citizen-body select, .citizen-body textarea, body.auth-body input:not([type="checkbox"]):not([type="radio"]), body.auth-body select, body.auth-body textarea { color: var(--ink); border-color: var(--line); background: #fff; }
+.citizen-app input:focus-visible, .citizen-app select:focus-visible, .citizen-app textarea:focus-visible, .citizen-body input:focus-visible, .citizen-body select:focus-visible, .citizen-body textarea:focus-visible, body.auth-body input:focus-visible, body.auth-body select:focus-visible, body.auth-body textarea:focus-visible { border-color: #9fb996; outline: 2px solid rgba(63,112,45,.24); outline-offset: 1px; box-shadow: 0 0 0 3px rgba(80,120,65,.08); }
+.citizen-app .data-table th, .citizen-app table thead th, .citizen-body table thead th { color: #687267; background: var(--sage-2); border-color: var(--line); font-family: "JetBrains Mono", monospace; }
+.citizen-app .data-table tbody tr:hover, .citizen-app table tbody tr:hover, .citizen-body table tbody tr:hover { background: #f8fbf5; }
+body.auth-body .auth-shell, body.auth-body .auth-card { border-color: var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+body.auth-body .auth-card { background: #fff; }
+body.auth-body .auth-brand { background: linear-gradient(180deg, #2b4d20 0%, #1d3816 58%, #162f10 100%); }
+body.auth-body .button-primary:hover:not(:disabled) { background: #1f4618; border-color: #1f4618; transform: translateY(-1px); box-shadow: 0 10px 22px rgba(39,80,31,.18); }
+.citizen-app button:focus-visible, .citizen-app a:focus-visible, .citizen-app input:focus-visible, .citizen-app select:focus-visible, .citizen-app textarea:focus-visible { outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .citizen-app *, .citizen-app *::before, .citizen-app *::after, body.auth-body *, body.auth-body *::before, body.auth-body *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
+
+/* Inspector-palette finish for Citizen text, status symbols, progress and page chrome. */
+.citizen-app .navigation-title { color: #a8b99e; }
+.citizen-app .sidebar-role, .citizen-app .current-zone-card { border-color: rgba(212,237,139,.19); background: rgba(212,237,139,.07); }
+.citizen-app .sidebar-brand-text span, .citizen-app .role-label { color: #bfcdb7; }
+.citizen-app .current-zone-information > span { color: #a8b99e; }
+.citizen-app .current-zone-information strong { color: #f4f7ef; }
+.citizen-app .navigation-icon { color: #c0cdb8; }
+.citizen-app .navigation-item.active .navigation-icon { color: var(--olive-900); }
+.citizen-app .sidebar-toggle-button:hover, .citizen-app .header-icon-button:hover { color: var(--olive-800); border-color: #c8d6c3; background: var(--sage-2); }
+.citizen-app .system-status { color: var(--olive-700); border-color: #dfe8d7; background: var(--sage-2); }
+.citizen-app .system-status-dot { background: var(--success); box-shadow: 0 0 0 3px rgba(62,138,67,.10); }
+.citizen-app .shift-pill { color: #1f7349; border-color: #cfe5cb; background: var(--green-soft); }
+.citizen-app .shift-pill span { background: var(--success); box-shadow: 0 0 0 3px rgba(62,138,67,.10); }
+.citizen-app .status-pill.blue, .citizen-app .status-pill.status-progress { color: var(--olive-800); background: var(--sage); }
+.citizen-app .status-pill.green, .citizen-app .status-pill.status-resolved { color: #1f7349; background: var(--green-soft); }
+.citizen-app .status-pill.amber, .citizen-app .status-pill.status-open { color: #9d6206; background: #fff2d5; }
+.citizen-app .status-pill.status-cancelled { color: #8f322b; background: #fdecea; }
+.citizen-app .kpi-icon.blue, .citizen-app .kpi-icon.green { color: var(--olive-800); background: var(--sage-2); }
+.citizen-app .citizen-topbar, .citizen-app .content-card, .citizen-body .content-card { border-color: var(--line); background-color: #fff; }
+.citizen-app .card-heading-row.bordered, .citizen-app .complaint-toolbar, .citizen-app .form-actions { border-color: #e8ede3; }
+.citizen-app .card-heading-row h2, .citizen-app .complaints-heading h2, .citizen-app .header-context strong { color: var(--ink); }
+.citizen-app .overview-banner p:not(.section-eyebrow), .citizen-app .card-heading-row p:not(.section-eyebrow), .citizen-app .complaints-heading p:not(.section-eyebrow) { color: var(--muted); }
+.citizen-app .jurisdiction-panel { border-color: var(--line); background: var(--sage-2); }
+.citizen-app .jurisdiction-panel span, .citizen-app .jurisdiction-panel small { color: var(--muted); }
+.citizen-app .jurisdiction-panel strong { color: var(--olive-900); }
+.citizen-app .global-search:hover { border-color: #c5d5bf; }
+.citizen-app .global-search:focus-within { border-color: #9fb996; box-shadow: 0 0 0 3px rgba(80,120,65,.08); }
+.citizen-app .search-symbol { color: var(--muted); }
+.citizen-app .global-search input::placeholder { color: #939b91; }
+.citizen-app .boundary-disclaimer { color: #795c2d; border-left-color: var(--warning); background: #fff8ec; }
+.citizen-app .citizen-map, .citizen-body .citizen-map { background: var(--sage-2); border-color: var(--line); border-radius: var(--radius-sm); }
+.citizen-app .bar-track, .citizen-app .progress-track, .citizen-app .progress-bar, .citizen-app .progress-track, .citizen-app .complaint-progress-track { background: var(--sage-2); }
+.citizen-app .bar-fill, .citizen-app .progress-fill, .citizen-app .complaint-progress-fill { background: var(--olive-700); }
+.citizen-app .notice.success, .citizen-body .notice.success { color: #1f7349; border-color: #cfe5cb; background: var(--green-soft); }
+.citizen-app .notice.warning, .citizen-body .notice.warning { color: #875e1b; border-color: #ead7a8; background: #fff2d5; }
+.citizen-app .notice.error, .citizen-body .notice.error { color: #8f322b; border-color: #efc8c1; background: #fdecea; }

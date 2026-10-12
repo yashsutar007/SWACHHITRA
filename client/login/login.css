@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 
 /* =========================================================
    SWACHHITRA LOGIN PAGE
@@ -473,3 +475,52 @@ button:disabled {
     line-height: 1.5;
     text-align: center;
 }
+
+/* =========================================================
+   SHARED INSPECTOR-DASH VISUAL ALIGNMENT — LOGIN
+   Preserves the two-panel login composition while matching the dashboard palette.
+   ========================================================= */
+:root {
+  --olive-950: #10230c; --olive-900: #193414; --olive-850: #25451b;
+  --olive-800: #2e531e; --olive-700: #416d27; --olive-600: #5b812f;
+  --olive-dark: var(--olive-800); --olive: var(--olive-700); --olive-mid: var(--olive-600);
+  --lime: #d4ed8b; --lime-2: #c1e46c; --text: #182116; --muted: #778172;
+  --border: #dfe5d8; --danger: #c95743; --white: #fff; --page: #f7f8f3;
+  --shadow: 0 18px 48px rgba(20,44,14,.09); --shadow-xs: 0 2px 8px rgba(20,44,14,.045);
+}
+html, body { color: var(--text); background: var(--page); }
+body { font-family: "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.login-page { background: var(--page); }
+.brand-panel { color: #f4f7ef; background: linear-gradient(180deg, #2b4d20 0%, #1d3816 58%, #162f10 100%); }
+.brand-name h1 { color: #fff; }
+.brand-name p, .brand-description, .brand-footer { color: #c8d6c3; }
+.brand-content .eyebrow, .brand-panel .eyebrow { color: var(--lime); font-family: "JetBrains Mono", monospace; }
+.login-panel { background: var(--page); }
+.login-card { color: var(--ink); border: 1px solid var(--border); border-radius: 16px; background: #fff; box-shadow: var(--shadow); }
+.login-heading .eyebrow { color: var(--olive-700); font-family: "JetBrains Mono", monospace; }
+.login-heading h2, .login-heading h1 { color: var(--ink); }
+.login-heading p, .label-row, .verification-help, .staff-access-note { color: var(--muted); }
+.field label, .field label span { color: var(--ink-2); }
+.field input, .field select, .field textarea, .login-card input:not([type="checkbox"]):not([type="radio"]) { color: var(--ink); border-color: var(--border); background: #fff; border-radius: 9px; }
+.field input:focus, .field select:focus, .field textarea:focus, .login-card input:focus-visible { border-color: #9fb996; outline: 2px solid rgba(63,112,45,.24); outline-offset: 1px; box-shadow: 0 0 0 3px rgba(80,120,65,.08); }
+.login-button { color: #fff; background: var(--olive-800); border: 1px solid var(--olive-800); border-radius: 9px; box-shadow: 0 6px 16px rgba(39,80,31,.14); transition: transform .2s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease; }
+.login-button:hover:not(:disabled) { color: #fff; background: #1f4618; border-color: #1f4618; transform: translateY(-1px); box-shadow: 0 10px 22px rgba(39,80,31,.18); }
+.login-button:active { transform: translateY(0); }
+.show-password, .password-recovery-link, .citizen-signup-link { color: var(--olive-700); }
+.show-password:hover, .password-recovery-link:hover, .citizen-signup-link:hover { color: var(--olive-950); text-decoration: underline; }
+.show-password:focus-visible, .login-button:focus-visible, .login-card a:focus-visible { outline: 3px solid rgba(212,237,139,.75); outline-offset: 3px; }
+.login-message { border-radius: 10px; }
+.login-message.success { color: #1f7349; background: #e9f5e8; border-color: #cfe5cb; }
+.login-message.error { color: #8f322b; background: #fdecea; border-color: #efc8c1; }
+@media (prefers-reduced-motion: reduce) { .login-page *, .login-page *::before, .login-page *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
+
+/* Final consistency pass for login symbols, alerts and input hover/focus states. */
+.login-card input:hover, .login-card select:hover, .login-card textarea:hover { border-color: #c5d5bf; }
+.login-card label { color: var(--ink-2); }
+.login-card input::placeholder, .login-card select:invalid { color: #939b91; }
+.login-card .show-password:hover, .login-card .password-recovery-link:hover, .login-card .citizen-signup-link:hover { color: var(--olive-900); }
+.login-card .verification-help, .login-card .staff-access-note { color: var(--muted); }
+.login-card .login-message { border-radius: 10px; }
+.login-card .login-message.success { color: #1f7349; background: #e9f5e8; border-color: #cfe5cb; }
+.login-card .login-message.error { color: #8f322b; background: #fdecea; border-color: #efc8c1; }
+.login-card .field-hint { color: var(--muted); }

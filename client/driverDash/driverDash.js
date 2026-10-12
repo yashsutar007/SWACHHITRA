@@ -457,12 +457,12 @@
             driverMap.addLayer({
                 id: "driver-assigned-route-casing", type: "line", source: "driver-assigned-route",
                 layout: { "line-join": "round", "line-cap": "round" },
-                paint: { "line-color": "#ffffff", "line-width": 10, "line-opacity": 0.96 }
+                paint: { "line-color": "#ffffff", "line-width": 13, "line-opacity": 0.99 }
             });
             driverMap.addLayer({
                 id: "driver-assigned-route-line", type: "line", source: "driver-assigned-route",
                 layout: { "line-join": "round", "line-cap": "round" },
-                paint: { "line-color": "#397641", "line-width": 6, "line-opacity": 0.96 }
+                paint: { "line-color": "#2f8a43", "line-width": 7, "line-opacity": 0.99, "line-blur": 0.15 }
             });
         }
         if (!driverMap.getSource("driver-route-progress")) {
@@ -470,7 +470,7 @@
             driverMap.addLayer({
                 id: "driver-route-progress-line", type: "line", source: "driver-route-progress",
                 layout: { "line-join": "round", "line-cap": "round" },
-                paint: { "line-color": "#2868cf", "line-width": 7, "line-opacity": 0.96 }
+                paint: { "line-color": "#9bcf39", "line-width": 7, "line-opacity": 0.98 }
             });
         }
     }

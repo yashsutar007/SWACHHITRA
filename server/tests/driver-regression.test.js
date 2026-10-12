@@ -21,14 +21,37 @@ test("Inspector map visually highlights only fresh live GPS markers with a pulsi
     assert.match(client, /aria-label="\$\{escapeHTML\(markerLabel\)\}"/);
 });
 
-test("Part 7 live truck highlight uses a translucent filled green bloom, not an outline-only ring", () => {
+test("Part 7 live truck highlight uses a vivid green filled bloom rather than a faint outline", () => {
     const css = read("client/inspectorDash/inspectorDash.css");
-    assert.match(css, /background:\s*rgba\(34, 197, 94, 0\.18\)/);
-    assert.match(css, /background:\s*rgba\(34, 197, 94, 0\.14\)/);
-    assert.match(css, /transform:\s*scale\(2\.35\)/);
+    assert.match(css, /background:\s*rgba\(52, 211, 85, 0\.48\)/);
+    assert.match(css, /background:\s*rgba\(38, 198, 75, 0\.40\)/);
+    assert.match(css, /transform:\s*scale\(1\.9\)/);
+    assert.match(css, /border:\s*2px solid rgba\(20, 139, 53, 0\.90\)/);
     assert.match(css, /opacity:\s*0/);
     assert.match(css, /z-index:\s*-1/);
     assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+});
+
+test("Driver routes and collection stops use richer colors and accessible hover states", () => {
+    const css = read("client/driverDash/driverDash.css");
+    const client = read("client/driverDash/driverDash.js");
+    assert.match(css, /\.route-card:hover/);
+    assert.match(css, /\.stop-row:hover/);
+    assert.match(css, /\.driver-map-stop-marker:hover/);
+    assert.match(css, /\.driver-map-stop-marker:focus-visible/);
+    assert.match(client, /"line-color": "#2f8a43"/);
+    assert.match(client, /"line-color": "#9bcf39"/);
+});
+
+test("Assistant Commissioner truck markers receive a vivid highlight only for fresh GPS", () => {
+    const client = read("client/assistantDash/assistantDash.js");
+    const css = read("client/assistantDash/assistantDash.css");
+    assert.match(client, /function getOverviewVehicleGpsState\(vehicle/);
+    assert.match(client, /gps-live/);
+    assert.match(client, /last_location_at/);
+    assert.match(css, /\.overview-map-card \.custom-truck-marker\.gps-live::before/);
+    assert.match(css, /background:\s*rgba\(52, 211, 85, 0\.48\)/);
+    assert.match(css, /@keyframes ac-truck-live-pulse/);
 });
 
 test("Driver GPS footer reflects successful sharing, approximate fixes, and upload failures", () => {

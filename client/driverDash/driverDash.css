@@ -185,3 +185,177 @@
   .driver-app .driver-map-control-buttons { grid-template-columns:1fr; }
   .driver-app .driver-map-frame { height:360px; }
 }
+
+/* Route and stop visual polish: aligned to the Inspector olive/lime design system. */
+.driver-app .route-card {
+  border-color: #d7e3d0;
+  box-shadow: 0 4px 16px rgba(30, 57, 24, 0.055);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+.driver-app .route-card:hover {
+  transform: translateY(-3px);
+  border-color: #8eb77e;
+  box-shadow: 0 13px 28px rgba(33, 70, 25, 0.14);
+}
+.driver-app .route-card:focus-within {
+  border-color: #6d9e55;
+  box-shadow: 0 0 0 3px rgba(133, 183, 97, 0.20), 0 9px 22px rgba(33, 70, 25, 0.10);
+}
+.driver-app .route-card-header {
+  position: relative;
+  isolation: isolate;
+  background: linear-gradient(115deg, #f5faef 0%, #e8f4df 55%, #e0efcf 100%);
+  transition: background 180ms ease;
+}
+.driver-app .route-card-header::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #91c83e, #3f812e);
+}
+.driver-app .route-card:hover .route-card-header {
+  background: linear-gradient(115deg, #edf8e4 0%, #dff0d2 58%, #d3e9bc 100%);
+}
+.driver-app .route-code {
+  display: inline-flex;
+  align-items: center;
+  min-height: 23px;
+  padding: 3px 8px;
+  border: 1px solid #d1e1c7;
+  border-radius: 7px;
+  color: #416b31;
+  background: rgba(255, 255, 255, 0.72);
+  font-weight: 800;
+}
+.driver-app .route-metadata {
+  background: linear-gradient(180deg, #fff 0%, #fbfdf9 100%);
+}
+.driver-app .route-metadata > div {
+  padding: 9px 10px;
+  border: 1px solid #edf2e8;
+  border-radius: 9px;
+  background: #fbfdf9;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+.driver-app .route-metadata > div:hover {
+  transform: translateY(-1px);
+  border-color: #c7ddb9;
+  background: #f3faed;
+}
+.driver-app .stop-list {
+  background: linear-gradient(180deg, #fcfefb 0%, #f7fbf3 100%);
+}
+.driver-app .stop-list h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 850;
+}
+.driver-app .stop-list h4::before {
+  content: "";
+  width: 4px;
+  height: 16px;
+  border-radius: 99px;
+  background: linear-gradient(180deg, #9bcf49, #3b812f);
+}
+.driver-app .stop-row {
+  margin: 3px 0;
+  padding: 11px 9px;
+  border-top-color: transparent;
+  border-radius: 11px;
+  transition: background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+.driver-app .stop-row:hover {
+  transform: translateX(3px);
+  background: linear-gradient(100deg, #eaf6e2 0%, #f5faef 100%);
+  box-shadow: inset 0 0 0 1px #d4e7c9;
+}
+.driver-app .stop-row:focus-within {
+  outline: 2px solid #80ad63;
+  outline-offset: 1px;
+  background: #eff8e8;
+}
+.driver-app .stop-number {
+  border: 1px solid #bcd9a7;
+  background: linear-gradient(145deg, #e3f4d3 0%, #c8e6ad 100%);
+  box-shadow: 0 2px 5px rgba(48, 88, 34, 0.10);
+  transition: transform 160ms ease, box-shadow 160ms ease, color 160ms ease, background 160ms ease;
+}
+.driver-app .stop-row:hover .stop-number {
+  transform: scale(1.08);
+  color: #fff;
+  background: linear-gradient(145deg, #72ad3e 0%, #34752d 100%);
+  box-shadow: 0 4px 10px rgba(44, 101, 35, 0.22);
+}
+.driver-app .stop-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 23px;
+  padding: 4px 8px;
+  border: 1px solid #e2e9dc;
+  border-radius: 999px;
+  background: #f4f6f1;
+}
+.driver-app .stop-status.collected {
+  color: #216b31;
+  border-color: #b9dfb4;
+  background: #e4f6df;
+}
+.driver-app .stop-status.skipped {
+  color: #875b0b;
+  border-color: #efd9a6;
+  background: #fff4d9;
+}
+.driver-app .stop-status.pending,
+.driver-app .stop-status.assigned {
+  color: #526247;
+  border-color: #dce6d4;
+  background: #f0f5eb;
+}
+.driver-app .driver-map-stop-marker {
+  transform: translateY(2px);
+  transition: filter 160ms ease;
+}
+.driver-app .driver-map-stop-marker:hover {
+  z-index: 5;
+  filter: drop-shadow(0 4px 7px rgba(29, 67, 22, 0.35));
+}
+.driver-app .driver-map-stop-pin {
+  background: linear-gradient(145deg, #efb43b 0%, #bf7410 100%);
+  box-shadow: 0 3px 8px rgba(94, 63, 10, 0.22);
+  transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+.driver-app .driver-map-stop-marker:hover .driver-map-stop-pin,
+.driver-app .driver-map-stop-marker:focus-visible .driver-map-stop-pin {
+  transform: rotate(-45deg) scale(1.14);
+  background: linear-gradient(145deg, #9cd34b 0%, #327c2f 100%);
+  box-shadow: 0 0 0 4px rgba(116, 184, 65, 0.24), 0 5px 12px rgba(35, 84, 25, 0.30);
+}
+.driver-app .driver-map-stop-marker.processed .driver-map-stop-pin {
+  background: linear-gradient(145deg, #70bd59 0%, #24753a 100%);
+}
+.driver-app .driver-map-stop-marker.processed:hover .driver-map-stop-pin {
+  background: linear-gradient(145deg, #8ed46b 0%, #1e6c35 100%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .driver-app .route-card,
+  .driver-app .route-metadata > div,
+  .driver-app .stop-row,
+  .driver-app .stop-number,
+  .driver-app .driver-map-stop-marker,
+  .driver-app .driver-map-stop-pin {
+    transition: none !important;
+  }
+  .driver-app .route-card:hover,
+  .driver-app .stop-row:hover,
+  .driver-app .route-metadata > div:hover {
+    transform: none;
+  }
+}
+

@@ -3490,3 +3490,56 @@ body.modal-open {
         padding-left: 14px;
     }
 }
+
+/* Live-GPS highlight for Assistant Commissioner overview-map trucks. */
+.overview-map-card .custom-truck-marker {
+    position: relative;
+    isolation: isolate;
+    overflow: visible;
+}
+.overview-map-card .custom-truck-marker.gps-live {
+    background: #1f873a;
+    box-shadow:
+        0 0 0 3px #ffffff,
+        0 0 0 5px #35b653,
+        0 0 0 8px rgba(42, 172, 70, 0.34),
+        0 5px 13px rgba(18, 43, 12, 0.28);
+}
+.overview-map-card .custom-truck-marker.gps-live::before,
+.overview-map-card .custom-truck-marker.gps-live::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: -5px;
+    border: 2px solid rgba(20, 139, 53, 0.90);
+    border-radius: 50%;
+    background: rgba(52, 211, 85, 0.48);
+    box-shadow: 0 0 0 3px rgba(52, 211, 85, 0.24);
+    opacity: 0;
+    pointer-events: none;
+    will-change: transform, opacity;
+    animation: ac-truck-live-pulse 2s cubic-bezier(0.16, 0.75, 0.28, 1) infinite;
+}
+.overview-map-card .custom-truck-marker.gps-live::after {
+    animation-delay: 1s;
+    background: rgba(38, 198, 75, 0.40);
+    border-color: rgba(24, 129, 49, 0.82);
+}
+.overview-map-card .custom-truck-marker.gps-live svg {
+    position: relative;
+    z-index: 1;
+}
+@keyframes ac-truck-live-pulse {
+    0% { transform: scale(0.78); opacity: 0.82; background: rgba(52, 211, 85, 0.52); }
+    52% { opacity: 0.58; background: rgba(52, 211, 85, 0.42); }
+    100% { transform: scale(1.9); opacity: 0; background: rgba(52, 211, 85, 0.18); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .overview-map-card .custom-truck-marker.gps-live::before,
+    .overview-map-card .custom-truck-marker.gps-live::after {
+        animation: none !important;
+        opacity: 0.34;
+        transform: scale(1.12);
+    }
+}
+

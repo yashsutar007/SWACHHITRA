@@ -1618,11 +1618,39 @@ document.addEventListener("DOMContentLoaded", () => {
             );
     }
 
-    function createOverviewVehicleIcon() {
+    function getOverviewVehicleGpsState(vehicle, now = Date.now()) {
+        const rawTimestamp = vehicle?.last_location_at;
+        if (!rawTimestamp) return "unknown";
+
+        const normalizedTimestamp = String(rawTimestamp).trim();
+        const parseableTimestamp = normalizedTimestamp.includes("T")
+            ? normalizedTimestamp
+            : normalizedTimestamp.replace(" ", "T");
+        const timestamp = Date.parse(parseableTimestamp);
+        if (!Number.isFinite(timestamp)) return "unknown";
+
+        const ageMs = now - timestamp;
+        if (ageMs < -30000) return "unknown";
+        if (ageMs <= 30000) return "live";
+        if (ageMs <= 120000) return "delayed";
+        return "stale";
+    }
+
+    function createOverviewVehicleIcon(vehicle) {
+        const gpsState = getOverviewVehicleGpsState(vehicle);
+        const markerClass = `custom-truck-marker${gpsState === "live" ? " gps-live" : gpsState === "delayed" ? " gps-delayed" : gpsState === "stale" ? " gps-stale" : " gps-unknown"}`;
+        const accessibleLabel = gpsState === "live"
+            ? "Truck with live GPS location"
+            : gpsState === "delayed"
+                ? "Truck with delayed GPS location"
+                : gpsState === "stale"
+                    ? "Truck with stale GPS location"
+                    : "Truck, GPS status unavailable";
+
         return L.divIcon({
             className: "",
             html: `
-                <div class="custom-truck-marker">
+                <div class="${markerClass}" data-gps-state="${gpsState}" role="img" aria-label="${accessibleLabel}">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M3 6.5h11v9H3z"></path>
                         <path d="M14 10h4l3 3v2.5h-7z"></path>
@@ -2147,9 +2175,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 ? state.mapData.routes
                 : [];
 
-        const icon =
-            createOverviewVehicleIcon();
-
         routes.forEach(route => {
             const vehicle =
                 route?.vehicle;
@@ -2164,6 +2189,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
+            const icon = createOverviewVehicleIcon(vehicle);
             const marker =
                 L.marker(
                     [

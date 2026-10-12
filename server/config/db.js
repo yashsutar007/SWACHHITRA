@@ -27,7 +27,7 @@ const requiredEnvironmentVariables = [
 for (const variable of requiredEnvironmentVariables) {
     if (!process.env[variable]) {
         throw new Error(
-            `${variable} is missing from SWACHHITRA/.env`
+            `${variable} is missing from SWACHHITRA/.env or the hosting environment.`
         );
     }
 }
@@ -47,6 +47,39 @@ const connectTimeout = getPositiveInteger(
     process.env.DB_CONNECT_TIMEOUT,
     10000
 );
+
+const dbSslSetting = String(process.env.DB_SSL || "false").trim().toLowerCase();
+if (!["true", "false"].includes(dbSslSetting)) {
+    throw new Error("DB_SSL must be set to true or false.");
+}
+
+const isProduction = String(process.env.NODE_ENV || "development").toLowerCase() === "production";
+if (isProduction && dbSslSetting !== "true") {
+    throw new Error("DB_SSL must be true for production MySQL connections.");
+}
+
+const dbSslCaBase64 = String(process.env.DB_SSL_CA_BASE64 || "").trim();
+let dbSsl;
+
+if (dbSslSetting === "true") {
+    dbSsl = {
+        rejectUnauthorized: true,
+        minVersion: "TLSv1.2"
+    };
+
+    if (dbSslCaBase64) {
+        const decodedCa = Buffer.from(dbSslCaBase64, "base64").toString("utf8");
+        if (
+            !decodedCa.includes("-----BEGIN CERTIFICATE-----") ||
+            !decodedCa.includes("-----END CERTIFICATE-----")
+        ) {
+            throw new Error("DB_SSL_CA_BASE64 must contain a Base64-encoded PEM CA certificate.");
+        }
+        dbSsl.ca = decodedCa;
+    }
+} else if (dbSslCaBase64) {
+    throw new Error("DB_SSL_CA_BASE64 cannot be configured unless DB_SSL=true.");
+}
 
 
 const pool = mysql.createPool({
@@ -68,7 +101,9 @@ const pool = mysql.createPool({
 
     connectTimeout,
 
-    charset: "utf8mb4"
+    charset: "utf8mb4",
+
+    ...(dbSsl ? { ssl: dbSsl } : {})
 });
 
 
