@@ -84,13 +84,22 @@ if (productionMode) {
         errors.push("ALLOW_DEV_EMAIL_LINKS must be false in production.");
     }
 
-    for (const name of ["SMTP_HOST", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"]) {
-        requireValue(name, `${name} must be configured for production email delivery.`);
-        if (value(name) && isPlaceholder(value(name))) errors.push(`${name} still contains a placeholder value.`);
+    const requiredMailSettings = ["SMTP_HOST", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"];
+    const missingMailSettings = requiredMailSettings.filter(name => !value(name));
+    const staffRecoveryWithoutSmtp = value("ALLOW_NO_SMTP_FOR_STAFF_RECOVERY").toLowerCase() === "true";
+    if (missingMailSettings.length && !staffRecoveryWithoutSmtp) {
+        for (const name of missingMailSettings) errors.push(`${name} must be configured for production email delivery, or explicitly enable ALLOW_NO_SMTP_FOR_STAFF_RECOVERY=true for the staff-only demo mode.`);
+    } else if (missingMailSettings.length && staffRecoveryWithoutSmtp) {
+        warnings.push("SMTP is not configured. Driver/Inspector password activation will use assignment-authorized one-time codes; Citizen registration is disabled until email is configured.");
     }
-    checkInteger("SMTP_PORT", 587, 1, 65535);
-    if (!["true", "false"].includes((value("SMTP_SECURE") || "false").toLowerCase())) {
-        errors.push("SMTP_SECURE must be true or false.");
+    if (!missingMailSettings.length) {
+        for (const name of requiredMailSettings) {
+            if (value(name) && isPlaceholder(value(name))) errors.push(`${name} still contains a placeholder value.`);
+        }
+        checkInteger("SMTP_PORT", 587, 1, 65535);
+        if (!["true", "false"].includes((value("SMTP_SECURE") || "false").toLowerCase())) {
+            errors.push("SMTP_SECURE must be true or false.");
+        }
     }
 } else {
     if (String(process.env.ALLOW_DEV_EMAIL_LINKS || "false").toLowerCase() === "true") {

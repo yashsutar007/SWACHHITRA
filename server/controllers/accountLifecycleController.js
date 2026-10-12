@@ -58,7 +58,18 @@ function absoluteOrigin(req) {
 
 function emailDeliveryMode() {
     if (devLinksAllowed()) return "development_link";
-    return isEmailConfigured() ? "smtp" : "not_configured";
+    if (isEmailConfigured()) return "smtp";
+    if (String(process.env.NODE_ENV || "").toLowerCase() === "production" &&
+        String(process.env.ALLOW_NO_SMTP_FOR_STAFF_RECOVERY || "false").toLowerCase() === "true") {
+        return "staff_activation_code";
+    }
+    return "not_configured";
+}
+
+function staffRecoveryOnlyMode() {
+    return String(process.env.NODE_ENV || "").toLowerCase() === "production" &&
+        String(process.env.ALLOW_NO_SMTP_FOR_STAFF_RECOVERY || "false").toLowerCase() === "true" &&
+        !isEmailConfigured();
 }
 
 function emailDeliveryHelp() {
@@ -183,6 +194,13 @@ async function registerCitizen(req, res) {
     if (!email || !validEmail(email)) return sendValidationError(res, "INVALID_EMAIL", "Enter a valid email address.");
     if (!validPassword(password)) return sendValidationError(res, "INVALID_PASSWORD", "Password must be at least 12 characters and no more than 72 UTF-8 bytes.");
     if (password !== confirmation) return sendValidationError(res, "PASSWORD_MISMATCH", "Password and confirmation do not match.");
+    if (staffRecoveryOnlyMode()) {
+        return res.status(503).json({
+            success: false,
+            code: "CITIZEN_EMAIL_VERIFICATION_REQUIRED",
+            message: "Citizen self-registration requires email verification. Please contact a SWACHHITRA administrator for account setup."
+        });
+    }
 
     const passwordHash = await bcrypt.hash(password, 12);
     const connection = await db.getConnection();
@@ -252,6 +270,13 @@ async function registerCitizen(req, res) {
 async function requestEmailVerification(req, res) {
     const email = normalizeEmail(req.body?.email);
     if (!email || !validEmail(email)) return sendValidationError(res, "INVALID_EMAIL", "Enter a valid email address.");
+    if (staffRecoveryOnlyMode()) {
+        return res.json({
+            success: true,
+            emailDeliveryMode: "staff_activation_code",
+            message: "Email verification for Citizen accounts requires email delivery to be configured. Driver and Sanitary Inspector password activation uses one-time codes issued by the authority responsible for the current assignment."
+        });
+    }
 
     let developmentVerificationPath;
     try {
@@ -338,6 +363,14 @@ async function confirmEmailVerification(req, res) {
 async function requestPasswordReset(req, res) {
     const email = normalizeEmail(req.body?.email);
     if (!email || !validEmail(email)) return sendValidationError(res, "INVALID_EMAIL", "Enter a valid email address.");
+
+    if (staffRecoveryOnlyMode()) {
+        return res.json({
+            success: true,
+            emailDeliveryMode: "staff_activation_code",
+            message: "For a Driver account, request a one-time recovery code from the Sanitary Inspector responsible for the Driver's Ward. For a Sanitary Inspector account, request a code from the Assistant Commissioner who assigned the Inspector. The authority must issue the code from a signed-in SWACHHITRA account."
+        });
+    }
 
     let developmentResetPath;
     try {

@@ -9,6 +9,11 @@ const {
     requestPasswordReset,
     resetPassword
 } = require("../controllers/accountLifecycleController");
+const {
+    issueDriverRecoveryCode,
+    issueInspectorRecoveryCode,
+    resetPasswordWithRecoveryCode
+} = require("../controllers/staffPasswordRecoveryController");
 const { protectCitizenRegistration } = require("../middleware/citizenSecurityMiddleware");
 const {
     protectLogin,
@@ -18,6 +23,9 @@ const {
     protectForgotPassword,
     protectResetPassword
 } = require("../middleware/accountSecurityMiddleware");
+const { requireRole } = require("../middleware/authMiddleware");
+const { requireInspectorMutationSecurity } = require("../middleware/inspectorSecurityMiddleware");
+const { requireAssistantMutationSecurity } = require("../middleware/assistantSecurityMiddleware");
 
 const router = express.Router();
 
@@ -30,5 +38,26 @@ router.post("/citizen/verification/resend", protectVerificationRequest, requestE
 router.post("/citizen/verification/confirm", protectVerificationConfirm, confirmEmailVerification);
 router.post("/password/forgot", protectForgotPassword, requestPasswordReset);
 router.post("/password/reset", protectResetPassword, resetPassword);
+
+// Assignment-authorized staff password activation. Codes are issued only to
+// an authenticated assigning authority and redeemed once through the public
+// reset page after the backend rechecks that the assignment is still active.
+router.post(
+    "/password/activation/driver",
+    requireRole("sanitary_inspector"),
+    requireInspectorMutationSecurity,
+    issueDriverRecoveryCode
+);
+router.post(
+    "/password/activation/inspector",
+    requireRole("assistant_commissioner"),
+    requireAssistantMutationSecurity,
+    issueInspectorRecoveryCode
+);
+router.post(
+    "/password/reset-assigned-staff",
+    protectResetPassword,
+    resetPasswordWithRecoveryCode
+);
 
 module.exports = router;

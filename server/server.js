@@ -58,29 +58,34 @@ if (IS_PRODUCTION) {
     }
     const requiredMailSettings = ["SMTP_HOST", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"];
     const missingMailSettings = requiredMailSettings.filter(name => !String(process.env[name] || "").trim());
-    if (missingMailSettings.length) {
-        throw new Error("Production account email delivery requires: " + missingMailSettings.join(", ") + ".");
+    const allowStaffRecoveryWithoutSmtp = String(process.env.ALLOW_NO_SMTP_FOR_STAFF_RECOVERY || "false").toLowerCase() === "true";
+    if (missingMailSettings.length && !allowStaffRecoveryWithoutSmtp) {
+        throw new Error("Production account email delivery requires: " + missingMailSettings.join(", ") + ". To deploy staff-only activation-code recovery without email, explicitly set ALLOW_NO_SMTP_FOR_STAFF_RECOVERY=true.");
     }
 
-    const mailPlaceholders = [
-        ["SMTP_HOST", /example\.com|smtp\.example|your[-_ ]/i],
-        ["SMTP_USER", /your[-_ ]|example\.com/i],
-        ["SMTP_PASS", /your[-_ ]|replace[-_ ]?with|change[-_ ]?me/i],
-        ["SMTP_FROM", /example\.com|your[-_ ]/i]
-    ];
-    const placeholderMailSettings = mailPlaceholders
-        .filter(([name, pattern]) => pattern.test(String(process.env[name] || "")))
-        .map(([name]) => name);
-    if (placeholderMailSettings.length) {
-        throw new Error("Replace placeholder production mail settings: " + placeholderMailSettings.join(", ") + ".");
-    }
+    if (missingMailSettings.length && allowStaffRecoveryWithoutSmtp) {
+        console.warn("SMTP is not configured. Staff activation-code recovery is enabled; Citizen self-registration is disabled until email verification is configured.");
+    } else {
+        const mailPlaceholders = [
+            ["SMTP_HOST", /example\.com|smtp\.example|your[-_ ]/i],
+            ["SMTP_USER", /your[-_ ]|example\.com/i],
+            ["SMTP_PASS", /your[-_ ]|replace[-_ ]?with|change[-_ ]?me/i],
+            ["SMTP_FROM", /example\.com|your[-_ ]/i]
+        ];
+        const placeholderMailSettings = mailPlaceholders
+            .filter(([name, pattern]) => pattern.test(String(process.env[name] || "")))
+            .map(([name]) => name);
+        if (placeholderMailSettings.length) {
+            throw new Error("Replace placeholder production mail settings: " + placeholderMailSettings.join(", ") + ".");
+        }
 
-    const smtpPort = Number(process.env.SMTP_PORT || 587);
-    if (!Number.isInteger(smtpPort) || smtpPort < 1 || smtpPort > 65535) {
-        throw new Error("SMTP_PORT must be an integer from 1 to 65535.");
-    }
-    if (!["true", "false"].includes(String(process.env.SMTP_SECURE || "false").toLowerCase())) {
-        throw new Error("SMTP_SECURE must be set to true or false.");
+        const smtpPort = Number(process.env.SMTP_PORT || 587);
+        if (!Number.isInteger(smtpPort) || smtpPort < 1 || smtpPort > 65535) {
+            throw new Error("SMTP_PORT must be an integer from 1 to 65535.");
+        }
+        if (!["true", "false"].includes(String(process.env.SMTP_SECURE || "false").toLowerCase())) {
+            throw new Error("SMTP_SECURE must be set to true or false.");
+        }
     }
 }
 
@@ -150,7 +155,7 @@ app.use((req, res, next) => {
     // expose account/profile context. This also covers direct HTML entry URLs.
     if (
         req.path.startsWith("/citizenDash") ||
-        ["/citizenRegister", "/verifyEmail", "/forgotPassword", "/resetPassword", "/accountSecurity/verifyEmail.html", "/accountSecurity/forgotPassword.html", "/accountSecurity/resetPassword.html"].includes(req.path)
+        ["/citizenRegister", "/verifyEmail", "/forgotPassword", "/resetPassword", "/issueRecoveryCode", "/accountSecurity/verifyEmail.html", "/accountSecurity/forgotPassword.html", "/accountSecurity/resetPassword.html", "/accountSecurity/issueRecoveryCode.html"].includes(req.path)
     ) {
         res.setHeader(
             "Cache-Control",
@@ -600,7 +605,7 @@ app.get("/citizenRegister", (req, res) => {
 // Public account lifecycle pages: email verification and password recovery
 // ---------------------------------------------------------
 function sendAccountSecurityPage(res, fileName) {
-    if (fileName === "verifyEmail.html" || fileName === "resetPassword.html") {
+    if (fileName === "verifyEmail.html" || fileName === "resetPassword.html" || fileName === "issueRecoveryCode.html") {
         // Avoid disclosing one-time tokens through Referer headers.
         res.setHeader("Referrer-Policy", "no-referrer");
     }
@@ -625,9 +630,11 @@ function sendAccountSecurityPage(res, fileName) {
 app.get(["/verifyEmail", "/verifyEmail/"], (req, res) => sendAccountSecurityPage(res, "verifyEmail.html"));
 app.get(["/forgotPassword", "/forgotPassword/"], (req, res) => sendAccountSecurityPage(res, "forgotPassword.html"));
 app.get(["/resetPassword", "/resetPassword/"], (req, res) => sendAccountSecurityPage(res, "resetPassword.html"));
+app.get(["/issueRecoveryCode", "/issueRecoveryCode/"], (req, res) => sendAccountSecurityPage(res, "issueRecoveryCode.html"));
 app.get("/accountSecurity/verifyEmail.html", (req, res) => sendAccountSecurityPage(res, "verifyEmail.html"));
 app.get("/accountSecurity/forgotPassword.html", (req, res) => sendAccountSecurityPage(res, "forgotPassword.html"));
 app.get("/accountSecurity/resetPassword.html", (req, res) => sendAccountSecurityPage(res, "resetPassword.html"));
+app.get("/accountSecurity/issueRecoveryCode.html", (req, res) => sendAccountSecurityPage(res, "issueRecoveryCode.html"));
 
 // ---------------------------------------------------------
 // Protected Citizen profile (map pin + automatic Ward resolution)

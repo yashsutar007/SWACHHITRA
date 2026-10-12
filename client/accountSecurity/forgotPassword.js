@@ -1,5 +1,6 @@
 (() => {
     "use strict";
+
     const form = document.getElementById("forgotPasswordForm");
     const email = document.getElementById("forgotEmail");
     const message = document.getElementById("forgotMessage");
@@ -7,7 +8,7 @@
 
     function showMessage(text, kind = "") {
         message.textContent = String(text || "");
-        message.className = `notice ${kind}`.trim();
+        message.className = `security-notice ${kind}`.trim();
     }
 
     function addDevelopmentLink(path) {
@@ -19,8 +20,9 @@
         if (!link) {
             link = document.createElement("a");
             link.id = "developmentAccountLink";
-            link.className = "account-security-dev-link";
+            link.className = "security-link-button secondary";
             link.rel = "noreferrer";
+            link.style.marginTop = "10px";
             message.insertAdjacentElement("afterend", link);
         }
         link.href = path;
@@ -30,23 +32,28 @@
     form?.addEventListener("submit", async event => {
         event.preventDefault();
         showMessage("");
+        addDevelopmentLink("");
         if (!form.checkValidity()) { form.reportValidity(); return; }
         button.disabled = true;
-        button.textContent = "Requesting…";
+        button.textContent = "Checking options…";
         try {
             const response = await fetch("/api/auth/password/forgot", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "same-origin",
+                cache: "no-store",
                 body: JSON.stringify({ email: email.value.trim() })
             });
             const result = await response.json().catch(() => null);
             if (!response.ok || result?.success !== true) throw new Error(result?.message || "Unable to process the request.");
-            addDevelopmentLink(result.developmentResetPath);
+
             if (result.developmentResetPath) {
-                showMessage("A local password-reset link was generated. Open the link below to choose a new password.", "success");
+                addDevelopmentLink(result.developmentResetPath);
+                showMessage("A local development reset link was generated. Open it below to choose a new password.", "success");
+            } else if (result.emailDeliveryMode === "staff_activation_code") {
+                showMessage(result.message || "For a Driver account, request a code from the Inspector responsible for the Driver's Ward. For an Inspector account, request a code from the Assistant Commissioner who assigned the Inspector. The authority must issue the code while signed in.", "success");
             } else if (result.emailDeliveryMode === "not_configured") {
-                showMessage(result.deliveryHelp || "This server has no SMTP email configuration. For local testing, set ALLOW_DEV_EMAIL_LINKS=true in the project-root .env and restart the server, or configure SMTP.", "error");
+                showMessage("If this is a Driver or Sanitary Inspector account, use the assignment-authorized recovery-code process described below. Email-based reset instructions require SMTP configuration.", "success");
             } else {
                 showMessage(`${result.message || "If the account exists, reset instructions will be sent."}${result.deliveryHelp ? " " + result.deliveryHelp : ""}`, "success");
             }
@@ -54,7 +61,7 @@
             showMessage(error.message || "Unable to process the request.", "error");
         } finally {
             button.disabled = false;
-            button.textContent = "Send reset instructions";
+            button.textContent = "Request reset instructions";
         }
     });
 })();

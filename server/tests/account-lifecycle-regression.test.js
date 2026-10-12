@@ -95,19 +95,29 @@ async function main() {
             "client/accountSecurity/forgotPassword.html",
             "client/accountSecurity/forgotPassword.js",
             "client/accountSecurity/resetPassword.html",
-            "client/accountSecurity/resetPassword.js"
+            "client/accountSecurity/resetPassword.js",
+            "client/accountSecurity/accountSecurity.css",
+            "client/accountSecurity/issueRecoveryCode.html",
+            "client/accountSecurity/issueRecoveryCode.js",
+            "server/controllers/staffPasswordRecoveryController.js"
         ]) assert.ok(fs.existsSync(path.join(PROJECT_ROOT, name)), `${name} should exist`);
         assert.match(file("client/login/login.html"), /href="\/forgotPassword"/);
         assert.match(file("client/login/login.js"), /EMAIL_NOT_VERIFIED/);
         assert.match(file("client/citizenDash/citizenRegister.js"), /developmentVerificationPath/);
     });
 
-    await test("Production configuration requires configured SMTP delivery", async () => {
+    await test("Production requires SMTP unless the explicit staff-only recovery mode is enabled", async () => {
         const server = file("server/server.js");
+        const checker = file("server/scripts/check-deployment-config.js");
+        const lifecycle = file("server/controllers/accountLifecycleController.js");
         const mail = file("server/utils/emailService.js");
         assert.match(server, /Production account email delivery requires/);
+        assert.match(server, /ALLOW_NO_SMTP_FOR_STAFF_RECOVERY/);
         assert.match(server, /ALLOW_DEV_EMAIL_LINKS must not be enabled in production/);
         assert.match(server, /cleanupExpiredAccountTokens/);
+        assert.match(checker, /ALLOW_NO_SMTP_FOR_STAFF_RECOVERY/);
+        assert.match(lifecycle, /CITIZEN_EMAIL_VERIFICATION_REQUIRED/);
+        assert.match(lifecycle, /staff_activation_code/);
         for (const setting of ["SMTP_HOST", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"]) assert.ok(server.includes(setting));
         assert.match(mail, /disableFileAccess: true/);
         assert.match(mail, /disableUrlAccess: true/);
@@ -164,7 +174,7 @@ async function main() {
     });
 
     await test("Email verification and recovery pages are no-store and protected against framing", async () => {
-        for (const route of ["/verifyEmail", "/forgotPassword", "/resetPassword"]) {
+        for (const route of ["/verifyEmail", "/forgotPassword", "/resetPassword", "/issueRecoveryCode"]) {
             const r = await request(route);
             assert.equal(r.response.status, 200, `${route} status`);
             assert.match(String(r.response.headers.get("cache-control") || ""), /no-store/i, `${route} cache control`);
