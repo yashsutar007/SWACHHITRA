@@ -89,6 +89,7 @@
                             <button type="button" class="secondary-button compact-action" id="driverMapFitButton">Fit route</button>
                             <button type="button" class="secondary-button compact-action" id="driverMap3dButton" aria-pressed="false">3D view</button>
                             <button type="button" class="primary-button compact-action" id="driverMapStartButton" disabled>Start selected route</button>
+                            <button type="button" class="secondary-button compact-action demo-simulation-button" id="driverMapDemoButton" aria-pressed="false" disabled title="Simulate the truck locally along this route. Demo coordinates are never sent to the Inspector.">▶ 3D demo simulation</button>
                             <button type="button" class="secondary-button compact-action" id="driverMapStopButton" hidden>Stop GPS sharing</button>
                         </div>
                     </div>
@@ -96,7 +97,7 @@
                     <div class="driver-map-frame">
                         <div id="driverRouteMap" aria-label="Three-dimensional style map showing your assigned route and collection stops"></div>
                         <div class="driver-map-hud" id="driverMapHud" hidden>
-                            <span class="driver-map-hud-kicker">SWACHHITRA LIVE NAVIGATION</span>
+                            <span class="driver-map-hud-kicker" id="driverMapHudKicker" data-mode="live">SWACHHITRA LIVE NAVIGATION</span>
                             <strong id="driverMapHudTitle">Route ready</strong>
                             <span id="driverMapHudDetail">Choose Start route to move the truck marker.</span>
                             <div class="driver-map-progress-track"><span id="driverMapProgressBar"></span></div>

@@ -41,6 +41,9 @@
     let lastGpsAccuracy = null;
     let navigationRunning = false;
     let navigationAssignmentId = "";
+    let demoSimulationRunning = false;
+    let demoSimulationCompleted = false;
+    let demoSimulationAssignmentId = "";
     let navigationStartedAt = 0;
     let navigationDurationMs = 0;
     let navigationCoordinates = [];
@@ -561,6 +564,13 @@
         geolocationWatchId = null;
         navigationRunning = false;
         navigationAssignmentId = "";
+        demoSimulationRunning = false;
+        demoSimulationCompleted = false;
+        demoSimulationAssignmentId = "";
+        navigationStartedAt = 0;
+        navigationDurationMs = 0;
+        navigationLastCameraUpdate = 0;
+        navigationLastProgressUpdate = 0;
         navigationCoordinates = [];
         navigationCumulativeMeters = [];
         navigationTotalMeters = 0;
@@ -574,6 +584,8 @@
         if (hud) hud.hidden = true;
         const progress = byId("driverMapProgressBar");
         if (progress) progress.style.width = "0%";
+        const progressSource = driverMap?.getSource?.("driver-route-progress");
+        if (progressSource) progressSource.setData(emptyFeatureCollection());
         updateNavigationControls();
     }
 
@@ -778,11 +790,23 @@
         const selector = byId("driverMapRouteSelector");
         const fitButton = byId("driverMapFitButton");
         const threeDButton = byId("driverMap3dButton");
+        const demoButton = byId("driverMapDemoButton");
+        const hasPath = Boolean(selectedRouteNavigable && selectedRouteGeometry?.coordinates?.length >= 2);
+        const status = String(assignment?.status || "").toLowerCase();
+        const assignmentSupportsNavigation = Boolean(assignment && hasPath && mapReady && ["assigned", "delayed", "active"].includes(status));
         if (startButton) {
-            const hasPath = Boolean(selectedRouteNavigable && selectedRouteGeometry?.coordinates?.length >= 2);
-            const status = String(assignment?.status || "").toLowerCase();
-            startButton.disabled = !assignment || !hasPath || navigationRunning || !mapReady || !["assigned", "delayed", "active"].includes(status);
+            startButton.disabled = !assignmentSupportsNavigation || navigationRunning || !mapReady;
             startButton.textContent = navigationRunning ? "GPS sharing active…" : status === "active" ? "Resume GPS sharing" : status === "assigned" || status === "delayed" ? "Start selected route" : "Route unavailable";
+        }
+        if (demoButton) {
+            const demoIsThisRoute = demoSimulationRunning && demoSimulationAssignmentId === String(assignment?.id || "");
+            const demoCompletedForRoute = demoSimulationCompleted && demoSimulationAssignmentId === String(assignment?.id || "");
+            demoButton.disabled = !assignmentSupportsNavigation;
+            demoButton.textContent = demoIsThisRoute ? "Stop 3D demo" : demoCompletedForRoute ? "Replay 3D demo" : "3D demo simulation";
+            demoButton.setAttribute("aria-pressed", String(demoIsThisRoute));
+            demoButton.title = demoIsThisRoute
+                ? "Stop the local-only 3D simulation"
+                : "Simulate the truck along this route locally. Demo coordinates are never sent to the Inspector.";
         }
         if (fitButton) fitButton.disabled = !selectedRouteGeometry?.coordinates?.length || !mapReady;
         if (threeDButton) {
@@ -909,8 +933,8 @@
         await renderSelectedNavigationRoute(fitBounds);
     }
 
-    function navigationStopLabel(progressRatio) {
-        const assignment = assignments.find(item => String(item.id) === String(navigationAssignmentId));
+    function navigationStopLabel(progressRatio, assignmentId = navigationAssignmentId) {
+        const assignment = assignments.find(item => String(item.id) === String(assignmentId));
         const stops = routeStops(assignment);
         const geometry = selectedRouteGeometry;
         if (!stops.length || !geometry?.coordinates?.length) return "Following assigned route";
@@ -957,6 +981,11 @@
         is3DView = true;
         const hud = byId("driverMapHud");
         if (hud) hud.hidden = false;
+        const hudKicker = byId("driverMapHudKicker");
+        if (hudKicker) {
+            hudKicker.textContent = "SWACHHITRA LIVE NAVIGATION";
+            hudKicker.dataset.mode = "live";
+        }
         const hudTitle = byId("driverMapHudTitle");
         if (hudTitle) hudTitle.textContent = `${assignment.route?.code || "Assigned route"} · Live GPS`;
         const hudDetail = byId("driverMapHudDetail");
@@ -1034,6 +1063,9 @@
                         heading: heading === null ? null : heading,
                         speed: coords.speed !== null && coords.speed !== undefined && Number.isFinite(Number(coords.speed)) ? Number(coords.speed) : null
                     });
+                    // A genuine GPS upload may finish after the user switches to demo mode.
+                    // Do not let that previous callback overwrite the current demo UI.
+                    if (!navigationRunning || String(navigationAssignmentId) !== id) return;
                     if (accuracy <= 150) {
                         setMapNotice(`Live GPS location sent to SWACHHITRA. Accuracy ±${Math.round(accuracy)} m.`, "success");
                         if (hudFootnote) {
@@ -1093,6 +1125,168 @@
         }
     }
 
+    function startDemoSimulation() {
+        const assignment = selectedAssignment();
+        const id = String(assignment?.id || "");
+        const status = String(assignment?.status || "").toLowerCase();
+        const geometry = selectedRouteGeometry;
+
+        if (!assignment || !["assigned", "active", "delayed"].includes(status)) {
+            setMapNotice("Select one of your assigned routes before starting the demo simulation.", "warning");
+            return;
+        }
+        if (!mapReady || !selectedRouteNavigable || !Array.isArray(geometry?.coordinates) || geometry.coordinates.length < 2) {
+            setMapNotice("Wait until the selected route and its stop coordinates finish loading before running the 3D demo.", "warning");
+            return;
+        }
+
+        // The demo and GPS must never move the same marker concurrently. Starting a demo
+        // stops this page's GPS watch; the simulated coordinates are never posted to the API.
+        stopNavigationPreview(true);
+        demoSimulationRunning = true;
+        demoSimulationCompleted = false;
+        demoSimulationAssignmentId = id;
+        navigationCoordinates = geometry.coordinates.slice();
+        navigationCumulativeMeters = buildCumulativeDistances(navigationCoordinates);
+        navigationTotalMeters = navigationCumulativeMeters[navigationCumulativeMeters.length - 1] || 0;
+
+        if (navigationTotalMeters <= 0) {
+            stopNavigationPreview(true);
+            setMapStatus("Demo unavailable");
+            setMapNotice("This route does not have enough geometry to simulate truck movement.", "warning");
+            return;
+        }
+
+        // Keep the route tour presentation-like: shorter routes take at least 35 seconds;
+        // longer routes scale up to 75 seconds so a presenter can show multiple turns.
+        navigationDurationMs = Math.max(
+            ROUTE_DEMO_DURATION_MIN_MS,
+            Math.min(ROUTE_DEMO_DURATION_MAX_MS, navigationTotalMeters * 8)
+        );
+        navigationStartedAt = performance.now();
+        navigationLastCameraUpdate = 0;
+        navigationLastProgressUpdate = 0;
+        is3DView = true;
+
+        const hud = byId("driverMapHud");
+        if (hud) hud.hidden = false;
+        const hudKicker = byId("driverMapHudKicker");
+        if (hudKicker) {
+            hudKicker.textContent = "DEMO MODE · NOT REAL GPS";
+            hudKicker.dataset.mode = "demo";
+        }
+        const hudTitle = byId("driverMapHudTitle");
+        if (hudTitle) hudTitle.textContent = `${assignment.route?.code || assignment.code || "Assigned route"} · 3D Demo`;
+        const hudDetail = byId("driverMapHudDetail");
+        if (hudDetail) hudDetail.textContent = "Demo truck preparing to follow the planned road route…";
+        const hudFootnote = byId("driverMapHudFootnote");
+        if (hudFootnote) {
+            hudFootnote.textContent = "SIMULATION ONLY · no simulated location is sent to the Inspector";
+            hudFootnote.dataset.state = "demo";
+        }
+        const progressBar = byId("driverMapProgressBar");
+        if (progressBar) progressBar.style.width = "0%";
+        const progressSource = driverMap?.getSource("driver-route-progress");
+        if (progressSource) progressSource.setData(emptyFeatureCollection());
+
+        const first = navigationCoordinates[0];
+        const second = navigationCoordinates[1];
+        ensureTruckMarker(first);
+        setTruckHeading(bearingDegrees(first, second));
+        driverMap.easeTo({ center: first, zoom: 16.3, pitch: 58, bearing: bearingDegrees(first, second), duration: 900, essential: true });
+        setMapStatus("3D demo simulation");
+        setMapNotice(
+            "Demo simulation is running locally along the selected route. It is for presentation only: no simulated coordinates are uploaded, and the Inspector receives real GPS readings only.",
+            "warning"
+        );
+        updateNavigationControls();
+
+        const animate = timestamp => {
+            if (!demoSimulationRunning || demoSimulationAssignmentId !== id || !driverMap || !mapReady) return;
+            const elapsed = Math.max(0, timestamp - navigationStartedAt);
+            const ratio = Math.min(1, elapsed / navigationDurationMs);
+            const distance = navigationTotalMeters * ratio;
+            const coord = pointAtDistance(navigationCoordinates, navigationCumulativeMeters, distance);
+            if (!coord || !coord.every(Number.isFinite)) {
+                stopNavigationPreview(true);
+                setMapStatus("Demo unavailable");
+                setMapNotice("The route geometry could not be used for this simulation.", "warning");
+                return;
+            }
+
+            const lookBehindDistance = Math.max(0, distance - Math.max(3, navigationTotalMeters * 0.0015));
+            const previous = pointAtDistance(navigationCoordinates, navigationCumulativeMeters, lookBehindDistance);
+            if (distance > 1 && previous) setTruckHeading(bearingDegrees(previous, coord));
+            ensureTruckMarker(coord);
+
+            // Reveal the completed portion of the route as the truck progresses.
+            if (timestamp - navigationLastProgressUpdate >= 100 || ratio >= 1) {
+                const progressed = navigationCoordinates.filter((point, index) => navigationCumulativeMeters[index] < distance);
+                if (!progressed.length || distance <= 0) {
+                    const source = driverMap.getSource("driver-route-progress");
+                    if (source) source.setData(emptyFeatureCollection());
+                } else {
+                    progressed.push(coord);
+                    const source = driverMap.getSource("driver-route-progress");
+                    if (source) source.setData(lineFeature(progressed));
+                }
+                const progressBar = byId("driverMapProgressBar");
+                if (progressBar) progressBar.style.width = `${Math.round(ratio * 100)}%`;
+                const hudDetail = byId("driverMapHudDetail");
+                if (hudDetail) hudDetail.textContent = `DEMO · ${Math.round(ratio * 100)}% complete · ${navigationStopLabel(ratio, id)}`;
+                navigationLastProgressUpdate = timestamp;
+            }
+
+            // Throttle camera transitions so the simulated truck moves smoothly without
+            // issuing a map camera animation on every animation frame.
+            if (timestamp - navigationLastCameraUpdate >= 850 || ratio >= 1) {
+                const camera = {
+                    center: coord,
+                    zoom: 16.3,
+                    pitch: 58,
+                    duration: ratio >= 1 ? 700 : 760,
+                    essential: true
+                };
+                if (previous && distance > 1) camera.bearing = bearingDegrees(previous, coord);
+                driverMap.easeTo(camera);
+                navigationLastCameraUpdate = timestamp;
+            }
+
+            if (ratio >= 1) {
+                animationFrameId = null;
+                demoSimulationRunning = false;
+                demoSimulationCompleted = true;
+                setMapStatus("Demo simulation complete");
+                setMapNotice("3D demo complete. This was a local-only simulation; it did not send simulated GPS to the Inspector.", "warning");
+                const hudKicker = byId("driverMapHudKicker");
+                if (hudKicker) {
+                    hudKicker.textContent = "DEMO COMPLETE · NOT REAL GPS";
+                    hudKicker.dataset.mode = "demo";
+                }
+                const hudFootnote = byId("driverMapHudFootnote");
+                if (hudFootnote) {
+                    hudFootnote.textContent = "DEMO COMPLETE · simulated position only · not real GPS";
+                    hudFootnote.dataset.state = "demo";
+                }
+                updateNavigationControls();
+                return;
+            }
+            animationFrameId = window.requestAnimationFrame(animate);
+        };
+
+        animationFrameId = window.requestAnimationFrame(animate);
+    }
+
+    function handleDemoSimulationButton() {
+        if (demoSimulationRunning) {
+            stopNavigationPreview(true);
+            setMapStatus("Demo simulation stopped");
+            setMapNotice("Demo simulation stopped. No simulated coordinates were uploaded to SWACHHITRA.", "warning");
+            return;
+        }
+        startDemoSimulation();
+    }
+
     function handleNavigationStartButton() {
         const assignment = selectedAssignment();
         if (!assignment) return;
@@ -1121,6 +1315,7 @@
         byId("driverMapFitButton")?.addEventListener("click", fitCurrentRoute);
         byId("driverMap3dButton")?.addEventListener("click", handleThreeDToggle);
         byId("driverMapStartButton")?.addEventListener("click", handleNavigationStartButton);
+        byId("driverMapDemoButton")?.addEventListener("click", handleDemoSimulationButton);
         byId("driverMapStopButton")?.addEventListener("click", () => {
             stopNavigationPreview(true);
             if (driverMap) driverMap.easeTo({ pitch: 0, duration: 600, essential: true });

@@ -359,3 +359,53 @@
   }
 }
 
+
+
+/* Local-only 3D demo control: intentionally distinct from real GPS sharing. */
+.driver-app .demo-simulation-button {
+  border: 1px solid #b7d39a;
+  color: #2d662d;
+  background: linear-gradient(135deg, #f1f9e9 0%, #deefce 100%);
+  font-weight: 850;
+  box-shadow: 0 2px 7px rgba(52, 96, 37, 0.10);
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+.driver-app .demo-simulation-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: #72a451;
+  color: #fff;
+  background: linear-gradient(135deg, #5c9a3d 0%, #2d7133 100%);
+  box-shadow: 0 5px 13px rgba(40, 91, 31, 0.22);
+}
+.driver-app .demo-simulation-button[aria-pressed="true"] {
+  color: #fff;
+  border-color: #916c22;
+  background: linear-gradient(135deg, #ba8624 0%, #856015 100%);
+  box-shadow: 0 3px 9px rgba(105, 75, 17, 0.20);
+}
+.driver-app .demo-simulation-button:focus-visible {
+  outline: 3px solid #91c853;
+  outline-offset: 2px;
+}
+.driver-app .demo-simulation-button:disabled {
+  opacity: .52;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.driver-app .driver-map-hud-kicker[data-mode="demo"] {
+  width: fit-content;
+  padding: 4px 7px;
+  border: 1px solid #efd39a;
+  border-radius: 6px;
+  color: #77500a;
+  background: #fff4d9;
+  letter-spacing: .08em;
+}
+.driver-app .driver-map-hud-footnote[data-state="demo"] {
+  color: #80590c;
+  font-weight: 850;
+}
+@media (prefers-reduced-motion: reduce) {
+  .driver-app .demo-simulation-button { transition: none !important; }
+  .driver-app .demo-simulation-button:hover:not(:disabled) { transform: none; }
+}
