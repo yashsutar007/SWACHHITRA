@@ -2709,10 +2709,15 @@ a {
   transition: transform 0.18s ease;
 }
 
-/* Part 7: filled, translucent green live-GPS halo. The truck itself stays
-   readable above the halo; only fresh GPS markers pulse. */
+/* Live GPS marker: a vivid green filled halo with two visible expanding pulses. */
 .custom-truck-marker.gps-live {
   z-index: 2;
+  background: #1f873a;
+  box-shadow:
+    0 0 0 3px #ffffff,
+    0 0 0 5px #35b653,
+    0 0 0 8px rgba(42, 172, 70, 0.34),
+    0 5px 13px rgba(0, 0, 0, 0.25);
 }
 
 .custom-truck-marker.gps-live::before,
@@ -2720,49 +2725,42 @@ a {
   content: "";
   position: absolute;
   z-index: -1;
-  inset: -8px;
-  border: 1px solid rgba(22, 163, 74, 0.30);
+  inset: -5px;
+  border: 2px solid rgba(20, 139, 53, 0.90);
   border-radius: 50%;
-  background: rgba(34, 197, 94, 0.18);
-  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.06);
+  background: rgba(52, 211, 85, 0.48);
+  box-shadow: 0 0 0 3px rgba(52, 211, 85, 0.24);
   opacity: 0;
   pointer-events: none;
   will-change: transform, opacity;
-  animation: truck-live-pulse 2.2s cubic-bezier(0.16, 0.75, 0.28, 1) infinite;
+  animation: truck-live-pulse 2.0s cubic-bezier(0.16, 0.75, 0.28, 1) infinite;
 }
 
 .custom-truck-marker.gps-live::after {
-  animation-delay: 1.1s;
-  background: rgba(34, 197, 94, 0.14);
+  animation-delay: 1s;
+  background: rgba(38, 198, 75, 0.40);
+  border-color: rgba(24, 129, 49, 0.82);
 }
 
-.custom-truck-marker svg {
+.custom-truck-marker.gps-live svg {
   position: relative;
   z-index: 1;
-  display: block;
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 @keyframes truck-live-pulse {
   0% {
-    transform: scale(0.62);
-    opacity: 0.62;
-    background: rgba(34, 197, 94, 0.22);
+    transform: scale(0.78);
+    opacity: 0.82;
+    background: rgba(52, 211, 85, 0.52);
   }
-  55% {
-    opacity: 0.24;
-    background: rgba(34, 197, 94, 0.12);
+  52% {
+    opacity: 0.58;
+    background: rgba(52, 211, 85, 0.42);
   }
   100% {
-    transform: scale(2.35);
+    transform: scale(1.9);
     opacity: 0;
-    background: rgba(34, 197, 94, 0.04);
+    background: rgba(52, 211, 85, 0.18);
   }
 }
 
@@ -3709,5 +3707,14 @@ a {
   .route-stop-form-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .custom-truck-marker.gps-live::before,
+  .custom-truck-marker.gps-live::after {
+    animation: none !important;
+    opacity: 0.34;
+    transform: scale(1.12);
   }
 }
