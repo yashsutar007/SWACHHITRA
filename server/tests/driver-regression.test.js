@@ -479,21 +479,34 @@ test("Truck-full report does not require a schema migration and avoids duplicate
 });
 
 
-test("Starting a Driver route creates an ETA notice only for active Citizens in that exact Ward, Zone, and Division", () => {
+test("Starting or resuming real GPS sharing sends approximate ETA notices only to Citizens near pending stops in the exact Ward, Zone and Division", () => {
     const controller = read("server/controllers/driverController.js");
-    assert.ok(controller.includes("function estimateWardArrivalMinutes(assignment)"));
-    assert.ok(controller.includes("function notifyCitizensRouteStarted(connection, assignment, driver)"));
-    assert.ok(controller.includes("if (!assignment.started_at)"));
-    assert.ok(controller.includes("'route_start_eta', 'medium'"));
-    assert.ok(controller.includes("citizen_profile.ward_id = ?"));
-    assert.ok(controller.includes("citizen_profile.zone_id = ?"));
-    assert.ok(controller.includes("citizen_profile.division_id = ?"));
-    assert.ok(controller.includes("within approximately ${etaMinutes} minutes"));
+    const client = read("client/driverDash/driverDash.js");
+    assert.match(controller, /function gpsDistanceMeters\(lat1, lon1, lat2, lon2\)/);
+    assert.match(controller, /CITIZEN_ROUTE_STOP_RADIUS_METERS = 750/);
+    assert.match(controller, /async function notifyNearbyCitizensOnGpsResume\(connection, assignment, driver, gps\)/);
+    assert.match(controller, /req\.body\?\.announceStart === true/);
+    assert.match(controller, /status IN \('pending', 'in_progress'\)/);
+    assert.match(controller, /citizen_profile\.ward_id = \?/);
+    assert.match(controller, /citizen_profile\.zone_id = \?/);
+    assert.match(controller, /citizen_profile\.division_id = \?/);
+    assert.match(controller, /address_latitude IS NOT NULL/);
+    assert.match(controller, /address_longitude IS NOT NULL/);
+    assert.match(controller, /approximately \${etaMinutes} minutes/);
+    assert.match(client, /gpsAnnouncementPending = true/);
+    assert.match(client, /announceStart: announceGpsStart/);
+    assert.match(client, /locationResult\.citizenNotificationsCreated/);
+    const startHandler = controller.slice(
+        controller.indexOf("async function startMyAssignment"),
+        controller.indexOf("async function updateMyStop")
+    );
+    assert.doesNotMatch(startHandler, /notifyNearbyCitizensOnGpsResume|notifyCitizensRouteStarted/);
     const notificationHelper = controller.slice(
-        controller.indexOf("async function notifyCitizensRouteStarted"),
+        controller.indexOf("async function notifyNearbyCitizensOnGpsResume"),
         controller.indexOf("async function startMyAssignment")
     );
-    assert.doesNotMatch(notificationHelper, /address_latitude|address_longitude|mobile_number|official_email/);
+    assert.doesNotMatch(notificationHelper, /INSERT INTO notifications[\s\S]{0,400}address_latitude|INSERT INTO notifications[\s\S]{0,400}address_longitude/);
+    assert.match(notificationHelper, /GPS-distance estimate; road layout and traffic may change/);
 });
 
 test("Citizen notifications endpoint remains authenticated, Ward-scoped, and mark-read mutations require CSRF security", () => {

@@ -40,6 +40,8 @@
     let lastGpsCoordinate = null;
     let lastLocationSentAt = 0;
     let locationPostInFlight = false;
+    let gpsAnnouncementPending = false;
+    let gpsSessionSequence = 0;
     let lastGpsAccuracy = null;
     let navigationRunning = false;
     let navigationAssignmentId = "";
@@ -566,6 +568,8 @@
         geolocationWatchId = null;
         navigationRunning = false;
         navigationAssignmentId = "";
+        gpsAnnouncementPending = false;
+        gpsSessionSequence += 1;
         demoSimulationRunning = false;
         demoSimulationCompleted = false;
         demoSimulationAssignmentId = "";
@@ -992,6 +996,10 @@
         stopNavigationPreview(true);
         navigationAssignmentId = id;
         navigationRunning = true;
+        const gpsSessionId = ++gpsSessionSequence;
+        // Notify area-matched Citizens after the first verified GPS upload for
+        // every genuine GPS start or resume (never for local demo simulation).
+        gpsAnnouncementPending = true;
         const geometry = selectedRouteGeometry?.coordinates;
         navigationCoordinates = Array.isArray(geometry) ? geometry : [];
         navigationCumulativeMeters = navigationCoordinates.length > 1 ? buildCumulativeDistances(navigationCoordinates) : [];
@@ -1076,22 +1084,34 @@
                 locationPostInFlight = true;
                 lastLocationSentAt = now;
                 try {
-                    await mutateJSON("/api/driver/location", {
+                    const announceGpsStart = gpsAnnouncementPending && gpsSessionSequence === gpsSessionId;
+                    const locationResult = await mutateJSON("/api/driver/location", {
                         assignmentId: Number(id), latitude, longitude, accuracy,
                         heading: heading === null ? null : heading,
-                        speed: coords.speed !== null && coords.speed !== undefined && Number.isFinite(Number(coords.speed)) ? Number(coords.speed) : null
+                        speed: coords.speed !== null && coords.speed !== undefined && Number.isFinite(Number(coords.speed)) ? Number(coords.speed) : null,
+                        announceStart: announceGpsStart
                     });
+                    if (announceGpsStart && gpsSessionSequence === gpsSessionId) {
+                        // Clear only this session's pending flag. A stale response
+                        // from an earlier session cannot clear a newer resume.
+                        gpsAnnouncementPending = false;
+                    }
                     // A genuine GPS upload may finish after the user switches to demo mode.
                     // Do not let that previous callback overwrite the current demo UI.
-                    if (!navigationRunning || String(navigationAssignmentId) !== id) return;
+                    if (!navigationRunning || String(navigationAssignmentId) !== id || gpsSessionSequence !== gpsSessionId) return;
+                    const announcementSuffix = announceGpsStart
+                        ? (Number(locationResult.citizenNotificationsCreated || 0) > 0
+                            ? ` Nearby Citizens in this route area were notified with an approximate ETA (${Number(locationResult.citizenNotificationsCreated)} recipient${Number(locationResult.citizenNotificationsCreated) === 1 ? "" : "s"}).`
+                            : " No nearby Citizens were notified; their saved address pins must be within 750 m of a pending stop on this route.")
+                        : "";
                     if (accuracy <= 150) {
-                        setMapNotice(`Live GPS location sent to SWACHHITRA. Accuracy ±${Math.round(accuracy)} m.`, "success");
+                        setMapNotice(`Live GPS location sent to SWACHHITRA. Accuracy ±${Math.round(accuracy)} m.${announcementSuffix}`, "success");
                         if (hudFootnote) {
                             hudFootnote.textContent = "Live GPS confirmed · location shared with Inspector";
                             hudFootnote.dataset.state = "live";
                         }
                     } else {
-                        setMapNotice(`Approximate GPS location sent to SWACHHITRA. Accuracy ±${Math.round(accuracy)} m; improve accuracy outdoors when possible.`, "warning");
+                        setMapNotice(`Approximate GPS location sent to SWACHHITRA. Accuracy ±${Math.round(accuracy)} m; improve accuracy outdoors when possible.${announcementSuffix}`, "warning");
                         if (hudFootnote) {
                             hudFootnote.textContent = `Approximate GPS shared with Inspector · accuracy ±${Math.round(accuracy)} m`;
                             hudFootnote.dataset.state = "warning";

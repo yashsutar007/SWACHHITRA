@@ -399,48 +399,79 @@ async function loadOwnedAssignment(connection, assignmentId, driverId) {
 }
 
 /**
- * The route's configured duration is preferred for Citizen arrival notices.
- * If absent, estimate from configured distance at an explicitly approximate
- * 20 km/h urban operating speed (3 minutes/km). Never invent an ETA if neither
- * input is available.
+ * Straight-line distance between two GPS coordinates in metres.
  */
-function estimateWardArrivalMinutes(assignment) {
-    const configuredMinutes = Number(assignment?.estimated_duration_minutes);
-    if (Number.isFinite(configuredMinutes) && configuredMinutes > 0) {
-        return Math.max(1, Math.ceil(configuredMinutes));
-    }
-
-    const distanceKm = Number(assignment?.estimated_distance_km);
-    if (Number.isFinite(distanceKm) && distanceKm > 0) {
-        return Math.max(1, Math.ceil(distanceKm * 3));
-    }
-
-    return null;
+function gpsDistanceMeters(lat1, lon1, lat2, lon2) {
+    const radians = value => value * Math.PI / 180;
+    const phi1 = radians(lat1);
+    const phi2 = radians(lat2);
+    const deltaPhi = radians(lat2 - lat1);
+    const deltaLambda = radians(lon2 - lon1);
+    const a = Math.sin(deltaPhi / 2) ** 2 +
+        Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) ** 2;
+    return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)));
 }
 
-async function notifyCitizensRouteStarted(connection, assignment, driver) {
+// A resident is considered in the local route area only when their saved,
+// geocoded service address is within this radius of an uncompleted stop.
+const CITIZEN_ROUTE_STOP_RADIUS_METERS = 750;
+const GPS_ANNOUNCEMENT_DEDUPE_SECONDS = 20;
+
+/**
+ * Notify only Citizens whose confirmed Ward/Zone/Division match the active
+ * assignment and whose saved address pin is close to an uncompleted route stop.
+ * The browser must explicitly mark the first real GPS upload for each
+ * start/resume session with announceStart=true. Simulated positions never call
+ * this path. No Citizen address or coordinates are inserted into notifications.
+ */
+async function notifyNearbyCitizensOnGpsResume(connection, assignment, driver, gps) {
     const wardId = Number(assignment?.ward_id);
     const zoneId = Number(assignment?.zone_id);
     const divisionId = Number(assignment?.division_id ?? assignment?.ward_division_id);
 
-    // A Citizen is eligible only through their own saved, confirmed address ->
-    // Ward mapping. No address, coordinates, or contact details are placed in
-    // the notification or response. This query never selects residents from
-    // another Ward, Zone, or Division.
     if (
         !Number.isSafeInteger(wardId) || wardId <= 0 ||
         !Number.isSafeInteger(zoneId) || zoneId <= 0 ||
         !Number.isSafeInteger(divisionId) || divisionId <= 0 ||
-        assignment.ward_status !== "active" ||
-        assignment.zone_status !== "active" ||
+        assignment.ward_status !== 'active' ||
+        assignment.zone_status !== 'active' ||
+        assignment.division_status !== 'active' ||
         Number(assignment.ward_zone_id) !== zoneId ||
         Number(assignment.ward_division_id) !== divisionId
     ) {
         return 0;
     }
 
+    const routeId = Number(assignment.route_id);
+    const [stopRows] = await connection.execute(
+        `SELECT stop_order, latitude, longitude
+         FROM route_stops
+         WHERE route_id = ?
+           AND status IN ('pending', 'in_progress')
+           AND latitude IS NOT NULL
+           AND longitude IS NOT NULL
+         ORDER BY stop_order ASC`,
+        [routeId]
+    );
+
+    const stops = stopRows.map(row => ({
+        order: Number(row.stop_order),
+        latitude: Number(row.latitude),
+        longitude: Number(row.longitude)
+    })).filter(stop =>
+        Number.isFinite(stop.latitude) && stop.latitude >= -90 && stop.latitude <= 90 &&
+        Number.isFinite(stop.longitude) && stop.longitude >= -180 && stop.longitude <= 180
+    );
+
+    // If route stops do not have real coordinates, do not guess which local
+    // Citizens should be notified or invent a location-specific ETA.
+    if (!stops.length) return 0;
+
     const [citizens] = await connection.execute(
-        `SELECT DISTINCT u.id AS user_id
+        `SELECT DISTINCT
+             u.id AS user_id,
+             citizen_profile.address_latitude,
+             citizen_profile.address_longitude
          FROM users u
          INNER JOIN user_profiles citizen_profile
             ON citizen_profile.user_id = u.id
@@ -460,36 +491,96 @@ async function notifyCitizensRouteStarted(connection, assignment, driver) {
            AND citizen_profile.ward_id = ?
            AND citizen_profile.zone_id = ?
            AND citizen_profile.division_id = ?
+           AND citizen_profile.address_latitude IS NOT NULL
+           AND citizen_profile.address_longitude IS NOT NULL
          ORDER BY u.id`,
         [wardId, zoneId, divisionId]
     );
 
     if (!citizens.length) return 0;
 
-    const etaMinutes = estimateWardArrivalMinutes(assignment);
-    const routeLabel = assignment.route_code || assignment.route_name || `Route ${assignment.route_id}`;
-    const wardLabel = `Ward ${assignment.ward_number ?? wardId}${assignment.ward_name ? ` — ${assignment.ward_name}` : ""}`;
+    // Avoid duplicates if the initial GPS upload succeeds on the server but
+    // the browser loses the response and retries its start/resume announcement.
+    const [recentRows] = await connection.execute(
+        `SELECT DISTINCT recipient_user_id
+         FROM notifications
+         WHERE related_route_id = ?
+           AND notification_type = 'route_start_eta'
+           AND created_at >= DATE_SUB(NOW(), INTERVAL ${GPS_ANNOUNCEMENT_DEDUPE_SECONDS} SECOND)`,
+        [routeId]
+    );
+    const recentlyNotified = new Set(
+        recentRows.map(row => Number(row.recipient_user_id))
+    );
+
+    const driverLat = Number(gps.latitude);
+    const driverLon = Number(gps.longitude);
+    const routeLabel = assignment.route_code || assignment.route_name || `Route ${routeId}`;
+    const wardLabel = `Ward ${assignment.ward_number ?? wardId}${assignment.ward_name ? ` — ${assignment.ward_name}` : ''}`;
     const vehicleLabel = assignment.vehicle_number || `vehicle ${assignment.vehicle_id}`;
-    const arrivalText = etaMinutes !== null
-        ? `Based on the planned route estimate, the truck is expected in your Ward within approximately ${etaMinutes} minutes.`
-        : "An arrival time estimate is not available for this route yet; open the Citizen portal to follow the truck when GPS sharing begins.";
-    const message = `Collection route ${routeLabel} has started for ${wardLabel}. Vehicle ${vehicleLabel} is on the way. ${arrivalText} Live location is limited to your confirmed service Ward.`;
+    let notificationsCreated = 0;
 
     for (const citizen of citizens) {
+        const citizenLat = Number(citizen.address_latitude);
+        const citizenLon = Number(citizen.address_longitude);
+        if (
+            !Number.isFinite(citizenLat) || citizenLat < -90 || citizenLat > 90 ||
+            !Number.isFinite(citizenLon) || citizenLon < -180 || citizenLon > 180
+        ) continue;
+
+        // Find an uncompleted stop that serves this Citizen's immediate area.
+        let nearestAreaStop = null;
+        let nearestAddressToStopMeters = Infinity;
+        for (const stop of stops) {
+            const addressToStopMeters = gpsDistanceMeters(
+                citizenLat, citizenLon, stop.latitude, stop.longitude
+            );
+            if (addressToStopMeters < nearestAddressToStopMeters) {
+                nearestAddressToStopMeters = addressToStopMeters;
+                nearestAreaStop = stop;
+            }
+        }
+
+        if (
+            !nearestAreaStop ||
+            nearestAddressToStopMeters > CITIZEN_ROUTE_STOP_RADIUS_METERS
+        ) continue;
+
+        const userId = Number(citizen.user_id);
+        if (!Number.isSafeInteger(userId) || userId <= 0 || recentlyNotified.has(userId)) {
+            continue;
+        }
+
+        // Approximate from the current real GPS point to the next stop serving
+        // this address area. A 1.4x road allowance and 20 km/h urban planning
+        // speed are used; this is not turn-by-turn/traffic-aware navigation.
+        const straightLineMeters = gpsDistanceMeters(
+            driverLat, driverLon,
+            nearestAreaStop.latitude, nearestAreaStop.longitude
+        );
+        const roadAdjustedKm = (straightLineMeters / 1000) * 1.4;
+        const etaMinutes = Math.max(1, Math.min(180, Math.ceil(roadAdjustedKm * 3)));
+        const message =
+            `Vehicle ${vehicleLabel} has started or resumed live GPS sharing on ${routeLabel} in ${wardLabel}. ` +
+            `The truck is estimated to reach the collection point serving your nearby area in approximately ${etaMinutes} minutes. ` +
+            `This is a GPS-distance estimate; road layout and traffic may change the actual arrival time.`;
+
         await connection.execute(
             `INSERT INTO notifications
                 (recipient_user_id, title, message, notification_type, priority, related_route_id)
              VALUES (?, ?, ?, 'route_start_eta', 'medium', ?)`,
             [
-                Number(citizen.user_id),
-                `Collection truck on the way — ${wardLabel}`,
+                userId,
+                `Collection truck approaching your area — ${wardLabel}`,
                 message,
-                Number(assignment.route_id)
+                routeId
             ]
         );
+        recentlyNotified.add(userId);
+        notificationsCreated += 1;
     }
 
-    return citizens.length;
+    return notificationsCreated;
 }
 
 async function startMyAssignment(req, res) {
@@ -539,24 +630,14 @@ async function startMyAssignment(req, res) {
             [driver.id]
         );
 
-        // Notify only the first time this assignment is started. Resuming or
-        // re-clicking Start cannot create duplicate Citizen route alerts.
-        let citizenNotificationsCreated = 0;
-        if (!assignment.started_at) {
-            citizenNotificationsCreated = await notifyCitizensRouteStarted(
-                connection,
-                assignment,
-                driver
-            );
-        }
-
+        // Citizen ETA alerts are sent only after the first valid live GPS upload
+        // for this start/resume session, not merely when the route status changes.
         await connection.commit();
         res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
         return res.json({
             success: true,
             message: "Route started.",
-            assignmentId,
-            citizenNotificationsCreated
+            assignmentId
         });
     } catch (error) {
         try { await connection.rollback(); } catch {}
@@ -1014,6 +1095,7 @@ async function updateMyLocation(req, res) {
     const accuracy = parseStrictNumber(req.body?.accuracy);
     const headingValue = req.body?.heading;
     const speedValue = req.body?.speed;
+    const announceStart = req.body?.announceStart === true;
     const assignmentId = validPositiveId(req.body?.assignmentId);
     const heading = headingValue === null || headingValue === undefined || headingValue === ""
         ? null
@@ -1046,12 +1128,37 @@ async function updateMyLocation(req, res) {
         }
 
         const [owned] = await connection.execute(
-            `SELECT ra.id, ra.vehicle_id, ra.status AS assignment_status,
-                    r.status AS route_status, r.approval_status, v.status AS vehicle_status
+            `SELECT
+                ra.id,
+                ra.route_id,
+                ra.vehicle_id,
+                ra.status AS assignment_status,
+                r.status AS route_status,
+                r.approval_status,
+                r.ward_id,
+                r.zone_id,
+                r.division_id,
+                r.route_code,
+                r.route_name,
+                v.status AS vehicle_status,
+                v.vehicle_number,
+                w.ward_number,
+                w.ward_name,
+                w.status AS ward_status,
+                w.zone_id AS ward_zone_id,
+                w.division_id AS ward_division_id,
+                z.status AS zone_status,
+                division_record.status AS division_status
              FROM route_assignments ra
              INNER JOIN routes r ON r.id = ra.route_id
              INNER JOIN vehicles v ON v.id = ra.vehicle_id
-             WHERE ra.id = ? AND ra.driver_id = ? AND ra.unassigned_at IS NULL
+             LEFT JOIN wards w ON w.id = r.ward_id
+             LEFT JOIN zones z ON z.id = r.zone_id
+             LEFT JOIN divisions AS division_record
+                ON division_record.id = COALESCE(r.division_id, w.division_id)
+             WHERE ra.id = ?
+               AND ra.driver_id = ?
+               AND ra.unassigned_at IS NULL
              LIMIT 1 FOR UPDATE`,
             [assignmentId, driver.id]
         );
@@ -1060,7 +1167,7 @@ async function updateMyLocation(req, res) {
             await connection.rollback();
             return res.status(404).json({ success: false, message: "Active assignment not found for this Driver." });
         }
-        if (!(["active", "delayed"].includes(assignment.assignment_status)) ||
+        if (!( ["active", "delayed"].includes(assignment.assignment_status)) ||
             ["cancelled", "completed"].includes(assignment.route_status) ||
             assignment.approval_status === "rejected" ||
             ["maintenance", "inactive"].includes(assignment.vehicle_status)) {
@@ -1079,12 +1186,25 @@ async function updateMyLocation(req, res) {
              WHERE id = ?`,
             [latitude, longitude, accuracy, heading, speed, assignment.vehicle_id]
         );
+
+        let citizenNotificationsCreated = 0;
+        if (announceStart) {
+            citizenNotificationsCreated = await notifyNearbyCitizensOnGpsResume(
+                connection,
+                assignment,
+                driver,
+                { latitude, longitude }
+            );
+        }
+
         await connection.commit();
         res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
         return res.json({
             success: true,
             message: "GPS location received.",
             assignmentId,
+            citizenNotificationsCreated,
+            gpsStartAnnouncementProcessed: announceStart,
             location: { latitude, longitude, accuracy, heading, speed, receivedAt: new Date().toISOString() }
         });
     } catch (error) {
