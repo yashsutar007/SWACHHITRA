@@ -2266,30 +2266,6 @@ a {
   font-weight: 800;
 }
 
-.priority {
-  display: inline-flex;
-  align-items: center;
-  padding: 5px 7px;
-  border-radius: var(--pill);
-  font-size: 16px;
-  font-weight: 800;
-}
-
-.priority.high {
-  color: #ac2f25;
-  background: var(--red-soft);
-}
-
-.priority.medium {
-  color: #956007;
-  background: var(--amber-soft);
-}
-
-.priority.low {
-  color: #1d6c3c;
-  background: var(--green-soft);
-}
-
 .report-status {
   font-size: 16px;
   font-weight: 700;

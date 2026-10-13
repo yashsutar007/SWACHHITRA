@@ -652,6 +652,113 @@ async function getMyComplaints(req, res) {
     }
 }
 
+async function getCitizenNotifications(req, res) {
+    try {
+        const userId = Number(req.currentUser?.id);
+        if (!Number.isSafeInteger(userId) || userId <= 0) {
+            throw createError("A signed-in Citizen account is required.", 401);
+        }
+
+        // Route-start notifications are visible only while the recipient's
+        // current confirmed profile still maps to that exact Ward/Zone/Division.
+        // This prevents old notification links from exposing a different area
+        // after a Citizen changes their service address.
+        const [rows] = await db.execute(
+            `SELECT
+                n.id,
+                n.title,
+                n.message,
+                n.notification_type,
+                n.priority,
+                n.is_read,
+                n.created_at,
+                n.read_at,
+                r.route_code,
+                r.ward_id AS route_ward_id
+             FROM notifications n
+             INNER JOIN users recipient
+                ON recipient.id = n.recipient_user_id
+               AND recipient.role = 'citizen'
+               AND recipient.status = 'active'
+             INNER JOIN user_profiles profile
+                ON profile.user_id = recipient.id
+             INNER JOIN routes r
+                ON r.id = n.related_route_id
+               AND r.ward_id = profile.ward_id
+               AND r.zone_id = profile.zone_id
+               AND (r.division_id = profile.division_id OR r.division_id IS NULL)
+             INNER JOIN wards w
+                ON w.id = profile.ward_id
+               AND w.zone_id = profile.zone_id
+               AND w.division_id = profile.division_id
+               AND w.status = 'active'
+             WHERE n.recipient_user_id = ?
+               AND n.notification_type = 'route_start_eta'
+             ORDER BY n.created_at DESC, n.id DESC
+             LIMIT 30`,
+            [userId]
+        );
+
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+        return res.json({
+            success: true,
+            notifications: rows.map(row => ({
+                id: Number(row.id),
+                title: row.title,
+                message: row.message,
+                type: row.notification_type,
+                priority: row.priority,
+                isRead: Boolean(row.is_read),
+                createdAt: complaintDateToIso(row.created_at),
+                readAt: complaintDateToIso(row.read_at),
+                routeCode: row.route_code
+            }))
+        });
+    } catch (error) {
+        return sendError(res, "Unable to load Citizen notifications.", error);
+    }
+}
+
+async function markCitizenNotificationsRead(req, res) {
+    try {
+        const userId = Number(req.currentUser?.id);
+        if (!Number.isSafeInteger(userId) || userId <= 0) {
+            throw createError("A signed-in Citizen account is required.", 401);
+        }
+
+        const [result] = await db.execute(
+            `UPDATE notifications n
+             INNER JOIN user_profiles profile
+                ON profile.user_id = n.recipient_user_id
+             INNER JOIN routes r
+                ON r.id = n.related_route_id
+               AND r.ward_id = profile.ward_id
+               AND r.zone_id = profile.zone_id
+               AND (r.division_id = profile.division_id OR r.division_id IS NULL)
+             INNER JOIN wards w
+                ON w.id = profile.ward_id
+               AND w.zone_id = profile.zone_id
+               AND w.division_id = profile.division_id
+               AND w.status = 'active'
+             SET n.is_read = TRUE,
+                 n.read_at = COALESCE(n.read_at, NOW())
+             WHERE n.recipient_user_id = ?
+               AND n.notification_type = 'route_start_eta'
+               AND n.is_read = FALSE`,
+            [userId]
+        );
+
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+        return res.json({
+            success: true,
+            message: "Ward route notifications marked as read.",
+            updatedCount: Number(result.affectedRows || 0)
+        });
+    } catch (error) {
+        return sendError(res, "Unable to update Citizen notifications.", error);
+    }
+}
+
 async function createCitizenComplaint(req, res) {
     const body = req.body || {};
 
@@ -718,7 +825,7 @@ async function createCitizenComplaint(req, res) {
 
         const [inspectorRows] = await connection.execute(
             `
-            SELECT u.id
+            SELECT DISTINCT u.id, ip.full_name
             FROM users u
             JOIN user_profiles ip
                 ON ip.user_id = u.id
@@ -733,7 +840,7 @@ async function createCitizenComplaint(req, res) {
               AND u.status = 'active'
               AND ip.ward_id = ?
               AND ip.division_id = ?
-            LIMIT 1
+            ORDER BY u.id
             `,
             [wardId, divisionId]
         );
@@ -780,11 +887,33 @@ async function createCitizenComplaint(req, res) {
             ]
         );
 
+        // Alert every active Inspector assigned to this exact Ward/Division.
+        // Do not include the Citizen's home address or coordinates in the
+        // notification message; Inspectors can open the scoped complaint record.
+        const wardLabel = `Ward ${profile.ward_number ?? wardId}${profile.ward_name ? ` — ${profile.ward_name}` : ""}`;
+        const inspectorNotificationMessage =
+            `New Citizen complaint ${complaintCode} (${complaintType}) was submitted for ${wardLabel}. ` +
+            "Open the Inspector Complaints section to review the report details and issue location.";
+
+        for (const inspector of inspectorRows) {
+            await connection.execute(
+                `INSERT INTO notifications
+                    (recipient_user_id, title, message, notification_type, priority, related_complaint_id)
+                 VALUES (?, ?, ?, 'citizen_complaint', 'high', ?)`,
+                [
+                    Number(inspector.id),
+                    `New complaint — ${wardLabel}`,
+                    inspectorNotificationMessage,
+                    Number(insertResult.insertId)
+                ]
+            );
+        }
+
         await connection.commit();
 
         return res.status(201).json({
             success: true,
-            message: "Complaint submitted and added to the Inspector queue for your operational Ward.",
+            message: "Complaint submitted and active Inspectors assigned to your Ward have been notified.",
             complaint: {
                 id: Number(insertResult.insertId),
                 code: complaintCode,
@@ -1042,6 +1171,8 @@ module.exports = {
     getCitizenProfile,
     getCitizenWardAreas,
     getCitizenLiveTracking,
+    getCitizenNotifications,
+    markCitizenNotificationsRead,
     saveCitizenProfile,
     findWardAtPoint,
     getMyComplaints,

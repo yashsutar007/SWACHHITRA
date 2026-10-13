@@ -161,6 +161,24 @@
                 <p class="citizen-live-tracking-note">Locations update periodically when driver GPS is available. A marker may remain at its last reported position when a truck's GPS signal is delayed or unavailable.</p>
             </section>
 
+            <section class="card-shell citizen-notifications-card" id="serviceNotifications" aria-labelledby="citizenNotificationsHeading">
+                <div class="complaints-heading citizen-notifications-heading">
+                    <div>
+                        <p class="section-eyebrow">WARD SERVICE UPDATES</p>
+                        <h2 id="citizenNotificationsHeading">Notifications</h2>
+                        <p>Route-start and arrival updates for your confirmed service Ward only.</p>
+                    </div>
+                    <div class="citizen-notifications-actions">
+                        <span id="citizenNotificationsStatus" class="citizen-notifications-status" role="status" aria-live="polite">Loading Ward updates…</span>
+                        <button id="refreshCitizenNotifications" class="secondary-button" type="button">Refresh updates</button>
+                        <button id="markCitizenNotificationsRead" class="secondary-button" type="button">Mark all read</button>
+                    </div>
+                </div>
+                <div id="citizenNotificationsList" class="citizen-notifications-list" aria-live="polite">
+                    <div class="loading-state"><span class="loading-spinner" aria-hidden="true"></span><p>Loading service notifications…</p></div>
+                </div>
+            </section>
+
             <section class="citizen-layout-grid">
                 <article class="card-shell account-summary-card" id="accountArea">
                     <div class="card-heading-row bordered">

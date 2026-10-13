@@ -143,8 +143,7 @@
             complaint.ward?.name,
             complaint.ward?.code,
             complaint.ward?.number,
-            statusLabel(complaint.status),
-            complaint.priority
+            statusLabel(complaint.status)
         ].map(value => String(value ?? "").trim()).filter(Boolean).join(" ").toLowerCase();
     }
 
@@ -296,8 +295,6 @@
             card.append(meta);
 
             const footer = el("div", "complaint-card-footer");
-            const priority = el("span", `priority-label priority-${String(complaint.priority || "medium").toLowerCase()}`, `${String(complaint.priority || "medium").toUpperCase()} PRIORITY`);
-            footer.append(priority);
             if (complaint.status === "open") {
                 const cancel = el("button", "text-action cancel-complaint-button", "Cancel complaint");
                 cancel.type = "button";
@@ -621,6 +618,133 @@
         }
     }
 
+    let citizenServiceNotifications = [];
+    let citizenNotificationsPollTimer = null;
+    let citizenNotificationsPollInFlight = false;
+    let citizenNotificationsPollingStopped = false;
+    let citizenNotificationsInitialized = false;
+    const knownCitizenNotificationIds = new Set();
+
+    function setCitizenNotificationsStatus(message, kind = "") {
+        const element = $("citizenNotificationsStatus");
+        if (!element) return;
+        element.textContent = String(message || "");
+        element.className = `citizen-notifications-status ${kind}`.trim();
+    }
+
+    function renderCitizenNotifications() {
+        const list = $("citizenNotificationsList");
+        const markReadButton = $("markCitizenNotificationsRead");
+        if (!list) return;
+
+        const unreadCount = citizenServiceNotifications.filter(item => !item.isRead).length;
+        if (markReadButton) markReadButton.disabled = unreadCount === 0;
+
+        list.replaceChildren();
+        if (!citizenServiceNotifications.length) {
+            list.append(el("div", "citizen-notifications-empty", "No route-start notifications for your confirmed Ward yet."));
+            setCitizenNotificationsStatus("No new Ward route updates", "");
+            return;
+        }
+
+        setCitizenNotificationsStatus(
+            `${unreadCount} unread · updates checked every 15 seconds`,
+            unreadCount ? "unread" : ""
+        );
+
+        for (const notification of citizenServiceNotifications) {
+            const card = el(
+                "article",
+                `citizen-notification-card${notification.isRead ? "" : " unread"}`
+            );
+            const icon = el("span", "citizen-notification-indicator", notification.isRead ? "✓" : "•");
+            icon.setAttribute("aria-hidden", "true");
+            const content = el("div", "citizen-notification-content");
+            content.append(el("strong", "", notification.title || "Ward collection update"));
+            content.append(el("p", "", notification.message || "A collection route has started for your Ward."));
+            const meta = el("small", "", `${notification.routeCode ? `${notification.routeCode} · ` : ""}${formatDate(notification.createdAt)}`);
+            content.append(meta);
+            card.append(icon, content);
+            list.append(card);
+        }
+    }
+
+    async function loadCitizenNotifications(showMessage = false) {
+        if (citizenNotificationsPollInFlight) return;
+        citizenNotificationsPollInFlight = true;
+        const refreshButton = $("refreshCitizenNotifications");
+        if (refreshButton) refreshButton.disabled = true;
+
+        try {
+            const result = await api("/api/citizen/notifications");
+            const incoming = Array.isArray(result.notifications)
+                ? result.notifications
+                : [];
+
+            const newlyArrived = citizenNotificationsInitialized
+                ? incoming.filter(item => !knownCitizenNotificationIds.has(String(item.id)) && !item.isRead)
+                : [];
+
+            citizenServiceNotifications = incoming;
+            for (const item of incoming) knownCitizenNotificationIds.add(String(item.id));
+            citizenNotificationsInitialized = true;
+            renderCitizenNotifications();
+
+            if (newlyArrived.length) {
+                setCitizenNotificationsStatus(
+                    `${newlyArrived.length} new route update${newlyArrived.length === 1 ? "" : "s"} · updates checked every 15 seconds`,
+                    "unread"
+                );
+            } else if (showMessage) {
+                setCitizenNotificationsStatus("Ward route updates refreshed", "");
+            }
+        } catch (error) {
+            if (error.status === 401 || error.status === 403) {
+                citizenNotificationsPollingStopped = true;
+                setCitizenNotificationsStatus("Sign in again to receive Ward route updates.", "error");
+            } else {
+                setCitizenNotificationsStatus("Route updates are temporarily unavailable. Retrying shortly.", "error");
+            }
+        } finally {
+            citizenNotificationsPollInFlight = false;
+            if (refreshButton) refreshButton.disabled = false;
+        }
+    }
+
+    function scheduleCitizenNotificationsPoll(delay = 15000) {
+        if (citizenNotificationsPollingStopped || document.hidden || citizenNotificationsPollTimer !== null) return;
+        citizenNotificationsPollTimer = window.setTimeout(async () => {
+            citizenNotificationsPollTimer = null;
+            await loadCitizenNotifications(false);
+            scheduleCitizenNotificationsPoll(15000);
+        }, delay);
+    }
+
+    function startCitizenNotificationsPolling() {
+        citizenNotificationsPollingStopped = false;
+        void loadCitizenNotifications(false).finally(() => scheduleCitizenNotificationsPoll(15000));
+    }
+
+    $("refreshCitizenNotifications")?.addEventListener("click", async () => {
+        await loadCitizenNotifications(true);
+        scheduleCitizenNotificationsPoll(15000);
+    });
+
+    $("markCitizenNotificationsRead")?.addEventListener("click", async buttonEvent => {
+        const button = buttonEvent.currentTarget;
+        button.disabled = true;
+        try {
+            await mutate("/api/citizen/notifications/read", "PUT", {});
+            await loadCitizenNotifications(false);
+            setCitizenNotificationsStatus("Ward route notifications marked as read", "");
+        } catch (error) {
+            setCitizenNotificationsStatus(error.message || "Unable to mark notifications as read.", "error");
+        } finally {
+            button.disabled = false;
+            renderCitizenNotifications();
+        }
+    });
+
     function startCitizenLiveTrackingPolling() {
         citizenLivePollingStopped = false;
         pollCitizenLiveTracking();
@@ -635,20 +759,36 @@
     });
 
     document.addEventListener("visibilitychange", () => {
-        if (!document.hidden && !citizenLivePollingStopped) {
+        if (document.hidden) {
+            if (citizenNotificationsPollTimer !== null) {
+                window.clearTimeout(citizenNotificationsPollTimer);
+                citizenNotificationsPollTimer = null;
+            }
+            return;
+        }
+
+        if (!citizenLivePollingStopped) {
             if (citizenLivePollTimer !== null) {
                 window.clearTimeout(citizenLivePollTimer);
                 citizenLivePollTimer = null;
             }
             pollCitizenLiveTracking();
         }
+        if (!citizenNotificationsPollingStopped) {
+            void loadCitizenNotifications(false).finally(() => scheduleCitizenNotificationsPoll(15000));
+        }
     });
 
     window.addEventListener("pagehide", () => {
         citizenLivePollingStopped = true;
+        citizenNotificationsPollingStopped = true;
         if (citizenLivePollTimer !== null) {
             window.clearTimeout(citizenLivePollTimer);
             citizenLivePollTimer = null;
+        }
+        if (citizenNotificationsPollTimer !== null) {
+            window.clearTimeout(citizenNotificationsPollTimer);
+            citizenNotificationsPollTimer = null;
         }
     });
 
@@ -656,6 +796,10 @@
         if (!document.hidden && citizenLivePollingStopped) {
             citizenLivePollingStopped = false;
             pollCitizenLiveTracking();
+        }
+        if (!document.hidden && citizenNotificationsPollingStopped) {
+            citizenNotificationsPollingStopped = false;
+            void loadCitizenNotifications(false).finally(() => scheduleCitizenNotificationsPoll(15000));
         }
     });
 
@@ -683,6 +827,7 @@
             startCitizenLiveTrackingPolling();
             await loadCsrfToken();
             await loadComplaints(false);
+            startCitizenNotificationsPolling();
         } catch (error) {
             console.error("Citizen dashboard initialization failed:", error);
             setNotice(error.message || "Unable to load the Citizen dashboard.", "error");

@@ -375,17 +375,121 @@ function validDelayMinutes(value) {
 
 async function loadOwnedAssignment(connection, assignmentId, driverId) {
     const [rows] = await connection.execute(
-        `SELECT ra.id, ra.route_id, ra.vehicle_id, ra.driver_id, ra.assigned_by,
-                ra.status AS assignment_status, r.ward_id, r.status AS route_status,
-                r.approval_status, v.status AS vehicle_status
+        `SELECT
+            ra.id, ra.route_id, ra.vehicle_id, ra.driver_id, ra.assigned_by,
+            ra.status AS assignment_status, ra.started_at,
+            r.ward_id, r.zone_id, r.division_id,
+            r.route_code, r.route_name,
+            r.estimated_duration_minutes, r.estimated_distance_km,
+            r.status AS route_status, r.approval_status,
+            v.status AS vehicle_status, v.vehicle_number,
+            w.ward_number, w.ward_name, w.status AS ward_status,
+            w.zone_id AS ward_zone_id, w.division_id AS ward_division_id,
+            z.status AS zone_status
          FROM route_assignments ra
          INNER JOIN routes r ON r.id = ra.route_id
          INNER JOIN vehicles v ON v.id = ra.vehicle_id
+         LEFT JOIN wards w ON w.id = r.ward_id
+         LEFT JOIN zones z ON z.id = r.zone_id
          WHERE ra.id = ? AND ra.driver_id = ? AND ra.unassigned_at IS NULL
          LIMIT 1 FOR UPDATE`,
         [assignmentId, driverId]
     );
     return rows[0] || null;
+}
+
+/**
+ * The route's configured duration is preferred for Citizen arrival notices.
+ * If absent, estimate from configured distance at an explicitly approximate
+ * 20 km/h urban operating speed (3 minutes/km). Never invent an ETA if neither
+ * input is available.
+ */
+function estimateWardArrivalMinutes(assignment) {
+    const configuredMinutes = Number(assignment?.estimated_duration_minutes);
+    if (Number.isFinite(configuredMinutes) && configuredMinutes > 0) {
+        return Math.max(1, Math.ceil(configuredMinutes));
+    }
+
+    const distanceKm = Number(assignment?.estimated_distance_km);
+    if (Number.isFinite(distanceKm) && distanceKm > 0) {
+        return Math.max(1, Math.ceil(distanceKm * 3));
+    }
+
+    return null;
+}
+
+async function notifyCitizensRouteStarted(connection, assignment, driver) {
+    const wardId = Number(assignment?.ward_id);
+    const zoneId = Number(assignment?.zone_id);
+    const divisionId = Number(assignment?.division_id ?? assignment?.ward_division_id);
+
+    // A Citizen is eligible only through their own saved, confirmed address ->
+    // Ward mapping. No address, coordinates, or contact details are placed in
+    // the notification or response. This query never selects residents from
+    // another Ward, Zone, or Division.
+    if (
+        !Number.isSafeInteger(wardId) || wardId <= 0 ||
+        !Number.isSafeInteger(zoneId) || zoneId <= 0 ||
+        !Number.isSafeInteger(divisionId) || divisionId <= 0 ||
+        assignment.ward_status !== "active" ||
+        assignment.zone_status !== "active" ||
+        Number(assignment.ward_zone_id) !== zoneId ||
+        Number(assignment.ward_division_id) !== divisionId
+    ) {
+        return 0;
+    }
+
+    const [citizens] = await connection.execute(
+        `SELECT DISTINCT u.id AS user_id
+         FROM users u
+         INNER JOIN user_profiles citizen_profile
+            ON citizen_profile.user_id = u.id
+         INNER JOIN wards resident_ward
+            ON resident_ward.id = citizen_profile.ward_id
+           AND resident_ward.zone_id = citizen_profile.zone_id
+           AND resident_ward.division_id = citizen_profile.division_id
+           AND resident_ward.status = 'active'
+         INNER JOIN zones resident_zone
+            ON resident_zone.id = resident_ward.zone_id
+           AND resident_zone.status = 'active'
+         INNER JOIN divisions resident_division
+            ON resident_division.id = resident_ward.division_id
+           AND resident_division.status = 'active'
+         WHERE u.role = 'citizen'
+           AND u.status = 'active'
+           AND citizen_profile.ward_id = ?
+           AND citizen_profile.zone_id = ?
+           AND citizen_profile.division_id = ?
+         ORDER BY u.id`,
+        [wardId, zoneId, divisionId]
+    );
+
+    if (!citizens.length) return 0;
+
+    const etaMinutes = estimateWardArrivalMinutes(assignment);
+    const routeLabel = assignment.route_code || assignment.route_name || `Route ${assignment.route_id}`;
+    const wardLabel = `Ward ${assignment.ward_number ?? wardId}${assignment.ward_name ? ` — ${assignment.ward_name}` : ""}`;
+    const vehicleLabel = assignment.vehicle_number || `vehicle ${assignment.vehicle_id}`;
+    const arrivalText = etaMinutes !== null
+        ? `Based on the planned route estimate, the truck is expected in your Ward within approximately ${etaMinutes} minutes.`
+        : "An arrival time estimate is not available for this route yet; open the Citizen portal to follow the truck when GPS sharing begins.";
+    const message = `Collection route ${routeLabel} has started for ${wardLabel}. Vehicle ${vehicleLabel} is on the way. ${arrivalText} Live location is limited to your confirmed service Ward.`;
+
+    for (const citizen of citizens) {
+        await connection.execute(
+            `INSERT INTO notifications
+                (recipient_user_id, title, message, notification_type, priority, related_route_id)
+             VALUES (?, ?, ?, 'route_start_eta', 'medium', ?)`,
+            [
+                Number(citizen.user_id),
+                `Collection truck on the way — ${wardLabel}`,
+                message,
+                Number(assignment.route_id)
+            ]
+        );
+    }
+
+    return citizens.length;
 }
 
 async function startMyAssignment(req, res) {
@@ -434,8 +538,26 @@ async function startMyAssignment(req, res) {
             `UPDATE drivers SET status = 'assigned' WHERE id = ? AND status <> 'inactive'`,
             [driver.id]
         );
+
+        // Notify only the first time this assignment is started. Resuming or
+        // re-clicking Start cannot create duplicate Citizen route alerts.
+        let citizenNotificationsCreated = 0;
+        if (!assignment.started_at) {
+            citizenNotificationsCreated = await notifyCitizensRouteStarted(
+                connection,
+                assignment,
+                driver
+            );
+        }
+
         await connection.commit();
-        return res.json({ success: true, message: "Route started.", assignmentId });
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+        return res.json({
+            success: true,
+            message: "Route started.",
+            assignmentId,
+            citizenNotificationsCreated
+        });
     } catch (error) {
         try { await connection.rollback(); } catch {}
         return sendDatabaseError(res, "Unable to start this route.", error);
@@ -585,6 +707,228 @@ async function reportMyAssignmentDelay(req, res) {
         connection.release();
     }
 }
+
+/**
+ * POST /api/driver/assignments/:assignmentId/truck-full
+ *
+ * Report that the vehicle on the authenticated Driver's active assignment is
+ * full. The recipient is resolved from the current active Inspector scope for
+ * the same Ward/Division, preferring the Inspector who created the assignment.
+ * The notification and all checks are committed together.
+ */
+async function reportMyTruckFull(req, res) {
+    const assignmentId = validPositiveId(req.params.assignmentId);
+    if (!assignmentId) {
+        return res.status(400).json({ success: false, message: "Invalid assignment ID." });
+    }
+
+    const userId = Number(req.currentUser?.id);
+    if (!Number.isSafeInteger(userId) || userId <= 0) {
+        return res.status(401).json({ success: false, message: "Authentication required." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const [driverRows] = await connection.execute(
+            `SELECT d.id, d.user_id, d.full_name, d.assigned_ward_id,
+                    d.status AS driver_status, u.status AS user_status
+             FROM drivers d
+             INNER JOIN users u ON u.id = d.user_id
+             WHERE d.user_id = ? AND u.role = 'driver'
+             LIMIT 1 FOR UPDATE`,
+            [userId]
+        );
+        const driver = driverRows[0];
+
+        if (!driver || driver.driver_status === "inactive" || driver.user_status !== "active") {
+            await connection.rollback();
+            return res.status(403).json({
+                success: false,
+                message: "An active linked Driver Registry account is required."
+            });
+        }
+        if (!driver.assigned_ward_id) {
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message: "Your Driver Registry record does not have an assigned Ward. Contact your Inspector."
+            });
+        }
+
+        const [assignmentRows] = await connection.execute(
+            `SELECT
+                ra.id AS assignment_id,
+                ra.assignment_code,
+                ra.route_id,
+                ra.vehicle_id,
+                ra.driver_id,
+                ra.assigned_by,
+                ra.status AS assignment_status,
+                ra.unassigned_at,
+                r.route_code,
+                r.route_name,
+                r.ward_id AS route_ward_id,
+                r.status AS route_status,
+                r.approval_status,
+                w.ward_number,
+                w.ward_name,
+                w.division_id,
+                w.status AS ward_status,
+                v.vehicle_number,
+                v.registration_number,
+                v.status AS vehicle_status,
+                d.full_name AS driver_name,
+                d.status AS registry_driver_status
+             FROM route_assignments ra
+             INNER JOIN routes r ON r.id = ra.route_id
+             INNER JOIN vehicles v ON v.id = ra.vehicle_id
+             INNER JOIN wards w ON w.id = r.ward_id
+             INNER JOIN drivers d ON d.id = ra.driver_id
+             WHERE ra.id = ?
+               AND ra.driver_id = ?
+               AND d.user_id = ?
+               AND ra.unassigned_at IS NULL
+             LIMIT 1 FOR UPDATE`,
+            [assignmentId, Number(driver.id), userId]
+        );
+        const assignment = assignmentRows[0];
+
+        if (!assignment) {
+            await connection.rollback();
+            return res.status(404).json({
+                success: false,
+                message: "An active assignment belonging to this Driver was not found."
+            });
+        }
+
+        if (Number(assignment.route_ward_id) !== Number(driver.assigned_ward_id) || assignment.ward_status !== "active") {
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message: "The selected route is not within your current active Ward assignment."
+            });
+        }
+
+        if (! ["active", "delayed"].includes(String(assignment.assignment_status).toLowerCase()) ||
+            ! ["active", "delayed"].includes(String(assignment.route_status).toLowerCase())) {
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message: "Start the route before reporting that the truck is full."
+            });
+        }
+
+        if (assignment.approval_status === "rejected" ||
+            ["cancelled", "completed"].includes(String(assignment.route_status).toLowerCase())) {
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message: "A completed, cancelled, or rejected route cannot report a truck-full event."
+            });
+        }
+
+        if (["maintenance", "inactive"].includes(String(assignment.vehicle_status).toLowerCase())) {
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message: "The assigned vehicle is not operational."
+            });
+        }
+
+        // Only an active Inspector whose current operational scope matches this
+        // Ward/Division may receive the report. Prefer the assigning Inspector.
+        const [inspectorRows] = await connection.execute(
+            `SELECT u.id AS inspector_user_id, p.full_name AS inspector_name
+             FROM users u
+             INNER JOIN user_profiles p ON p.user_id = u.id
+             INNER JOIN divisions AS division_record
+                ON division_record.id = p.division_id
+               AND division_record.status = 'active'
+             INNER JOIN wards iw
+                ON iw.id = p.ward_id
+               AND iw.division_id = p.division_id
+               AND iw.status = 'active'
+             WHERE u.role = 'sanitary_inspector'
+               AND u.status = 'active'
+               AND p.ward_id = ?
+               AND p.division_id = ?
+             ORDER BY CASE WHEN u.id = ? THEN 0 ELSE 1 END, u.id ASC
+             LIMIT 1 FOR UPDATE`,
+            [Number(assignment.route_ward_id), Number(assignment.division_id), Number(assignment.assigned_by)]
+        );
+        const inspector = inspectorRows[0];
+
+        if (!inspector) {
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message: "No active Inspector is assigned to this Ward. Contact the Assistant Commissioner."
+            });
+        }
+
+        // An unread truck-full notification means the Inspector has not yet
+        // acknowledged the report. This also prevents accidental double-clicks.
+        const [existingReports] = await connection.execute(
+            `SELECT id
+             FROM notifications
+             WHERE recipient_user_id = ?
+               AND related_route_id = ?
+               AND notification_type = 'truck_full_report'
+               AND is_read = FALSE
+             ORDER BY id DESC
+             LIMIT 1 FOR UPDATE`,
+            [Number(inspector.inspector_user_id), Number(assignment.route_id)]
+        );
+
+        if (existingReports.length) {
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                code: "TRUCK_FULL_REPORT_PENDING",
+                message: "A truck-full report for this route is already awaiting Inspector action."
+            });
+        }
+
+        const vehicleDescription = assignment.registration_number
+            ? `${assignment.vehicle_number} (${assignment.registration_number})`
+            : assignment.vehicle_number;
+        const wardLabel = `Ward ${assignment.ward_number} — ${assignment.ward_name}`;
+        const routeLabel = `${assignment.route_code} — ${assignment.route_name}`;
+        const message =
+            `Driver ${assignment.driver_name} reports that vehicle ${vehicleDescription} is full in ${wardLabel} ` +
+            `while serving route ${routeLabel}. Assignment ID: ${assignmentId}. ` +
+            `Please review the remaining stops and reassign the uncovered route or stops to another available truck/driver if needed.`;
+
+        const [insertResult] = await connection.execute(
+            `INSERT INTO notifications
+                (recipient_user_id, title, message, notification_type, priority, related_route_id)
+             VALUES (?, ?, ?, 'truck_full_report', 'high', ?)`,
+            [
+                Number(inspector.inspector_user_id),
+                `Truck full — ${wardLabel}`,
+                message,
+                Number(assignment.route_id)
+            ]
+        );
+
+        await connection.commit();
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+        return res.status(201).json({
+            success: true,
+            message: `Truck-full report sent to Inspector ${inspector.inspector_name || "assigned to this Ward"}.`,
+            notificationId: Number(insertResult.insertId),
+            assignmentId: Number(assignment.assignment_id)
+        });
+    } catch (error) {
+        try { await connection.rollback(); } catch {}
+        return sendDatabaseError(res, "Unable to send the truck-full report.", error);
+    } finally {
+        connection.release();
+    }
+}
+
 
 async function completeMyAssignment(req, res) {
     const assignmentId = validPositiveId(req.params.assignmentId);
@@ -757,6 +1101,7 @@ module.exports = {
     startMyAssignment,
     updateMyStop,
     reportMyAssignmentDelay,
+    reportMyTruckFull,
     completeMyAssignment,
     updateMyLocation
 };

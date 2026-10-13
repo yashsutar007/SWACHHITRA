@@ -253,12 +253,6 @@ const activeRoutesList =
         document.getElementById(
             "reportSearch"
         );
-
-    const reportPriorityFilter =
-        document.getElementById(
-            "reportPriorityFilter"
-        );
-
     const reportStatusFilter =
         document.getElementById(
             "reportStatusFilter"
@@ -374,6 +368,11 @@ const activeRoutesList =
     let drivers = [];
     let pairings = [];
     let notifications = [];
+    let notificationPollTimer = null;
+    let notificationPollInFlight = false;
+    let notificationPollingPrimed = false;
+    const knownNotificationIds = new Set();
+    const NOTIFICATION_POLL_INTERVAL_MS = 15000;
     let collections = [];
     let collectionSummary = {};
     let overviewData = {};
@@ -1088,8 +1087,6 @@ function normalizeCollection(raw) {
         const status = raw?.status || "open";
         const vehicle =
             raw?.assignedVehicle || null;
-        const priority = raw?.priority || "medium";
-
         let statusLabel;
         if (status === "open") {
             statusLabel = vehicle?.number
@@ -1114,11 +1111,6 @@ function normalizeCollection(raw) {
             location:
                 raw?.location || "Unknown location",
             time: timeAgo(raw?.reportedAt),
-            priority,
-            priorityKey:
-                priority === "critical"
-                    ? "high"
-                    : priority,
             status: statusLabel,
             statusKey:
                 getComplaintFilterKey(status),
@@ -1681,13 +1673,6 @@ async function loadDashboardData() {
                 overviewData.totalComplaints ||
                 0
             );
-
-        const highPriorityComplaints =
-            Number(
-                overviewData.highPriorityComplaints ||
-                0
-            );
-
         const openComplaints =
             Number(
                 overviewData.openComplaints ||
@@ -1830,7 +1815,7 @@ async function loadDashboardData() {
 
             if (pill) {
                 pill.textContent =
-                    `${highPriorityComplaints} High Priority`;
+                    `${resolvedComplaints} Resolved`;
             }
 
             if (description) {
@@ -2471,6 +2456,106 @@ function renderCollections() {
                 })
                 .join("");
     }
+
+    function primeKnownNotificationIds() {
+        knownNotificationIds.clear();
+        notifications.forEach(item => {
+            if (item?.id !== null && item?.id !== undefined) {
+                knownNotificationIds.add(Number(item.id));
+            }
+        });
+        notificationPollingPrimed = true;
+    }
+
+    function scheduleNotificationPoll(delay = NOTIFICATION_POLL_INTERVAL_MS) {
+        if (notificationPollTimer !== null) {
+            window.clearTimeout(notificationPollTimer);
+            notificationPollTimer = null;
+        }
+        if (document.visibilityState === "hidden") return;
+        notificationPollTimer = window.setTimeout(() => {
+            notificationPollTimer = null;
+            void pollInspectorNotifications();
+        }, Math.max(1000, delay));
+    }
+
+    async function pollInspectorNotifications() {
+        if (notificationPollInFlight || document.visibilityState === "hidden") {
+            scheduleNotificationPoll();
+            return;
+        }
+
+        notificationPollInFlight = true;
+        try {
+            const response = await apiRequest("/api/inspector/notifications", {
+                cache: "no-store",
+                headers: { "Cache-Control": "no-cache" }
+            });
+            const refreshed = (Array.isArray(response.notifications) ? response.notifications : [])
+                .map(normalizeNotification);
+
+            if (!notificationPollingPrimed) {
+                notifications = refreshed;
+                primeKnownNotificationIds();
+            } else {
+                const newOperationalAlerts = refreshed.filter(item =>
+                    ["truck_full_report", "citizen_complaint", "driver_delay_report"].includes(item.type) &&
+                    item.id !== null &&
+                    item.id !== undefined &&
+                    !knownNotificationIds.has(Number(item.id)) &&
+                    !item.is_read
+                );
+
+                notifications = refreshed;
+                refreshed.forEach(item => {
+                    if (item?.id !== null && item?.id !== undefined) {
+                        knownNotificationIds.add(Number(item.id));
+                    }
+                });
+
+                if (newOperationalAlerts.length) {
+                    const count = newOperationalAlerts.length;
+                    const hasComplaint = newOperationalAlerts.some(item => item.type === "citizen_complaint");
+                    const hasTruckFull = newOperationalAlerts.some(item => item.type === "truck_full_report");
+                    const toastMessage = count > 1
+                        ? `${count} new operational alerts received. Open Notifications for details.`
+                        : hasComplaint
+                            ? `New Citizen complaint: ${newOperationalAlerts[0].title}`
+                            : hasTruckFull
+                                ? "Truck-full report received. Open Notifications for Ward, vehicle, driver, and route details."
+                                : `New operational alert: ${newOperationalAlerts[0].title}`;
+                    showToast(toastMessage);
+                }
+            }
+
+            renderNotifications();
+        } catch (error) {
+            const now = Date.now();
+            if (!pollInspectorNotifications.lastErrorAt || now - pollInspectorNotifications.lastErrorAt > 60000) {
+                pollInspectorNotifications.lastErrorAt = now;
+                console.warn("Inspector notification refresh failed:", error?.message || error);
+            }
+        } finally {
+            notificationPollInFlight = false;
+            scheduleNotificationPoll();
+        }
+    }
+
+    function startNotificationPolling() {
+        if (!notificationPollingPrimed) primeKnownNotificationIds();
+        scheduleNotificationPoll(NOTIFICATION_POLL_INTERVAL_MS);
+    }
+
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+            if (notificationPollTimer !== null) {
+                window.clearTimeout(notificationPollTimer);
+                notificationPollTimer = null;
+            }
+        } else {
+            scheduleNotificationPoll(1000);
+        }
+    });
 
     function timeAgo(value) {
         if (!value) {
@@ -3571,7 +3656,6 @@ closeNotificationDrawer?.addEventListener(
                             <span>${escapeHTML(complaint.type || "Citizen Report")}</span>
                             <span>${escapeHTML(complaint.location || "Unknown location")}</span>
                             <span>Ward: ${escapeHTML(complaint.wardNumber ?? "—")}</span>
-                            <span>Priority: ${escapeHTML(humanizeEnum(complaint.priority || "medium"))}</span>
                             <span>Status: ${escapeHTML(complaint.status || "Open")}</span>
                         </div>
                     `);
@@ -4671,11 +4755,6 @@ function renderReports() {
         )
             .trim()
             .toLowerCase();
-
-    const priority =
-        reportPriorityFilter?.value ||
-        "all";
-
     const status =
         reportStatusFilter?.value ||
         "all";
@@ -4700,10 +4779,6 @@ function renderReports() {
                     (!query ||
                         searchable.includes(query)) &&
                     (
-                        priority === "all" ||
-                        report.priorityKey === priority
-                    ) &&
-                    (
                         status === "all" ||
                         report.statusKey === status
                     )
@@ -4715,7 +4790,7 @@ function renderReports() {
         reportTableBody.innerHTML = `
             <tr>
                 <td
-                    colspan="7"
+                    colspan="6"
                     class="table-empty"
                 >
                     No matching complaints found.
@@ -4777,17 +4852,6 @@ function renderReports() {
                                 )
                             )}
                         </td>
-
-                        <td>
-                            <span class="priority ${escapeHTML(
-                                report.priorityKey
-                            )}">
-                                ${escapeHTML(
-                                    humanizeEnum(report.priority)
-                                )}
-                            </span>
-                        </td>
-
                         <td>
                             <span class="report-status ${
                                 report.statusKey === "resolved"
@@ -4838,11 +4902,6 @@ function renderReports() {
 
 reportSearch?.addEventListener(
     "input",
-    renderReports
-);
-
-reportPriorityFilter?.addEventListener(
-    "change",
     renderReports
 );
 
@@ -7526,6 +7585,7 @@ editRouteForm?.addEventListener(
         try {
             await loadInspectorProfile();
             await loadDashboardData();
+            startNotificationPolling();
             startLiveTrackingPolling();
         } catch (error) {
             console.error(

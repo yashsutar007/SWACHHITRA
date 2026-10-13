@@ -318,10 +318,6 @@ svg { display: block; width: 1em; height: 1em; fill: none; stroke: currentColor;
 .meta-label { display: block; color: #959e90; font-family: "JetBrains Mono", monospace; font-size: 8px; font-weight: 600; letter-spacing: .065em; text-transform: uppercase; }
 .meta-value { display: block; margin-top: 4px; color: #44513f; font-size: 10px; line-height: 1.45; font-weight: 700; overflow-wrap: anywhere; }
 .complaint-card-footer { margin-top: 12px; padding-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 9px; border-top: 1px solid #edf1e9; }
-.priority-label { padding: 4px 6px; border-radius: 5px; font-family: "JetBrains Mono", monospace; font-size: 8px; font-weight: 700; letter-spacing: .04em; }
-.priority-medium, .priority-low { color: #65705d; background: #eff2ec; }
-.priority-high { color: #9d6206; background: #fff0bf; }
-.priority-critical { color: #a2382f; background: #fde6e2; }
 .text-action { padding: 5px 0 5px 7px; border: 0; color: #a7463c; background: transparent; font-size: 10px; font-weight: 800; transition: color .18s ease, transform .18s ease; }
 .text-action:hover:not(:disabled) { color: #76271f; transform: translateX(2px); }
 .resolved-date, .muted-inline { color: #869180; font-size: 9px; line-height: 1.4; }
@@ -489,7 +485,6 @@ svg { display: block; width: 1em; height: 1em; fill: none; stroke: currentColor;
 .citizen-app .complaint-description { font-size: 15px; line-height: 1.7; }
 .citizen-app .meta-label { font-size: 11px; letter-spacing: .055em; }
 .citizen-app .meta-value { font-size: 14px; line-height: 1.55; }
-.citizen-app .priority-label { font-size: 11px; }
 .citizen-app .text-action { font-size: 14px; }
 .citizen-app .resolved-date,
 .citizen-app .muted-inline,
@@ -591,7 +586,6 @@ svg { display: block; width: 1em; height: 1em; fill: none; stroke: currentColor;
 .citizen-app .complaint-title-block h3 { font-size: 19px; line-height: 1.4; }
 .citizen-app .complaint-description { font-size: 16px; line-height: 1.7; }
 .citizen-app .meta-value { font-size: 15px; line-height: 1.6; }
-.citizen-app .priority-label { font-size: 12px; padding: 5px 7px; }
 .citizen-app .text-action { font-size: 15px; }
 .citizen-app .resolved-date,
 .citizen-app .muted-inline,
@@ -1022,4 +1016,110 @@ body.auth-body .button-primary:hover:not(:disabled) { background: #1f4618; borde
 @media (prefers-reduced-motion: reduce) {
     .citizen-live-truck-marker.gps-live::before,
     .citizen-live-truck-marker.gps-live::after { animation: none !important; opacity: .3; }
+}
+
+/* Ward-scoped route-start notifications for Citizens. */
+.citizen-notifications-card {
+    margin: 16px auto 0;
+    padding: clamp(18px, 2.4vw, 26px);
+    border: 1px solid var(--line, #dfe5d8);
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: var(--shadow-xs, 0 2px 8px rgba(20,44,14,.045));
+}
+.citizen-notifications-heading {
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+.citizen-notifications-actions {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.citizen-notifications-status {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    color: #49623f;
+    background: #edf5e8;
+    font-size: 11px;
+    font-weight: 800;
+}
+.citizen-notifications-status.unread {
+    color: #76510f;
+    background: #fff2d5;
+}
+.citizen-notifications-status.error {
+    color: #9a362c;
+    background: #fdecea;
+}
+.citizen-notifications-list {
+    display: grid;
+    gap: 10px;
+}
+.citizen-notifications-empty {
+    padding: 18px;
+    border: 1px dashed var(--line-strong, #d0dbc9);
+    border-radius: 12px;
+    color: var(--muted, #778172);
+    background: #fbfcf8;
+    font-size: 13px;
+    line-height: 1.6;
+}
+.citizen-notification-card {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    padding: 15px;
+    border: 1px solid var(--line, #dfe5d8);
+    border-radius: 13px;
+    background: #fff;
+}
+.citizen-notification-card.unread {
+    border-color: #c6dda9;
+    background: #f7fbf1;
+}
+.citizen-notification-indicator {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    color: #fff;
+    background: #416d27;
+    font-size: 16px;
+    font-weight: 900;
+}
+.citizen-notification-card:not(.unread) .citizen-notification-indicator {
+    color: #49623f;
+    background: #e8efdc;
+}
+.citizen-notification-content { min-width: 0; }
+.citizen-notification-content strong {
+    display: block;
+    color: var(--ink, #182116);
+    font-size: 14px;
+    line-height: 1.45;
+}
+.citizen-notification-content p {
+    margin: 5px 0 7px;
+    color: var(--ink-2, #40503d);
+    font-size: 13px;
+    line-height: 1.6;
+}
+.citizen-notification-content small {
+    color: var(--muted, #778172);
+    font-size: 11px;
+}
+@media (max-width: 760px) {
+    .citizen-notifications-card { padding: 14px; }
+    .citizen-notifications-heading { flex-direction: column; }
+    .citizen-notifications-actions { align-items: flex-start; justify-content: flex-start; }
+    .citizen-notification-card { padding: 12px; }
 }

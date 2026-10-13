@@ -621,7 +621,7 @@
                             </strong>
 
                             <span
-                                class="status-pill amber"
+                                class="status-pill green"
                                 id="complaintsStatus"
                             >
                                 Loading
@@ -1245,24 +1245,6 @@
                     >
 
                     <select
-                        id="reportPriorityFilter"
-                        aria-label="Filter complaints by priority"
-                    >
-                        <option value="all">
-                            All Priority
-                        </option>
-                        <option value="high">
-                            High
-                        </option>
-                        <option value="medium">
-                            Medium
-                        </option>
-                        <option value="low">
-                            Low
-                        </option>
-                    </select>
-
-                    <select
                         id="reportStatusFilter"
                         aria-label="Filter complaints by status"
                     >
@@ -1295,7 +1277,6 @@
                                     <th>Type</th>
                                     <th>Ward / Location</th>
                                     <th>Reported</th>
-                                    <th>Priority</th>
                                     <th>Status</th>
                                     <th>Update</th>
                                 </tr>
@@ -1305,7 +1286,7 @@
 
                                 <tr>
                                     <td
-                                        colspan="7"
+                                        colspan="6"
                                         class="table-empty"
                                     >
                                         Loading complaints...

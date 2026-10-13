@@ -12,6 +12,8 @@
     let assignments = [];
     let driver = null;
     let csrfToken = "";
+    const reportedTruckFullAssignmentIds = new Set();
+    let truckFullReportInFlight = false;
 
     // Part 4: MapLibre 3D-style map and route-preview state.
     const MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
@@ -791,6 +793,7 @@
         const fitButton = byId("driverMapFitButton");
         const threeDButton = byId("driverMap3dButton");
         const demoButton = byId("driverMapDemoButton");
+        const truckFullButton = byId("driverTruckFullButton");
         const hasPath = Boolean(selectedRouteNavigable && selectedRouteGeometry?.coordinates?.length >= 2);
         const status = String(assignment?.status || "").toLowerCase();
         const assignmentSupportsNavigation = Boolean(assignment && hasPath && mapReady && ["assigned", "delayed", "active"].includes(status));
@@ -807,6 +810,21 @@
             demoButton.title = demoIsThisRoute
                 ? "Stop the local-only 3D simulation"
                 : "Simulate the truck along this route locally. Demo coordinates are never sent to the Inspector.";
+        }
+        if (truckFullButton) {
+            const reportable = Boolean(
+                assignment &&
+                ["active", "delayed"].includes(status) &&
+                ["active", "delayed"].includes(String(assignment.route?.status || "").toLowerCase())
+            );
+            const alreadyReported = assignment && reportedTruckFullAssignmentIds.has(String(assignment.id));
+            truckFullButton.disabled = !reportable || alreadyReported || truckFullReportInFlight;
+            truckFullButton.textContent = alreadyReported ? "Full report sent" : "Report truck full";
+            truckFullButton.title = alreadyReported
+                ? "A truck-full report was sent for this assignment."
+                : reportable
+                    ? "Notify your assigned Inspector that this truck is full."
+                    : "Start the selected route before reporting that the truck is full.";
         }
         if (fitButton) fitButton.disabled = !selectedRouteGeometry?.coordinates?.length || !mapReady;
         if (threeDButton) {
@@ -1298,6 +1316,52 @@
         }
     }
 
+    async function handleTruckFullReport() {
+        const assignment = selectedAssignment();
+        const assignmentId = String(assignment?.id || "");
+        const assignmentStatus = String(assignment?.status || "").toLowerCase();
+        const routeStatus = String(assignment?.route?.status || "").toLowerCase();
+
+        if (!assignment || !["active", "delayed"].includes(assignmentStatus) || !["active", "delayed"].includes(routeStatus)) {
+            setMapNotice("Start the selected route before reporting that the truck is full.", "warning");
+            return;
+        }
+
+        if (reportedTruckFullAssignmentIds.has(assignmentId)) {
+            setMapNotice("A truck-full report was already sent for this assignment.", "warning");
+            return;
+        }
+
+        const vehicleName = assignment.vehicle?.number || "the assigned vehicle";
+        const routeName = assignment.route?.code || assignment.code || "the selected route";
+        if (!window.confirm(`Report ${vehicleName} as FULL on ${routeName}? Your assigned Inspector will receive a notification with the Ward, vehicle, driver, and route details.`)) {
+            return;
+        }
+
+        truckFullReportInFlight = true;
+        updateNavigationControls();
+        const button = byId("driverTruckFullButton");
+        if (button) button.disabled = true;
+
+        try {
+            const result = await mutateJSON(
+                `/api/driver/assignments/${encodeURIComponent(assignmentId)}/truck-full`,
+                {}
+            );
+            reportedTruckFullAssignmentIds.add(assignmentId);
+            const successMessage = result.message || "Truck-full report sent to your assigned Inspector.";
+            showNotice(successMessage, "success");
+            setMapNotice(successMessage, "success");
+        } catch (error) {
+            const message = error?.message || "Unable to report the truck-full status.";
+            showNotice(message, "error");
+            setMapNotice(message, "error");
+        } finally {
+            truckFullReportInFlight = false;
+            updateNavigationControls();
+        }
+    }
+
     function handleThreeDToggle() {
         if (!driverMap || !mapReady) return;
         is3DView = !is3DView;
@@ -1315,6 +1379,7 @@
         byId("driverMapFitButton")?.addEventListener("click", fitCurrentRoute);
         byId("driverMap3dButton")?.addEventListener("click", handleThreeDToggle);
         byId("driverMapStartButton")?.addEventListener("click", handleNavigationStartButton);
+        byId("driverTruckFullButton")?.addEventListener("click", handleTruckFullReport);
         byId("driverMapDemoButton")?.addEventListener("click", handleDemoSimulationButton);
         byId("driverMapStopButton")?.addEventListener("click", () => {
             stopNavigationPreview(true);

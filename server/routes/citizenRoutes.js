@@ -8,6 +8,8 @@ const {
     getCitizenProfile,
     getCitizenWardAreas,
     getCitizenLiveTracking,
+    getCitizenNotifications,
+    markCitizenNotificationsRead,
     saveCitizenProfile,
     getMyComplaints,
     createCitizenComplaint,
@@ -22,6 +24,8 @@ router.get("/security/csrf-token", issueCitizenCsrfToken);
 router.get("/profile", getCitizenProfile);
 router.get("/ward-areas", getCitizenWardAreas);
 router.get("/live-tracking", getCitizenLiveTracking);
+router.get("/notifications", getCitizenNotifications);
+router.put("/notifications/read", protectCitizenMutation, markCitizenNotificationsRead);
 router.post("/profile", protectCitizenMutation, saveCitizenProfile);
 
 // Citizen complaint APIs. The controller derives the complaint Ward from

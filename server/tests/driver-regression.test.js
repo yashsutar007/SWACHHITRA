@@ -446,5 +446,95 @@ test("Part 7 Driver-to-Inspector live tracking contract preserves the stored loc
     assert.match(inspector, /gps-\$\{escapeHTML\(gpsState\)\}/);
 });
 
-console.log(`\nDriver Navigation: ${passed} passed, ${failed} failed`);
+test("Driver can report a full truck only for an active owned assignment and the assigned Inspector is notified", () => {
+    const page = read("client/driverDash/driverDash.html");
+    const client = read("client/driverDash/driverDash.js");
+    const routes = read("server/routes/driverRoutes.js");
+    const controller = read("server/controllers/driverController.js");
+    const inspectorClient = read("client/inspectorDash/inspectorDash.js");
+
+    assert.match(page, /id="driverTruckFullButton"/);
+    assert.match(client, /function handleTruckFullReport\(\)/);
+    assert.match(client, /\/api\/driver\/assignments\/\$\{encodeURIComponent\(assignmentId\)\}\/truck-full/);
+    assert.match(client, /reportedTruckFullAssignmentIds/);
+    assert.match(routes, /router\.post\([\s\S]*?"\/assignments\/:assignmentId\/truck-full"[\s\S]*?requireDriverMutationSecurity[\s\S]*?reportMyTruckFull/);
+    assert.match(controller, /async function reportMyTruckFull\(req, res\)/);
+    assert.match(controller, /ra\.driver_id = \?/);
+    assert.match(controller, /ra\.unassigned_at IS NULL/);
+    assert.match(controller, /notification_type, priority, related_route_id\)/);
+    assert.match(controller, /'truck_full_report', 'high'/);
+    assert.match(controller, /p\.ward_id = \?/);
+    assert.match(controller, /p\.division_id = \?/);
+    assert.match(inspectorClient, /NOTIFICATION_POLL_INTERVAL_MS = 15000/);
+    assert.match(inspectorClient, /item\.type === "truck_full_report"/);
+    assert.match(inspectorClient, /Truck-full report received/);
+});
+
+test("Truck-full report does not require a schema migration and avoids duplicate unread reports", () => {
+    const controller = read("server/controllers/driverController.js");
+    assert.match(controller, /notification_type = 'truck_full_report'/);
+    assert.match(controller, /AND is_read = FALSE/);
+    assert.match(controller, /A truck-full report for this route is already awaiting Inspector action/);
+    assert.match(controller, /Assignment ID: \$\{assignmentId\}/);
+});
+
+
+test("Starting a Driver route creates an ETA notice only for active Citizens in that exact Ward, Zone, and Division", () => {
+    const controller = read("server/controllers/driverController.js");
+    assert.ok(controller.includes("function estimateWardArrivalMinutes(assignment)"));
+    assert.ok(controller.includes("function notifyCitizensRouteStarted(connection, assignment, driver)"));
+    assert.ok(controller.includes("if (!assignment.started_at)"));
+    assert.ok(controller.includes("'route_start_eta', 'medium'"));
+    assert.ok(controller.includes("citizen_profile.ward_id = ?"));
+    assert.ok(controller.includes("citizen_profile.zone_id = ?"));
+    assert.ok(controller.includes("citizen_profile.division_id = ?"));
+    assert.ok(controller.includes("within approximately ${etaMinutes} minutes"));
+    const notificationHelper = controller.slice(
+        controller.indexOf("async function notifyCitizensRouteStarted"),
+        controller.indexOf("async function startMyAssignment")
+    );
+    assert.doesNotMatch(notificationHelper, /address_latitude|address_longitude|mobile_number|official_email/);
+});
+
+test("Citizen notifications endpoint remains authenticated, Ward-scoped, and mark-read mutations require CSRF security", () => {
+    const routes = read("server/routes/citizenRoutes.js");
+    const controller = read("server/controllers/citizenController.js");
+    const page = read("client/citizenDash/citizenDash.html");
+    const client = read("client/citizenDash/citizenDash.js");
+    assert.ok(routes.includes('router.use(requireRole("citizen"))'));
+    assert.ok(routes.includes('router.get("/notifications", getCitizenNotifications)'));
+    assert.ok(routes.includes('router.put("/notifications/read", protectCitizenMutation, markCitizenNotificationsRead)'));
+    assert.ok(controller.includes("async function getCitizenNotifications(req, res)"));
+    assert.ok(controller.includes("r.ward_id = profile.ward_id"));
+    assert.ok(controller.includes("r.zone_id = profile.zone_id"));
+    assert.ok(controller.includes("r.division_id = profile.division_id"));
+    assert.ok(controller.includes("n.recipient_user_id = ?"));
+    assert.ok(page.includes('id="citizenNotificationsList"'));
+    assert.ok(client.includes("/api/citizen/notifications"));
+    assert.ok(client.includes("updates checked every 15 seconds"));
+});
+
+test("Citizen complaints notify active Inspector(s) for the exact Ward without putting residential address data in notification text", () => {
+    const controller = read("server/controllers/citizenController.js");
+    const inspectorClient = read("client/inspectorDash/inspectorDash.js");
+    const complaintBlock = controller.slice(
+        controller.indexOf("async function createCitizenComplaint"),
+        controller.indexOf("async function cancelCitizenComplaint")
+    );
+    assert.ok(complaintBlock.includes("SELECT DISTINCT u.id, ip.full_name"));
+    assert.ok(complaintBlock.includes("ip.ward_id = ?"));
+    assert.ok(complaintBlock.includes("ip.division_id = ?"));
+    assert.ok(complaintBlock.includes("'citizen_complaint', 'high'"));
+    assert.ok(complaintBlock.includes("related_complaint_id"));
+    assert.ok(complaintBlock.includes("Open the Inspector Complaints section"));
+    const notificationMessage = complaintBlock.slice(
+        complaintBlock.indexOf("const inspectorNotificationMessage ="),
+        complaintBlock.indexOf("for (const inspector of inspectorRows)")
+    );
+    assert.doesNotMatch(notificationMessage, /profile\.address|address_latitude|address_longitude/);
+    assert.ok(inspectorClient.includes('item.type === "citizen_complaint"'));
+    assert.ok(inspectorClient.includes("startNotificationPolling()"));
+});
+
+console.log(`\\nDriver Navigation: ${passed} passed, ${failed} failed`);
 if (failed) process.exitCode = 1;

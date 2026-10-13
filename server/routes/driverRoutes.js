@@ -12,6 +12,7 @@ const {
     startMyAssignment,
     updateMyStop,
     reportMyAssignmentDelay,
+    reportMyTruckFull,
     completeMyAssignment,
     updateMyLocation
 } = require("../controllers/driverController");
@@ -40,6 +41,11 @@ router.post(
     "/assignments/:assignmentId/delay",
     requireDriverMutationSecurity,
     reportMyAssignmentDelay
+);
+router.post(
+    "/assignments/:assignmentId/truck-full",
+    requireDriverMutationSecurity,
+    reportMyTruckFull
 );
 router.post(
     "/assignments/:assignmentId/complete",

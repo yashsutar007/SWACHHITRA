@@ -409,3 +409,22 @@
   .driver-app .demo-simulation-button { transition: none !important; }
   .driver-app .demo-simulation-button:hover:not(:disabled) { transform: none; }
 }
+
+/* Driver action: report a full truck to the Inspector. */
+.driver-app .truck-full-report-button {
+    color: #7f3b0b;
+    border-color: #f0c38d;
+    background: #fff4df;
+    font-weight: 800;
+}
+.driver-app .truck-full-report-button:hover:not(:disabled),
+.driver-app .truck-full-report-button:focus-visible {
+    color: #6a2c08;
+    background: #ffe7bd;
+    border-color: #df9c4e;
+}
+.driver-app .truck-full-report-button:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+}
+
