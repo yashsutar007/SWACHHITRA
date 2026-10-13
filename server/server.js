@@ -319,6 +319,29 @@ function setInspectorDashboardHeaders(res) {
     ].join("; "));
 }
 
+// Citizen dashboard uses Leaflet from unpkg.com and OpenStreetMap tiles.
+// Keep this policy explicit so its map resources are permitted without
+// weakening the policy for unrelated routes.
+function setCitizenDashboardHeaders(res) {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Content-Security-Policy", [
+        "default-src 'self'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+        "object-src 'none'",
+        "script-src 'self' https://unpkg.com",
+        "script-src-elem 'self' https://unpkg.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
+        "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
+        "font-src 'self' data: https://fonts.gstatic.com https://unpkg.com",
+        "img-src 'self' data: blob: https://unpkg.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org",
+        "connect-src 'self' https://unpkg.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org",
+        "worker-src 'self' blob:"
+    ].join("; "));
+}
+
 function redirectToOwnProfile(req, res) {
     const target = PROFILE_PATH_BY_ROLE[req.currentUser.role];
     if (!target) return res.status(403).send("No profile page is configured for this role.");
@@ -655,7 +678,7 @@ app.get(
                 "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
                 "font-src 'self' data: https://fonts.gstatic.com",
                 "img-src 'self' data: blob: https://unpkg.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org",
-                "connect-src 'self' https://tile.openstreetmap.org https://*.tile.openstreetmap.org",
+                "connect-src 'self' https://unpkg.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org",
                 "worker-src 'self' blob:"
             ].join("; ")
         );
@@ -682,7 +705,7 @@ app.get(
                 "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
                 "font-src 'self' data: https://fonts.gstatic.com",
                 "img-src 'self' data: blob: https://unpkg.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org",
-                "connect-src 'self' https://tile.openstreetmap.org https://*.tile.openstreetmap.org",
+                "connect-src 'self' https://unpkg.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org",
                 "worker-src 'self' blob:"
             ].join("; ")
         );
@@ -700,20 +723,7 @@ app.get(
     requirePageRole("citizen"),
     requireCompletedCitizenProfile,
     (req, res) => {
-        res.setHeader(
-            "Content-Security-Policy",
-            [
-                "default-src 'self'",
-                "base-uri 'self'",
-                "form-action 'self'",
-                "frame-ancestors 'none'",
-                "object-src 'none'",
-                "script-src 'self'",
-                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-                "font-src 'self' https://fonts.gstatic.com",
-                "img-src 'self' data:"
-            ].join("; ")
-        );
+        setCitizenDashboardHeaders(res);
         return res.sendFile(
             path.join(__dirname, "../client/citizenDash/citizenDash.html")
         );
@@ -725,20 +735,7 @@ app.get(
     requirePageRole("citizen"),
     requireCompletedCitizenProfile,
     (req, res) => {
-        res.setHeader(
-            "Content-Security-Policy",
-            [
-                "default-src 'self'",
-                "base-uri 'self'",
-                "form-action 'self'",
-                "frame-ancestors 'none'",
-                "object-src 'none'",
-                "script-src 'self'",
-                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-                "font-src 'self' https://fonts.gstatic.com",
-                "img-src 'self' data:"
-            ].join("; ")
-        );
+        setCitizenDashboardHeaders(res);
         return res.sendFile(
             path.join(__dirname, "../client/citizenDash/citizenDash.html")
         );
