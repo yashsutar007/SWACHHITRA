@@ -2943,8 +2943,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 state.wardCreateAreaDraft.length === 0;
         }
 
-        if (dom.wardCreateMap?.getContainer()) {
-            dom.wardCreateMap.getContainer().style.cursor =
+        // dom.wardCreateMap is the HTML element; getContainer() belongs to
+        // the Leaflet map instance stored in state.wardCreateMap.
+        const mapInstance = state.wardCreateMap;
+        if (mapInstance && typeof mapInstance.getContainer === "function") {
+            mapInstance.getContainer().style.cursor =
                 mode === "area" ? "crosshair" : "grab";
         }
     }

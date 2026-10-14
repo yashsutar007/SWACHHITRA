@@ -3760,3 +3760,308 @@ body.inspector-map-fallback-open {
     font-size: 12px;
   }
 }
+
+/* =====================================================================
+   SWACHHITRA INTERACTION MOTION SYSTEM
+   Green gradient shifts slowly; hover motion is restrained and accessible.
+   ===================================================================== */
+:root {
+    --sw-motion-ease: cubic-bezier(.2, .75, .25, 1);
+    --sw-motion-fast: 180ms;
+    --sw-motion-normal: 240ms;
+    --sw-hover-shadow: 0 12px 28px rgba(25, 52, 20, .13);
+}
+
+@keyframes swachhitra-green-sidebar-flow {
+    0%, 100% { background-position: 0% 35%; }
+    50% { background-position: 100% 65%; }
+}
+
+@keyframes swachhitra-accent-glow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(212, 237, 139, .08); }
+    50% { box-shadow: 0 0 0 4px rgba(212, 237, 139, .10); }
+}
+
+/* The same forest-to-lime gradient is shared across role sidebars and the
+   green hero/brand panels used by the public and account-security pages. */
+.sidebar,
+.citizen-sidebar,
+.auth-brand,
+.security-brand,
+.brand-panel {
+    background-image: linear-gradient(
+        135deg,
+        #16300f 0%,
+        #24451b 18%,
+        #416d27 38%,
+        #668f37 52%,
+        #315a24 72%,
+        #193414 100%
+    );
+    background-size: 280% 280%;
+    animation: swachhitra-green-sidebar-flow 24s ease-in-out infinite;
+    will-change: background-position;
+}
+
+/* Navigation tabs, sidebar items and section switches. */
+.navigation-item,
+.navigation-link,
+.nav-item,
+.nav-link,
+.nav-link-button,
+.tab-button,
+.tab-trigger,
+[role="tab"],
+.sidebar-brand,
+.sidebar-toggle-button,
+.sidebar-collapse-button,
+.navigation-item,
+.navigation-item-left,
+.navigation-count {
+    transition:
+        color var(--sw-motion-fast) var(--sw-motion-ease),
+        background-color var(--sw-motion-fast) var(--sw-motion-ease),
+        border-color var(--sw-motion-fast) var(--sw-motion-ease),
+        box-shadow var(--sw-motion-fast) var(--sw-motion-ease),
+        transform var(--sw-motion-fast) var(--sw-motion-ease);
+}
+
+.navigation-item:hover,
+.navigation-link:hover,
+.nav-item:hover,
+.nav-link:hover,
+.nav-link-button:hover,
+.tab-button:hover,
+.tab-trigger:hover,
+[role="tab"]:hover,
+.sidebar-brand:hover,
+.sidebar-toggle-button:hover,
+.sidebar-collapse-button:hover {
+    filter: brightness(1.035);
+}
+
+/* Buttons and action links get a small lift, without changing their colors. */
+button:not(:disabled):not(.leaflet-control-zoom-in):not(.leaflet-control-zoom-out),
+.button-primary,
+.button-secondary,
+.primary-button,
+.secondary-button,
+.login-button,
+.security-button,
+.security-link-button,
+.submit-button,
+.back-button,
+.refresh-button,
+.filter-button,
+.compact-action,
+.text-action,
+.management-action-button,
+.route-action-button,
+.planner-tool-button,
+.assign-action-button,
+.escalate-row-button,
+.escalate-submit-button,
+.security-action-button,
+.security-danger-button,
+.truck-full-report-button,
+.demo-simulation-button,
+.logout-button,
+.logout-link {
+    transition:
+        color var(--sw-motion-fast) var(--sw-motion-ease),
+        background-color var(--sw-motion-fast) var(--sw-motion-ease),
+        border-color var(--sw-motion-fast) var(--sw-motion-ease),
+        box-shadow var(--sw-motion-fast) var(--sw-motion-ease),
+        transform var(--sw-motion-fast) var(--sw-motion-ease),
+        filter var(--sw-motion-fast) var(--sw-motion-ease);
+}
+
+button:not(:disabled):not(.leaflet-control-zoom-in):not(.leaflet-control-zoom-out):hover,
+.button-primary:hover:not(:disabled),
+.button-secondary:hover:not(:disabled),
+.primary-button:hover:not(:disabled),
+.secondary-button:hover:not(:disabled),
+.login-button:hover:not(:disabled),
+.security-button:hover:not(:disabled),
+.security-link-button:hover:not(:disabled),
+.submit-button:hover:not(:disabled),
+.back-button:hover:not(:disabled),
+.refresh-button:hover:not(:disabled),
+.filter-button:hover:not(:disabled),
+.compact-action:hover:not(:disabled),
+.management-action-button:hover:not(:disabled),
+.route-action-button:hover:not(:disabled),
+.planner-tool-button:hover:not(:disabled),
+.assign-action-button:hover:not(:disabled),
+.escalate-row-button:hover:not(:disabled),
+.escalate-submit-button:hover:not(:disabled),
+.security-action-button:hover:not(:disabled),
+.security-danger-button:hover:not(:disabled),
+.truck-full-report-button:hover:not(:disabled),
+.demo-simulation-button:hover:not(:disabled),
+.logout-button:hover:not(:disabled),
+.logout-link:hover:not(:disabled) {
+    transform: translateY(-1.5px);
+    box-shadow: var(--sw-hover-shadow);
+}
+
+button:active:not(:disabled),
+.button-primary:active:not(:disabled),
+.button-secondary:active:not(:disabled),
+.primary-button:active:not(:disabled),
+.secondary-button:active:not(:disabled),
+.login-button:active:not(:disabled),
+.security-button:active:not(:disabled),
+.submit-button:active:not(:disabled) {
+    transform: translateY(0) scale(.985);
+}
+
+/* Cards and content boxes respond when hovered, but remain still at rest. */
+.content-card,
+.card-shell,
+.panel-card,
+.panel,
+.kpi-card,
+.metric-card,
+.summary-card,
+.stat-card,
+.accent-card,
+.audience-card,
+.flow-card,
+.hero-card-main,
+.overview-map-card,
+.scope-card,
+.current-scope-card,
+.current-zone-card,
+.profile-card,
+.login-card,
+.security-card,
+.role-card,
+.division-card,
+.report-summary-card,
+.complaint-summary-card,
+.fleet-summary-card,
+.security-summary-card,
+.security-admin-card,
+.report-chart-card,
+.report-status-card,
+.report-ward-card,
+.route-card,
+.active-route-card,
+.active-routes-card,
+.collection-record-card,
+.collection-summary-card,
+.driver-registry-card,
+.pairing-card,
+.ops-card,
+.notification-card,
+.citizen-notification-card,
+.citizen-notifications-card,
+.citizen-live-tracking-card,
+.complaint-card,
+.complaint-create-card,
+.account-summary-card,
+.next-step-card,
+.vehicle-summary-item,
+.profile-preview-card,
+.create-ward-modal-card,
+.edit-ward-boundary-modal-card {
+    transition:
+        border-color var(--sw-motion-normal) var(--sw-motion-ease),
+        box-shadow var(--sw-motion-normal) var(--sw-motion-ease),
+        transform var(--sw-motion-normal) var(--sw-motion-ease);
+}
+
+.content-card:hover,
+.card-shell:hover,
+.panel-card:hover,
+.panel:hover,
+.kpi-card:hover,
+.metric-card:hover,
+.summary-card:hover,
+.stat-card:hover,
+.accent-card:hover,
+.audience-card:hover,
+.flow-card:hover,
+.hero-card-main:hover,
+.overview-map-card:hover,
+.scope-card:hover,
+.current-scope-card:hover,
+.current-zone-card:hover,
+.profile-card:hover,
+.login-card:hover,
+.security-card:hover,
+.role-card:hover,
+.division-card:hover,
+.report-summary-card:hover,
+.complaint-summary-card:hover,
+.fleet-summary-card:hover,
+.security-summary-card:hover,
+.report-chart-card:hover,
+.report-status-card:hover,
+.report-ward-card:hover,
+.route-card:hover,
+.active-route-card:hover,
+.active-routes-card:hover,
+.collection-record-card:hover,
+.collection-summary-card:hover,
+.driver-registry-card:hover,
+.pairing-card:hover,
+.ops-card:hover,
+.notification-card:hover,
+.citizen-notification-card:hover,
+.citizen-notifications-card:hover,
+.citizen-live-tracking-card:hover,
+.complaint-card:hover,
+.complaint-create-card:hover,
+.account-summary-card:hover,
+.next-step-card:hover,
+.vehicle-summary-item:hover,
+.profile-preview-card:hover {
+    border-color: rgba(102, 143, 55, .42);
+    box-shadow: var(--sw-hover-shadow);
+    transform: translateY(-2px);
+}
+
+/* Keep all controls accessible and avoid motion for users who request it. */
+:focus-visible {
+    scroll-margin-block: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+        transition-delay: 0ms !important;
+        will-change: auto !important;
+    }
+
+    .sidebar,
+    .citizen-sidebar,
+    .auth-brand,
+    .security-brand,
+    .brand-panel {
+        animation: none !important;
+        background-position: 50% 50%;
+    }
+
+    button:hover,
+    .content-card:hover,
+    .card-shell:hover,
+    .panel-card:hover,
+    .panel:hover,
+    .kpi-card:hover,
+    .metric-card:hover,
+    .summary-card:hover,
+    .stat-card:hover,
+    .division-card:hover,
+    .route-card:hover,
+    .complaint-card:hover {
+        transform: none !important;
+    }
+}
+

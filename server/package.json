@@ -16,7 +16,7 @@
     "test:inspector": "node tests/inspector-regression.test.js",
     "test:driver": "node tests/driver-regression.test.js",
     "test:staff-account": "node tests/staff-account-provisioning.test.js",
-    "test:static": "node tests/profile-routing-regression.test.js && node tests/staff-account-provisioning.test.js && node tests/driver-regression.test.js && node tests/deputy-commissioner.test.js",
+    "test:static": "node tests/ward-creation-regression.test.js && node tests/profile-routing-regression.test.js && node tests/staff-account-provisioning.test.js && node tests/driver-regression.test.js && node tests/deputy-commissioner.test.js",
     "test:staff-recovery": "node tests/staff-password-recovery.test.js"
   },
   "dependencies": {

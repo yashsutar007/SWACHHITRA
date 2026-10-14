@@ -646,31 +646,136 @@ async function createOperationalWard(req, res) {
         }
 
         /*
-         * The current Inspector/route model still carries a legacy zone_id.
-         * Reuse the active compatibility zone already associated with this
-         * division instead of inventing a Division -> Zone mapping.
+         * Backward-compatible zone resolution.
+         *
+         * Legacy route/Inspector tables require wards.zone_id even though
+         * divisions are not directly related to zones in the current schema.
+         * Reuse an active Zone already used by a Ward in this Division. If
+         * this Division has no Ward yet (for example, a newly configured
+         * Division 2), create one explicitly named application-managed
+         * compatibility Zone so the first operational Ward can be created.
+         * This is NOT an official geographic zone and does not claim official
+         * KMC geography. Its only purpose is to satisfy the legacy foreign key.
          */
         const [compatibilityRows] = await connection.execute(
             `
-            SELECT zone_id
-            FROM wards
-            WHERE division_id = ?
+            SELECT
+                w.zone_id,
+                z.zone_code,
+                z.zone_name,
+                z.status AS zone_status
+            FROM wards w
+            INNER JOIN zones z ON z.id = w.zone_id
+            WHERE w.division_id = ?
             ORDER BY
-                CASE WHEN status = 'active' THEN 0 ELSE 1 END,
-                id
+                CASE WHEN z.status = 'active' THEN 0 ELSE 1 END,
+                CASE WHEN w.status = 'active' THEN 0 ELSE 1 END,
+                w.id
             LIMIT 1
             FOR UPDATE
             `,
             [scope.divisionId]
         );
 
+        let compatibilityZone = compatibilityRows.find(
+            row => row.zone_status === "active" && positiveInteger(row.zone_id)
+        ) || null;
+
+        if (!compatibilityZone) {
+            const divisionToken = String(
+                scope.divisionCode || `DIV-${scope.divisionId}`
+            )
+                .toUpperCase()
+                .replace(/[^A-Z0-9_-]/g, "-")
+                .replace(/-+/g, "-")
+                .replace(/^-+|-+$/g, "") || `DIV-${scope.divisionId}`;
+
+            const zoneSuffix = "-OPS";
+            const compatibilityZoneCode =
+                `${divisionToken.slice(0, 30 - zoneSuffix.length)}${zoneSuffix}`;
+            const compatibilityZoneName =
+                `${scope.divisionName || `Division ${scope.divisionId}`} Operational Zone (app-managed)`
+                    .slice(0, 100);
+
+            const [zoneRows] = await connection.execute(
+                `
+                SELECT id, zone_code, zone_name, status
+                FROM zones
+                WHERE zone_code = ?
+                LIMIT 1
+                FOR UPDATE
+                `,
+                [compatibilityZoneCode]
+            );
+
+            if (zoneRows.length) {
+                if (zoneRows[0].status !== "active") {
+                    throw createError(
+                        `The app-managed compatibility Zone ${compatibilityZoneCode} exists but is inactive. Ask an administrator to review it before creating a Ward.`,
+                        409
+                    );
+                }
+                compatibilityZone = {
+                    zone_id: Number(zoneRows[0].id),
+                    zone_code: zoneRows[0].zone_code,
+                    zone_name: zoneRows[0].zone_name,
+                    zone_status: zoneRows[0].status
+                };
+            } else {
+                try {
+                    const [zoneInsert] = await connection.execute(
+                        `
+                        INSERT INTO zones (zone_code, zone_name, status)
+                        VALUES (?, ?, 'active')
+                        `,
+                        [compatibilityZoneCode, compatibilityZoneName]
+                    );
+
+                    compatibilityZone = {
+                        zone_id: Number(zoneInsert.insertId),
+                        zone_code: compatibilityZoneCode,
+                        zone_name: compatibilityZoneName,
+                        zone_status: "active"
+                    };
+                } catch (zoneInsertError) {
+                    // If two first-Ward requests race, reuse the deterministic
+                    // code created by the request that won the unique-key race.
+                    if (zoneInsertError?.code !== "ER_DUP_ENTRY") {
+                        throw zoneInsertError;
+                    }
+
+                    const [racedZoneRows] = await connection.execute(
+                        `
+                        SELECT id, zone_code, zone_name, status
+                        FROM zones
+                        WHERE zone_code = ?
+                        LIMIT 1
+                        FOR UPDATE
+                        `,
+                        [compatibilityZoneCode]
+                    );
+
+                    if (!racedZoneRows.length || racedZoneRows[0].status !== "active") {
+                        throw zoneInsertError;
+                    }
+
+                    compatibilityZone = {
+                        zone_id: Number(racedZoneRows[0].id),
+                        zone_code: racedZoneRows[0].zone_code,
+                        zone_name: racedZoneRows[0].zone_name,
+                        zone_status: racedZoneRows[0].status
+                    };
+                }
+            }
+        }
+
         const compatibilityZoneId = positiveInteger(
-            compatibilityRows[0]?.zone_id
+            compatibilityZone?.zone_id
         );
 
         if (!compatibilityZoneId) {
             throw createError(
-                "No legacy compatibility zone is currently associated with this division. Configure the existing compatibility data before creating an operational ward.",
+                "A valid active compatibility Zone could not be resolved for this Division.",
                 409
             );
         }
@@ -793,6 +898,10 @@ async function createOperationalWard(req, res) {
                 code: wardCode,
                 name: wardName,
                 status: "active",
+                zone_id: compatibilityZoneId,
+                zone_code: compatibilityZone?.zone_code || null,
+                zone_name: compatibilityZone?.zone_name || null,
+                zone_scope: "app_managed_compatibility",
                 boundary: {
                     source: "assistant_defined",
                     polygon: boundary
