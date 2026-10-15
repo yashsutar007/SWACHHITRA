@@ -1215,6 +1215,76 @@ async function updateMyLocation(req, res) {
     }
 }
 
+/**
+ * GET /api/driver/notifications
+ * Returns notifications for the currently authenticated Driver only.
+ */
+async function getMyNotifications(req, res) {
+    try {
+        const userId = Number(req.currentUser?.id);
+        if (!Number.isSafeInteger(userId) || userId <= 0) {
+            return res.status(401).json({ success: false, message: "Sign in as a Driver to view notifications." });
+        }
+
+        const [rows] = await db.execute(
+            `SELECT n.id, n.title, n.message, n.notification_type,
+                    n.priority, n.is_read, n.created_at, n.read_at,
+                    r.route_code
+             FROM notifications n
+             LEFT JOIN routes r ON r.id = n.related_route_id
+             WHERE n.recipient_user_id = ?
+             ORDER BY n.created_at DESC, n.id DESC
+             LIMIT 30`,
+            [userId]
+        );
+
+        return res.json({
+            success: true,
+            notifications: rows.map(row => {
+                const createdAt = row.created_at ? new Date(row.created_at) : null;
+                const readAt = row.read_at ? new Date(row.read_at) : null;
+                return {
+                    id: Number(row.id),
+                    title: row.title,
+                    message: row.message,
+                    type: row.notification_type,
+                    priority: row.priority,
+                    isRead: Boolean(row.is_read),
+                    createdAt: createdAt && Number.isFinite(createdAt.getTime()) ? createdAt.toISOString() : null,
+                    readAt: readAt && Number.isFinite(readAt.getTime()) ? readAt.toISOString() : null,
+                    relatedRouteCode: row.route_code || null
+                };
+            })
+        });
+    } catch (error) {
+        return sendDatabaseError(res, "Unable to load Driver notifications.", error);
+    }
+}
+
+/** POST /api/driver/notifications/read — marks only this Driver's notices read. */
+async function markMyNotificationsRead(req, res) {
+    try {
+        const userId = Number(req.currentUser?.id);
+        if (!Number.isSafeInteger(userId) || userId <= 0) {
+            return res.status(401).json({ success: false, message: "Sign in as a Driver to update notifications." });
+        }
+
+        await db.execute(
+            `UPDATE notifications
+             SET is_read = TRUE,
+                 read_at = COALESCE(read_at, NOW())
+             WHERE recipient_user_id = ?
+               AND is_read = FALSE`,
+            [userId]
+        );
+
+        return res.json({ success: true, message: "Your notifications have been marked as read." });
+    } catch (error) {
+        return sendDatabaseError(res, "Unable to update Driver notifications.", error);
+    }
+}
+
+
 module.exports = {
     getMyDriver,
     getMyAssignments,
@@ -1223,5 +1293,7 @@ module.exports = {
     reportMyAssignmentDelay,
     reportMyTruckFull,
     completeMyAssignment,
-    updateMyLocation
+    updateMyLocation,
+    getMyNotifications,
+    markMyNotificationsRead
 };

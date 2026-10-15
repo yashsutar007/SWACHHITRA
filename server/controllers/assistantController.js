@@ -2470,6 +2470,40 @@ async function applyApprovedRouteReassignment(
  * No write operations are exposed here. Every operational record
  * is scoped through the authenticated Division and its wards.
  */
+async function getNotifications(req, res) {
+    try {
+        const scope = await getAssistantScope(req);
+        const [rows] = await db.execute(
+            `SELECT id, title, message, notification_type, priority,
+                    is_read, created_at, related_route_id, related_complaint_id
+             FROM notifications
+             WHERE recipient_user_id = ?
+             ORDER BY id DESC
+             LIMIT 40`,
+            [scope.userId]
+        );
+
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+        return res.json({
+            success: true,
+            notifications: rows.map(row => ({
+                id: Number(row.id),
+                title: row.title || "Notification",
+                message: row.message || "",
+                type: row.notification_type || "system",
+                priority: row.priority || "normal",
+                isRead: Boolean(row.is_read),
+                createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
+                relatedRouteId: row.related_route_id === null ? null : Number(row.related_route_id),
+                relatedComplaintId: row.related_complaint_id === null ? null : Number(row.related_complaint_id)
+            }))
+        });
+    } catch (error) {
+        return sendError(res, "Unable to load Assistant Commissioner notifications.", error);
+    }
+}
+
+
 async function getSupervision(req, res) {
     try {
         const scope = await getAssistantScope(req);
@@ -4172,6 +4206,7 @@ module.exports = {
     assignInspectorScope,
     getMapData,
     getSupervision,
+    getNotifications,
     reviewRouteChangeRequest,
     saveDivisionOperationalArea,
     getReportsAnalytics

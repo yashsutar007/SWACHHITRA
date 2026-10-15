@@ -42,6 +42,49 @@ function mapStatusRows(rows) {
  * no schema requirements beyond the operational tables already used by the
  * application. No client-supplied division/ward identifier is accepted.
  */
+async function getMyNotifications(req, res) {
+    if (req.currentUser?.role !== "deputy_commissioner") {
+        return res.status(403).json({ success: false, message: "Deputy Commissioner access is required." });
+    }
+    const userId = Number(req.currentUser?.id);
+    if (!Number.isSafeInteger(userId) || userId <= 0) {
+        return res.status(401).json({ success: false, message: "A valid Deputy Commissioner session is required." });
+    }
+
+    try {
+        const [rows] = await db.execute(
+            `SELECT id, title, message, notification_type, priority, is_read, created_at,
+                    related_route_id, related_complaint_id
+             FROM notifications
+             WHERE recipient_user_id = ?
+             ORDER BY id DESC
+             LIMIT 40`,
+            [userId]
+        );
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+        return res.json({
+            success: true,
+            notifications: rows.map(row => ({
+                id: Number(row.id),
+                title: row.title || "Notification",
+                message: row.message || "",
+                type: row.notification_type || "system",
+                priority: row.priority || "normal",
+                isRead: Boolean(row.is_read),
+                createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
+                relatedRouteId: row.related_route_id === null ? null : Number(row.related_route_id),
+                relatedComplaintId: row.related_complaint_id === null ? null : Number(row.related_complaint_id)
+            }))
+        });
+    } catch (error) {
+        console.error("Deputy Commissioner notification refresh failed.", {
+            code: error?.code || "database_error"
+        });
+        return res.status(503).json({ success: false, message: "Unable to load notifications right now." });
+    }
+}
+
+
 async function getCityOverview(req, res) {
     if (req.currentUser?.role !== "deputy_commissioner") {
         return res.status(403).json({
@@ -1550,4 +1593,4 @@ async function updateStaffAccountStatus(req, res) {
     }
 }
 
-module.exports = { getCityOverview, getDivisionSupervision, getDivisionWards, getComplaintOversight, escalateComplaint, getFleetOperations, getReportsAnalytics, getSecurityCenter, updateStaffAccountStatus };
+module.exports = { getMyNotifications, getCityOverview, getDivisionSupervision, getDivisionWards, getComplaintOversight, escalateComplaint, getFleetOperations, getReportsAnalytics, getSecurityCenter, updateStaffAccountStatus };

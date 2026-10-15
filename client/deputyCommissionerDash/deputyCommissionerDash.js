@@ -49,6 +49,70 @@
         $("footerDataSource").textContent = "Source: current application database";
     }
 
+    let dcNotificationTimer = null;
+    let dcNotificationInFlight = false;
+    let dcKnownNotificationIds = null;
+
+    function scheduleDcNotificationPoll(delay = 15000) {
+        if (dcNotificationTimer !== null) window.clearTimeout(dcNotificationTimer);
+        dcNotificationTimer = null;
+        if (document.visibilityState === "hidden") return;
+        dcNotificationTimer = window.setTimeout(async () => {
+            dcNotificationTimer = null;
+            await pollDcNotifications();
+        }, delay);
+    }
+
+    async function pollDcNotifications() {
+        if (dcNotificationInFlight || document.visibilityState === "hidden") {
+            scheduleDcNotificationPoll();
+            return;
+        }
+        dcNotificationInFlight = true;
+        try {
+            const response = await fetch("/api/deputy/notifications", {
+                method: "GET", credentials: "same-origin", cache: "no-store",
+                headers: { "Accept": "application/json", "Cache-Control": "no-cache" }
+            });
+            let payload = {};
+            try { payload = await response.json(); } catch { /* handled below */ }
+            if (response.status === 401 || response.status === 403) {
+                window.location.replace("/login");
+                return;
+            }
+            if (!response.ok || payload?.success !== true) throw new Error(payload?.message || "Notification refresh failed.");
+            const refreshed = Array.isArray(payload.notifications) ? payload.notifications : [];
+            if (dcKnownNotificationIds !== null) {
+                const incoming = refreshed.filter(item =>
+                    !item.isRead && item.id != null && !dcKnownNotificationIds.has(String(item.id))
+                );
+                incoming.slice(0, 2).forEach(item => window.SwachhitraUI?.showIncomingNotification(item, "Deputy Commissioner"));
+                if (incoming.length > 2) window.SwachhitraUI?.toast({
+                    title: `${incoming.length} new notifications`,
+                    message: "Review the relevant supervisory section for details.",
+                    kind: "info"
+                });
+            }
+            dcKnownNotificationIds = new Set(refreshed.map(item => String(item.id)));
+        } catch (error) {
+            if (!/authentication|required|forbidden|sign in/i.test(String(error?.message || ""))) {
+                console.warn("Deputy Commissioner notification refresh failed:", error?.message || error);
+            }
+        } finally {
+            dcNotificationInFlight = false;
+            scheduleDcNotificationPoll(15000);
+        }
+    }
+
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+            if (dcNotificationTimer !== null) window.clearTimeout(dcNotificationTimer);
+            dcNotificationTimer = null;
+        } else {
+            scheduleDcNotificationPoll(800);
+        }
+    });
+
     function setText(id, value) {
         const element = $(id);
         if (element) element.textContent = String(value);
@@ -1792,6 +1856,7 @@
         else escalationDialog?.removeAttribute("open");
     });
     loadOverview();
+    void pollDcNotifications();
     loadDivisions();
     loadComplaints();
     loadFleetOperations();

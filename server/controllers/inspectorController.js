@@ -2051,6 +2051,15 @@ async function createRoute(
                 driverId,
                 allowUnassign: false
             });
+            await notifyDriversOfRouteAssignmentChange({
+                connection,
+                inspectorUserId: Number(req.currentUser.id),
+                routeId,
+                previousDriverId: null,
+                previousVehicleId: null,
+                nextDriverId: driverId,
+                nextVehicleId: vehicleId
+            });
         }
 
         await connection.commit();
@@ -2092,6 +2101,248 @@ async function createRoute(
  * UPDATE ROUTE
  * ---------------------------------------------------------
  */
+/**
+ * Notify the affected Driver accounts after an Inspector changes a route's
+ * crew. Notifications are written on the same transaction as the assignment
+ * update, so a failed reassignment cannot produce a false alert.
+ *
+ * If this Inspector has a recent truck-full report for the same Ward, the
+ * Driver notice explains that the assignment change supports remaining
+ * collection after that report. Otherwise it uses a neutral assignment-change
+ * message.
+ */
+async function notifyDriversOfRouteAssignmentChange({
+    connection,
+    inspectorUserId,
+    routeId,
+    previousDriverId,
+    previousVehicleId,
+    nextDriverId,
+    nextVehicleId
+}) {
+    const previousDriver = previousDriverId ? Number(previousDriverId) : null;
+    const nextDriver = nextDriverId ? Number(nextDriverId) : null;
+    const previousVehicle = previousVehicleId ? Number(previousVehicleId) : null;
+    const nextVehicle = nextVehicleId ? Number(nextVehicleId) : null;
+
+    const assignmentChanged =
+        previousDriver !== nextDriver ||
+        previousVehicle !== nextVehicle;
+
+    if (!assignmentChanged) return 0;
+
+    const [routeRows] = await connection.execute(
+        `SELECT r.id, r.route_code, r.route_name, r.ward_id,
+                w.ward_number, w.ward_name
+         FROM routes r
+         LEFT JOIN wards w ON w.id = r.ward_id
+         WHERE r.id = ?
+         LIMIT 1`,
+        [Number(routeId)]
+    );
+    const route = routeRows[0];
+    if (!route) return 0;
+
+    const routeLabel = `${route.route_code || `Route ${route.id}`}${route.route_name ? ` — ${route.route_name}` : ""}`;
+    const wardLabel = route.ward_number != null
+        ? `Ward ${route.ward_number}${route.ward_name ? ` — ${route.ward_name}` : ""}`
+        : (route.ward_name || `Ward ${route.ward_id}`);
+
+    let truckFullContext = "";
+    const [truckFullRows] = await connection.execute(
+        `SELECT full_route.route_code, full_route.route_name
+         FROM notifications n
+         INNER JOIN routes full_route
+            ON full_route.id = n.related_route_id
+         WHERE n.recipient_user_id = ?
+           AND n.notification_type = 'truck_full_report'
+           AND full_route.ward_id = ?
+           AND n.created_at >= DATE_SUB(NOW(), INTERVAL 6 HOUR)
+         ORDER BY n.created_at DESC, n.id DESC
+         LIMIT 1`,
+        [Number(inspectorUserId), Number(route.ward_id)]
+    );
+
+    if (truckFullRows.length) {
+        const reportRoute = truckFullRows[0];
+        const reportRouteLabel = `${reportRoute.route_code || "reported route"}${reportRoute.route_name ? ` — ${reportRoute.route_name}` : ""}`;
+        truckFullContext = ` This update supports remaining collection after a truck-full report on ${reportRouteLabel} in ${wardLabel}.`;
+    }
+
+    let nextVehicleLabel = "the assigned vehicle";
+    if (nextVehicle) {
+        const [vehicleRows] = await connection.execute(
+            `SELECT vehicle_number, registration_number
+             FROM vehicles
+             WHERE id = ?
+             LIMIT 1`,
+            [nextVehicle]
+        );
+        if (vehicleRows.length) {
+            nextVehicleLabel = vehicleRows[0].registration_number
+                ? `${vehicleRows[0].vehicle_number} (${vehicleRows[0].registration_number})`
+                : (vehicleRows[0].vehicle_number || nextVehicleLabel);
+        }
+    }
+
+    async function getDriverRecipient(driverId) {
+        if (!driverId) return null;
+        const [rows] = await connection.execute(
+            `SELECT u.id AS user_id
+             FROM drivers d
+             INNER JOIN users u
+                ON u.id = d.user_id
+               AND u.role = 'driver'
+               AND u.status = 'active'
+             WHERE d.id = ?
+               AND d.status <> 'inactive'
+             LIMIT 1`,
+            [Number(driverId)]
+        );
+        return rows[0] ? Number(rows[0].user_id) : null;
+    }
+
+    const newRecipientId = await getDriverRecipient(nextDriver);
+    const oldRecipientId = previousDriver !== nextDriver
+        ? await getDriverRecipient(previousDriver)
+        : null;
+
+    let inserted = 0;
+
+    if (newRecipientId) {
+        const sameDriverVehicleChanged = previousDriver === nextDriver && previousVehicle !== nextVehicle;
+        const title = sameDriverVehicleChanged
+            ? `Vehicle updated — ${route.route_code || `Route ${route.id}`}`
+            : `Route assignment updated — ${route.route_code || `Route ${route.id}`}`;
+        const message = sameDriverVehicleChanged
+            ? `Your vehicle for ${routeLabel} in ${wardLabel} has changed to ${nextVehicleLabel}.${truckFullContext} Please refresh your Driver dashboard and review the route details.`
+            : `Your assignment has changed. You are now assigned to ${routeLabel} in ${wardLabel} with ${nextVehicleLabel}.${truckFullContext} Please refresh your Driver dashboard and review the updated route and stops.`;
+
+        await connection.execute(
+            `INSERT INTO notifications
+                (recipient_user_id, title, message, notification_type, priority, related_route_id)
+             VALUES (?, ?, ?, 'route_assignment_changed', 'high', ?)`,
+            [newRecipientId, title, message, Number(route.id)]
+        );
+        inserted += 1;
+    }
+
+    if (oldRecipientId && oldRecipientId !== newRecipientId) {
+        const message = `Your assignment for ${routeLabel} in ${wardLabel} has changed. You are no longer assigned to this route.${truckFullContext} Please refresh your Driver dashboard and contact your Inspector if you need clarification.`;
+        await connection.execute(
+            `INSERT INTO notifications
+                (recipient_user_id, title, message, notification_type, priority, related_route_id)
+             VALUES (?, ?, ?, 'route_assignment_changed', 'high', ?)`,
+            [oldRecipientId, `Assignment changed — ${route.route_code || `Route ${route.id}`}`, message, Number(route.id)]
+        );
+        inserted += 1;
+    }
+
+    return inserted;
+}
+
+
+/**
+ * Notify the Driver currently assigned to a route when its route details or
+ * collection-stop plan changes, even when the crew/vehicle assignment itself
+ * stays the same. A recent truck-full report in the same Ward adds context.
+ * Call this inside the same transaction as the route/stop change.
+ * Duplicate route-plan notices are coalesced for two minutes while an
+ * Inspector is saving several stops in sequence.
+ */
+async function notifyAssignedDriverOfRoutePlanChange({
+    connection,
+    inspectorUserId,
+    routeId,
+    changeLabel = "the route details or collection stops were updated"
+}) {
+    const [routeRows] = await connection.execute(
+        `SELECT r.id, r.route_code, r.route_name, r.ward_id,
+                r.division_id, w.ward_number, w.ward_name
+         FROM routes r
+         LEFT JOIN wards w ON w.id = r.ward_id
+         WHERE r.id = ?
+           AND r.status NOT IN ('completed', 'cancelled')
+         LIMIT 1`,
+        [Number(routeId)]
+    );
+    const route = routeRows[0];
+    if (!route) return 0;
+
+    const [driverRows] = await connection.execute(
+        `SELECT u.id AS recipient_user_id, d.id AS driver_id,
+                d.full_name AS driver_name
+         FROM route_assignments ra
+         INNER JOIN drivers d ON d.id = ra.driver_id
+         INNER JOIN users u ON u.id = d.user_id
+         WHERE ra.route_id = ?
+           AND ra.status IN ('assigned', 'active', 'delayed')
+           AND d.status <> 'inactive'
+           AND u.role = 'driver'
+           AND u.status = 'active'
+         ORDER BY ra.id DESC
+         LIMIT 1`,
+        [Number(routeId)]
+    );
+    if (!driverRows.length) return 0;
+
+    const recipientId = Number(driverRows[0].recipient_user_id);
+    const routeLabel = `${route.route_code || `Route ${route.id}`}${route.route_name ? ` — ${route.route_name}` : ""}`;
+    const wardLabel = route.ward_number != null
+        ? `Ward ${route.ward_number}${route.ward_name ? ` — ${route.ward_name}` : ""}`
+        : (route.ward_name || `Ward ${route.ward_id}`);
+
+    let truckFullContext = "";
+    const [truckFullRows] = await connection.execute(
+        `SELECT full_route.route_code, full_route.route_name
+         FROM notifications n
+         INNER JOIN routes full_route ON full_route.id = n.related_route_id
+         WHERE n.recipient_user_id = ?
+           AND n.notification_type = 'truck_full_report'
+           AND full_route.ward_id = ?
+           AND n.created_at >= DATE_SUB(NOW(), INTERVAL 6 HOUR)
+         ORDER BY n.created_at DESC, n.id DESC
+         LIMIT 1`,
+        [Number(inspectorUserId), Number(route.ward_id)]
+    );
+
+    if (truckFullRows.length) {
+        const fullRoute = truckFullRows[0];
+        const fullRouteLabel = `${fullRoute.route_code || "a route"}${fullRoute.route_name ? ` — ${fullRoute.route_name}` : ""}`;
+        truckFullContext = ` This change supports remaining collection after a truck-full report on ${fullRouteLabel} in ${wardLabel}.`;
+    }
+
+    const title = truckFullContext
+        ? `Route updated after truck-full report — ${route.route_code || `Route ${route.id}`}`
+        : `Route plan updated — ${route.route_code || `Route ${route.id}`}`;
+
+    // Saving multiple stops in sequence should create one actionable alert,
+    // rather than flooding the Driver with near-identical notifications.
+    const [duplicateRows] = await connection.execute(
+        `SELECT id
+         FROM notifications
+         WHERE recipient_user_id = ?
+           AND related_route_id = ?
+           AND notification_type = 'route_assignment_changed'
+           AND title = ?
+           AND created_at >= DATE_SUB(NOW(), INTERVAL 2 MINUTE)
+         LIMIT 1`,
+        [recipientId, Number(route.id), title]
+    );
+    if (duplicateRows.length) return 0;
+
+    const message = `Your assigned route ${routeLabel} in ${wardLabel} has changed because ${changeLabel}.${truckFullContext} Refresh your Driver dashboard and review the updated stop order and route map before continuing collection.`;
+
+    await connection.execute(
+        `INSERT INTO notifications
+            (recipient_user_id, title, message, notification_type, priority, related_route_id)
+         VALUES (?, ?, ?, 'route_assignment_changed', 'high', ?)`,
+        [recipientId, title, message, Number(route.id)]
+    );
+    return 1;
+}
+
+
 async function updateRoute(
     req,
     res
@@ -2542,6 +2793,27 @@ async function updateRoute(
                 currentAssignment,
                 allowUnassign: true
             });
+
+            if (assignmentChangeRequested) {
+                await notifyDriversOfRouteAssignmentChange({
+                    connection,
+                    inspectorUserId: Number(req.currentUser.id),
+                    routeId,
+                    previousDriverId: currentDriverId,
+                    previousVehicleId: currentVehicleId,
+                    nextDriverId: desiredDriverId,
+                    nextVehicleId: desiredVehicleId
+                });
+            }
+        }
+
+        if (updates.length && !assignmentChangeRequested && currentAssignment) {
+            await notifyAssignedDriverOfRoutePlanChange({
+                connection,
+                inspectorUserId: Number(req.currentUser.id),
+                routeId,
+                changeLabel: "your Inspector updated the route details, schedule, status, or collection plan"
+            });
         }
 
         if (!updates.length && !assignmentChangeRequested && !currentAssignment) {
@@ -2922,6 +3194,13 @@ async function createRouteStop(
             routeId
         );
 
+        await notifyAssignedDriverOfRoutePlanChange({
+            connection,
+            inspectorUserId: Number(req.currentUser.id),
+            routeId,
+            changeLabel: `a new collection stop (${stopName}) was added`
+        });
+
         await connection.commit();
 
         const [stopRows] = await db.execute(
@@ -3169,6 +3448,13 @@ async function updateRouteStop(
             routeId
         );
 
+        await notifyAssignedDriverOfRoutePlanChange({
+            connection,
+            inspectorUserId: Number(req.currentUser.id),
+            routeId,
+            changeLabel: `collection stop ${stopName} or its location/order was changed`
+        });
+
         await connection.commit();
 
         return res.json({
@@ -3215,7 +3501,8 @@ async function deleteRouteStop(
             `
             SELECT
                 r.id,
-                r.status
+                r.status,
+                s.stop_name
             FROM routes r
             JOIN route_stops s
                 ON s.route_id = r.id
@@ -3282,6 +3569,13 @@ async function deleteRouteStop(
             connection,
             routeId
         );
+
+        await notifyAssignedDriverOfRoutePlanChange({
+            connection,
+            inspectorUserId: Number(req.currentUser.id),
+            routeId,
+            changeLabel: `collection stop ${rows[0].stop_name || "from the route"} was removed and remaining stops were reordered`
+        });
 
         await connection.commit();
 
@@ -5802,6 +6096,12 @@ async function updateRouteAssignment(
                 { forUpdate: true }
             );
 
+        const previousDriverId = currentAssignment ? Number(currentAssignment.driver_id) : null;
+        const previousVehicleId = currentAssignment ? Number(currentAssignment.vehicle_id) : null;
+        const assignmentChanged =
+            previousDriverId !== (driverId ? Number(driverId) : null) ||
+            previousVehicleId !== (vehicleId ? Number(vehicleId) : null);
+
         await applyRouteAssignmentChange({
             req,
             connection,
@@ -5812,6 +6112,18 @@ async function updateRouteAssignment(
             currentAssignment,
             allowUnassign: true
         });
+
+        if (assignmentChanged) {
+            await notifyDriversOfRouteAssignmentChange({
+                connection,
+                inspectorUserId: Number(req.currentUser.id),
+                routeId,
+                previousDriverId,
+                previousVehicleId,
+                nextDriverId: driverId,
+                nextVehicleId: vehicleId
+            });
+        }
 
         await connection.commit();
 

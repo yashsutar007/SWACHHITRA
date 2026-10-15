@@ -14,7 +14,9 @@ const {
     reportMyAssignmentDelay,
     reportMyTruckFull,
     completeMyAssignment,
-    updateMyLocation
+    updateMyLocation,
+    getMyNotifications,
+    markMyNotificationsRead
 } = require("../controllers/driverController");
 
 const router = express.Router();
@@ -25,6 +27,8 @@ router.use(requireRole("driver"));
 router.get("/security/csrf-token", ensureDriverCsrfToken);
 router.get("/me", getMyDriver);
 router.get("/assignments", getMyAssignments);
+router.get("/notifications", getMyNotifications);
+router.post("/notifications/read", requireDriverMutationSecurity, markMyNotificationsRead);
 router.post("/location", requireDriverMutationSecurity, updateMyLocation);
 
 router.post(

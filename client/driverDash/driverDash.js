@@ -14,6 +14,11 @@
     let csrfToken = "";
     const reportedTruckFullAssignmentIds = new Set();
     let truckFullReportInFlight = false;
+    let driverNotifications = [];
+    let knownDriverNotificationIds = null;
+    let driverNotificationPollTimer = null;
+    let driverNotificationPollInFlight = false;
+    const DRIVER_NOTIFICATION_POLL_MS = 15000;
 
     // Part 4: MapLibre 3D-style map and route-preview state.
     const MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
@@ -140,19 +145,46 @@
             } else if (action.kind === "stop") {
                 result = await mutateJSON(`/api/driver/stops/${action.stopId}/status`, { status: action.status });
             } else if (action.kind === "delay") {
-                const delayText = window.prompt("Estimated delay in minutes (1–1440):");
+                const delayText = await window.SwachhitraUI.prompt({
+                    title: "Report route delay",
+                    message: "Enter the estimated delay so your Inspector can adjust the collection plan.",
+                    label: "Estimated delay in minutes",
+                    inputType: "number",
+                    min: 1,
+                    max: 1440,
+                    value: "15",
+                    required: true,
+                    confirmText: "Continue",
+                    hint: "Enter a whole number from 1 to 1,440 minutes."
+                });
                 if (delayText === null) return;
                 const delayMinutes = Number(delayText);
                 if (!Number.isInteger(delayMinutes) || delayMinutes < 1 || delayMinutes > 1440) {
                     throw new Error("Enter a whole number of delay minutes from 1 to 1440.");
                 }
-                const reason = window.prompt("Reason for the delay:");
-                if (reason === null || !reason.trim()) throw new Error("A delay reason is required.");
+                const reason = await window.SwachhitraUI.prompt({
+                    title: "Explain the delay",
+                    message: "Add a short reason to help the Inspector understand the route change.",
+                    label: "Reason for delay",
+                    multiline: true,
+                    rows: 3,
+                    maxLength: 500,
+                    required: true,
+                    confirmText: "Submit delay"
+                });
+                if (reason === null) return;
+                if (!reason.trim()) throw new Error("A delay reason is required.");
                 result = await mutateJSON(`/api/driver/assignments/${action.assignmentId}/delay`, {
                     delayMinutes, reason: reason.trim()
                 });
             } else if (action.kind === "complete") {
-                if (!window.confirm("Complete this route? Every stop must already be marked collected or skipped.")) return;
+                const confirmed = await window.SwachhitraUI.confirm({
+                    title: "Complete this route?",
+                    message: "Every stop must already be marked collected or skipped. Completing the route stops route navigation on this device.",
+                    confirmText: "Complete route",
+                    cancelText: "Keep route active"
+                });
+                if (!confirmed) return;
                 result = await mutateJSON(`/api/driver/assignments/${action.assignmentId}/complete`, {});
             }
             showNotice(result?.message || "Update saved.", "success");
@@ -227,9 +259,16 @@
             }, collectedButton));
             const skippedButton = el("button", "text-action", "Skip stop");
             skippedButton.type = "button";
-            skippedButton.addEventListener("click", () => {
-                if (window.confirm("Mark this stop as skipped? This will be recorded for operational review.")) {
-                    runAction({ kind: "stop", stopId: stop.id, status: "skipped" }, skippedButton);
+            skippedButton.addEventListener("click", async () => {
+                const confirmed = await window.SwachhitraUI.confirm({
+                    title: `Skip collection stop ${Number(stop.order)}?`,
+                    message: "This stop will be recorded as skipped for operational review. Continue only if collection cannot be completed at this location.",
+                    confirmText: "Skip stop",
+                    cancelText: "Keep stop",
+                    danger: true
+                });
+                if (confirmed) {
+                    await runAction({ kind: "stop", stopId: stop.id, status: "skipped" }, skippedButton);
                 }
             });
             actions.append(collectedButton, skippedButton);
@@ -1354,9 +1393,14 @@
 
         const vehicleName = assignment.vehicle?.number || "the assigned vehicle";
         const routeName = assignment.route?.code || assignment.code || "the selected route";
-        if (!window.confirm(`Report ${vehicleName} as FULL on ${routeName}? Your assigned Inspector will receive a notification with the Ward, vehicle, driver, and route details.`)) {
-            return;
-        }
+        const confirmed = await window.SwachhitraUI.confirm({
+            title: "Report truck full?",
+            message: `Report ${vehicleName} as FULL on ${routeName}? Your assigned Inspector will receive a notification with the Ward, vehicle, driver, and route details.`,
+            confirmText: "Send truck-full report",
+            cancelText: "Not yet",
+            danger: true
+        });
+        if (!confirmed) return;
 
         truckFullReportInFlight = true;
         updateNavigationControls();
@@ -1409,6 +1453,135 @@
             setMapNotice("GPS sharing stopped on this device. The route remains active in SWACHHITRA; no further locations will be sent from this page.");
         });
     }
+
+    function formatDriverNotificationDate(value) {
+        if (!value) return "Recently";
+        const date = new Date(value);
+        if (!Number.isFinite(date.getTime())) return "Recently";
+        return new Intl.DateTimeFormat(undefined, {
+            dateStyle: "medium",
+            timeStyle: "short"
+        }).format(date);
+    }
+
+    function renderDriverNotifications() {
+        const list = byId("driverNotificationList");
+        const panelCount = byId("driverNotificationsCount");
+        const navCount = byId("driverNotificationNavCount");
+        if (!list) return;
+
+        const unreadCount = driverNotifications.filter(item => !item.isRead).length;
+        if (panelCount) panelCount.textContent = `${unreadCount} unread`;
+        if (navCount) {
+            navCount.textContent = String(unreadCount > 99 ? "99+" : unreadCount);
+            navCount.hidden = unreadCount === 0;
+        }
+
+        list.replaceChildren();
+        if (!driverNotifications.length) {
+            list.appendChild(el("div", "empty-state", "No route or assignment notifications yet. Updates from your Inspector will appear here."));
+            return;
+        }
+
+        driverNotifications.forEach(notification => {
+            const card = el("article", `driver-notification-card${notification.isRead ? " is-read" : " is-unread"}`);
+            const header = el("div", "driver-notification-card-header");
+            const title = el("h3", "", notification.title || "Route update");
+            const state = el("span", `driver-notification-state${notification.isRead ? " read" : " unread"}`, notification.isRead ? "Read" : "New");
+            header.append(title, state);
+            const message = el("p", "driver-notification-message", notification.message || "Your Inspector updated an assignment.");
+            const meta = el("div", "driver-notification-meta");
+            meta.appendChild(el("span", "", formatDriverNotificationDate(notification.createdAt)));
+            if (notification.relatedRouteCode) {
+                meta.appendChild(el("span", "", `Route ${notification.relatedRouteCode}`));
+            }
+            card.append(header, message, meta);
+            list.appendChild(card);
+        });
+    }
+
+    async function refreshDriverNotifications(announceNew = true) {
+        if (driverNotificationPollInFlight) return;
+        driverNotificationPollInFlight = true;
+        try {
+            const result = await fetchJSON("/api/driver/notifications");
+            const refreshed = Array.isArray(result.notifications) ? result.notifications : [];
+            const refreshedIds = new Set(refreshed.map(item => String(item.id)));
+
+            if (knownDriverNotificationIds !== null && announceNew) {
+                const newUnread = refreshed.filter(item =>
+                    !item.isRead && !knownDriverNotificationIds.has(String(item.id))
+                );
+                if (newUnread.length) {
+                    const toastItems = newUnread.slice(0, 2);
+                    toastItems.forEach(item => window.SwachhitraUI?.showIncomingNotification(item, "Driver"));
+                    if (newUnread.length > 2) {
+                        window.SwachhitraUI?.toast({
+                            title: `${newUnread.length} new notifications`,
+                            message: "Open Notifications in your Driver dashboard to review every update.",
+                            kind: "info"
+                        });
+                    }
+                }
+            }
+
+            knownDriverNotificationIds = refreshedIds;
+            driverNotifications = refreshed;
+            renderDriverNotifications();
+        } catch (error) {
+            if (!/session has expired|authentication|required|not authenticated/i.test(error?.message || "")) {
+                console.warn("Driver notification refresh failed:", error?.message || error);
+            }
+        } finally {
+            driverNotificationPollInFlight = false;
+        }
+    }
+
+    async function markDriverNotificationsRead() {
+        const button = byId("driverMarkNotificationsRead");
+        if (button) button.disabled = true;
+        try {
+            const result = await mutateJSON("/api/driver/notifications/read", {});
+            driverNotifications = driverNotifications.map(item => ({ ...item, isRead: true }));
+            knownDriverNotificationIds = new Set(driverNotifications.map(item => String(item.id)));
+            renderDriverNotifications();
+            showNotice(result.message || "Notifications marked as read.", "success");
+        } catch (error) {
+            showNotice(error?.message || "Unable to mark notifications as read.", "error");
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
+    function scheduleDriverNotificationPoll(delay = DRIVER_NOTIFICATION_POLL_MS) {
+        if (driverNotificationPollTimer !== null) {
+            window.clearTimeout(driverNotificationPollTimer);
+        }
+        driverNotificationPollTimer = window.setTimeout(async () => {
+            driverNotificationPollTimer = null;
+            if (document.visibilityState !== "hidden") {
+                await refreshDriverNotifications(true);
+            }
+            scheduleDriverNotificationPoll(DRIVER_NOTIFICATION_POLL_MS);
+        }, delay);
+    }
+
+    function startDriverNotificationPolling() {
+        void refreshDriverNotifications(false);
+        scheduleDriverNotificationPoll(5000);
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "hidden") {
+                if (driverNotificationPollTimer !== null) {
+                    window.clearTimeout(driverNotificationPollTimer);
+                    driverNotificationPollTimer = null;
+                }
+                return;
+            }
+            void refreshDriverNotifications(true);
+            scheduleDriverNotificationPoll(5000);
+        });
+    }
+
 
     async function loadDashboard() {
         showNotice("Loading your Driver account and assignments…");
@@ -1471,7 +1644,9 @@
     });
     routeSearch?.addEventListener("input", renderAssignments);
     byId("logoutButton")?.addEventListener("click", logout);
+    byId("driverMarkNotificationsRead")?.addEventListener("click", markDriverNotificationsRead);
     setupNavigationMapControls();
+    startDriverNotificationPolling();
     initializeNavigationMap();
 
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", loadDashboard);

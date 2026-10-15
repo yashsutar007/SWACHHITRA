@@ -11,6 +11,7 @@ const {
     assignInspectorScope,
     getMapData,
     getSupervision,
+    getNotifications,
     reviewRouteChangeRequest,
     saveDivisionOperationalArea,
     getReportsAnalytics
@@ -75,6 +76,9 @@ router.get(
     "/supervision",
     getSupervision
 );
+
+// Read-only notification feed scoped to the authenticated Assistant Commissioner.
+router.get("/notifications", getNotifications);
 
 
 // ---------------------------------------------------------

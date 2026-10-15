@@ -356,7 +356,14 @@
     }
 
     async function cancelComplaint(complaint, button) {
-        if (!window.confirm(`Cancel complaint ${complaint.code}? This is only available while its status is Open.`)) return;
+        const confirmed = await window.SwachhitraUI.confirm({
+            title: `Cancel complaint ${complaint.code}?`,
+            message: "Cancellation is available only while the complaint is Open. The update will be recorded in your complaint history.",
+            confirmText: "Cancel complaint",
+            cancelText: "Keep complaint",
+            danger: true
+        });
+        if (!confirmed) return;
         const oldText = button.textContent;
         button.disabled = true;
         button.textContent = "Cancelling…";
@@ -691,6 +698,14 @@
             renderCitizenNotifications();
 
             if (newlyArrived.length) {
+                newlyArrived.slice(0, 2).forEach(item => window.SwachhitraUI?.showIncomingNotification(item, "Citizen service update"));
+                if (newlyArrived.length > 2) {
+                    window.SwachhitraUI?.toast({
+                        title: `${newlyArrived.length} new service updates`,
+                        message: "Open Notifications to review updates relevant to your confirmed Ward.",
+                        kind: "info"
+                    });
+                }
                 setCitizenNotificationsStatus(
                     `${newlyArrived.length} new route update${newlyArrived.length === 1 ? "" : "s"} · updates checked every 15 seconds`,
                     "unread"

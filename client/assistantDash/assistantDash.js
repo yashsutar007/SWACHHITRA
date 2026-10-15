@@ -5946,6 +5946,60 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    let assistantNotificationTimer = null;
+    let assistantNotificationInFlight = false;
+    let assistantKnownNotificationIds = null;
+
+    function scheduleAssistantNotificationPoll(delay = 15000) {
+        if (assistantNotificationTimer !== null) window.clearTimeout(assistantNotificationTimer);
+        assistantNotificationTimer = null;
+        if (document.visibilityState === "hidden") return;
+        assistantNotificationTimer = window.setTimeout(async () => {
+            assistantNotificationTimer = null;
+            await pollAssistantNotifications();
+        }, delay);
+    }
+
+    async function pollAssistantNotifications() {
+        if (assistantNotificationInFlight || document.visibilityState === "hidden") {
+            scheduleAssistantNotificationPoll();
+            return;
+        }
+        assistantNotificationInFlight = true;
+        try {
+            const payload = await fetchJSON(`${API_BASE}/notifications`);
+            const refreshed = Array.isArray(payload.notifications) ? payload.notifications : [];
+            if (assistantKnownNotificationIds !== null) {
+                const incoming = refreshed.filter(item =>
+                    !item.isRead && item.id != null && !assistantKnownNotificationIds.has(String(item.id))
+                );
+                incoming.slice(0, 2).forEach(item => window.SwachhitraUI?.showIncomingNotification(item, "Assistant Commissioner"));
+                if (incoming.length > 2) window.SwachhitraUI?.toast({
+                    title: `${incoming.length} new notifications`,
+                    message: "Open the Supervision → Notifications section to review all updates.",
+                    kind: "info"
+                });
+            }
+            assistantKnownNotificationIds = new Set(refreshed.map(item => String(item.id)));
+        } catch (error) {
+            if (!/authentication|required|forbidden|sign in/i.test(String(error?.message || ""))) {
+                console.warn("Assistant notification refresh failed:", error?.message || error);
+            }
+        } finally {
+            assistantNotificationInFlight = false;
+            scheduleAssistantNotificationPoll(15000);
+        }
+    }
+
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+            if (assistantNotificationTimer !== null) window.clearTimeout(assistantNotificationTimer);
+            assistantNotificationTimer = null;
+        } else {
+            scheduleAssistantNotificationPoll(800);
+        }
+    });
+
     async function loadAll() {
         if (state.loading) {
             return;
@@ -6824,4 +6878,5 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     updateDivisionAreaUi();
     loadAll();
+    void pollAssistantNotifications();
 });

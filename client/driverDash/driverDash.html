@@ -8,8 +8,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.12.0/dist/maplibre-gl.css">
+    <link rel="stylesheet" href="/shared/swachhitra-ui.css">
     <link rel="stylesheet" href="/driverDash/driverDash.css">
     <script src="https://unpkg.com/maplibre-gl@5.12.0/dist/maplibre-gl.js" defer></script>
+    <script src="/shared/swachhitra-ui.js" defer></script>
     <script src="/driverDash/driverDash.js" defer></script>
 </head>
 <body>
@@ -28,6 +30,7 @@
                 <span class="navigation-title">My Work</span>
                 <a class="navigation-item active" href="#overview" data-driver-nav="overview"><span class="navigation-item-left"><span class="navigation-icon" aria-hidden="true">▦</span><span>Overview</span></span><span class="navigation-active-dot"></span></a>
                 <a class="navigation-item" href="#routes" data-driver-nav="routes"><span class="navigation-item-left"><span class="navigation-icon" aria-hidden="true">↪</span><span>My Routes</span></span><span class="navigation-count muted-count" id="routeNavCount">—</span></a>
+                <a class="navigation-item" href="#driverNotifications" data-driver-nav="notifications"><span class="navigation-item-left"><span class="navigation-icon" aria-hidden="true">♧</span><span>Notifications</span></span><span class="navigation-count" id="driverNotificationNavCount" hidden>0</span></a>
                 <a class="navigation-item" href="/driverProfile/"><span class="navigation-item-left"><span class="navigation-icon" aria-hidden="true">◎</span><span>My Profile</span></span></a>
             </div>
         </nav>
@@ -56,6 +59,14 @@
                     <div><div class="shift-pill"><span></span> YOUR ASSIGNMENTS</div><h2>Welcome, <span id="welcomeDriverName">Driver</span></h2><p>View only your assigned routes on the map, share your live device location while on an active route, record collection stops and report delays.</p></div>
                     <div class="overview-actions"><a class="primary-button" href="#routes">View my routes <span aria-hidden="true">→</span></a><a class="secondary-button" href="/driverProfile/">View profile</a></div>
                 </div>
+
+                <section class="driver-panel content-card driver-notifications-panel" id="driverNotifications" aria-labelledby="driverNotificationsTitle">
+                    <div class="panel-header driver-notifications-header">
+                        <div><p class="eyebrow">ROUTE UPDATES</p><h2 id="driverNotificationsTitle">Notifications <span class="driver-notification-unread-count" id="driverNotificationsCount">0 unread</span></h2><p class="panel-description">Important updates from your Inspector, including route and vehicle assignment changes.</p></div>
+                        <button type="button" class="secondary-button compact-action" id="driverMarkNotificationsRead">Mark all read</button>
+                    </div>
+                    <div class="driver-notification-list" id="driverNotificationList" aria-live="polite"><div class="loading-state">Loading your notifications…</div></div>
+                </section>
 
                 <div class="kpi-section driver-kpis" aria-label="Assignment summary">
                     <article class="kpi-card"><div class="kpi-header"><span>ACTIVE ASSIGNMENTS</span><span class="kpi-icon">↪</span></div><div class="kpi-main-line"><strong class="kpi-value" id="assignmentCount">—</strong></div><p class="kpi-footnote">Routes currently assigned to you</p></article>

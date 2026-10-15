@@ -2499,7 +2499,6 @@ function renderCollections() {
                 primeKnownNotificationIds();
             } else {
                 const newOperationalAlerts = refreshed.filter(item =>
-                    ["truck_full_report", "citizen_complaint", "driver_delay_report"].includes(item.type) &&
                     item.id !== null &&
                     item.id !== undefined &&
                     !knownNotificationIds.has(Number(item.id)) &&
@@ -2514,17 +2513,14 @@ function renderCollections() {
                 });
 
                 if (newOperationalAlerts.length) {
-                    const count = newOperationalAlerts.length;
-                    const hasComplaint = newOperationalAlerts.some(item => item.type === "citizen_complaint");
-                    const hasTruckFull = newOperationalAlerts.some(item => item.type === "truck_full_report");
-                    const toastMessage = count > 1
-                        ? `${count} new operational alerts received. Open Notifications for details.`
-                        : hasComplaint
-                            ? `New Citizen complaint: ${newOperationalAlerts[0].title}`
-                            : hasTruckFull
-                                ? "Truck-full report received. Open Notifications for Ward, vehicle, driver, and route details."
-                                : `New operational alert: ${newOperationalAlerts[0].title}`;
-                    showToast(toastMessage);
+                    newOperationalAlerts.slice(0, 2).forEach(item => window.SwachhitraUI?.showIncomingNotification(item, "Inspector update"));
+                    if (newOperationalAlerts.length > 2) {
+                        window.SwachhitraUI?.toast({
+                            title: `${newOperationalAlerts.length} new operational notifications`,
+                            message: "Open Notifications in the Inspector dashboard to review the full list.",
+                            kind: "info"
+                        });
+                    }
                 }
             }
 
@@ -5303,12 +5299,13 @@ activeRoutesList?.addEventListener(
                 routeId
             );
 
-        const confirmed =
-            window.confirm(
-                route
-                    ? `Cancel route ${route.id}?`
-                    : "Cancel this route?"
-            );
+        const confirmed = await window.SwachhitraUI.confirm({
+            title: route ? `Cancel route ${route.id}?` : "Cancel this route?",
+            message: "The route will be marked cancelled and will no longer be available for normal collection work.",
+            confirmText: "Cancel route",
+            cancelText: "Keep route",
+            danger: true
+        });
 
         if (!confirmed) {
             return;
@@ -6303,10 +6300,13 @@ editRouteForm?.addEventListener(
                     return;
                 }
 
-                const confirmed =
-                    window.confirm(
-                        "Deactivate this vehicle? It will remain visible in the fleet registry and can be reactivated later."
-                    );
+                const confirmed = await window.SwachhitraUI.confirm({
+                    title: "Deactivate this vehicle?",
+                    message: "The vehicle will remain visible in the fleet registry and can be reactivated later. It will no longer be available for new active assignments.",
+                    confirmText: "Deactivate vehicle",
+                    cancelText: "Keep vehicle",
+                    danger: true
+                });
 
                 if (!confirmed) {
                     return;
@@ -6444,10 +6444,13 @@ editRouteForm?.addEventListener(
                     return;
                 }
 
-                const confirmed =
-                    window.confirm(
-                        "Deactivate this driver? It will remain visible in the driver registry and can be reactivated later."
-                    );
+                const confirmed = await window.SwachhitraUI.confirm({
+                    title: "Deactivate this Driver?",
+                    message: "The Driver will remain visible in the registry and can be reactivated later. Check their current assignments before continuing.",
+                    confirmText: "Deactivate Driver",
+                    cancelText: "Keep Driver active",
+                    danger: true
+                });
 
                 if (!confirmed) {
                     return;
@@ -7368,10 +7371,13 @@ editRouteForm?.addEventListener(
             }
 
             if (action === "delete") {
-                const confirmed =
-                    window.confirm(
-                        `Delete stop ${Number(stop.order)} · ${stop.name}?`
-                    );
+                const confirmed = await window.SwachhitraUI.confirm({
+                    title: `Delete collection stop ${Number(stop.order)}?`,
+                    message: `${stop.name || `Collection point ${Number(stop.order)}`} will be removed from this route plan. This action cannot be undone.`,
+                    confirmText: "Delete stop",
+                    cancelText: "Keep stop",
+                    danger: true
+                });
 
                 if (!confirmed) {
                     return;

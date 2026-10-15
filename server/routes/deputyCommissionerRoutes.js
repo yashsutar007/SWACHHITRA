@@ -3,6 +3,7 @@
 const express = require("express");
 const { requireRole } = require("../middleware/authMiddleware");
 const {
+    getMyNotifications,
     getCityOverview,
     getDivisionSupervision,
     getDivisionWards,
@@ -20,6 +21,7 @@ const router = express.Router();
 
 // All DC endpoints are restricted to the DC role; fleet endpoints are read-only.
 router.use(requireRole("deputy_commissioner"));
+router.get("/notifications", getMyNotifications);
 router.get("/overview", getCityOverview);
 router.get("/divisions", getDivisionSupervision);
 router.get("/divisions/:divisionId/wards", getDivisionWards);

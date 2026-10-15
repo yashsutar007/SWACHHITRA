@@ -466,8 +466,8 @@ test("Driver can report a full truck only for an active owned assignment and the
     assert.match(controller, /p\.ward_id = \?/);
     assert.match(controller, /p\.division_id = \?/);
     assert.match(inspectorClient, /NOTIFICATION_POLL_INTERVAL_MS = 15000/);
-    assert.match(inspectorClient, /item\.type === "truck_full_report"/);
-    assert.match(inspectorClient, /Truck-full report received/);
+    assert.match(inspectorClient, /!item\.is_read/);
+    assert.match(inspectorClient, /showIncomingNotification\(item, "Inspector update"\)/);
 });
 
 test("Truck-full report does not require a schema migration and avoids duplicate unread reports", () => {
@@ -545,8 +545,89 @@ test("Citizen complaints notify active Inspector(s) for the exact Ward without p
         complaintBlock.indexOf("for (const inspector of inspectorRows)")
     );
     assert.doesNotMatch(notificationMessage, /profile\.address|address_latitude|address_longitude/);
-    assert.ok(inspectorClient.includes('item.type === "citizen_complaint"'));
+    assert.ok(inspectorClient.includes('showIncomingNotification(item, "Inspector update")'));
+    assert.match(inspectorClient, /const newOperationalAlerts = refreshed\.filter\(item =>[\s\S]*?!item\.is_read/);
     assert.ok(inspectorClient.includes("startNotificationPolling()"));
+});
+
+test("Inspector route assignment changes notify affected Driver logins and include truck-full context when relevant", () => {
+    const inspectorController = read("server/controllers/inspectorController.js");
+    const driverController = read("server/controllers/driverController.js");
+    const driverRoutes = read("server/routes/driverRoutes.js");
+    const page = read("client/driverDash/driverDash.html");
+    const client = read("client/driverDash/driverDash.js");
+    const css = read("client/driverDash/driverDash.css");
+
+    assert.match(inspectorController, /async function notifyDriversOfRouteAssignmentChange\(/);
+    assert.match(inspectorController, /previousDriverId/);
+    assert.match(inspectorController, /nextDriverId/);
+    assert.match(inspectorController, /notification_type = 'truck_full_report'/);
+    assert.match(inspectorController, /This update supports remaining collection after a truck-full report/);
+    assert.match(inspectorController, /'route_assignment_changed', 'high'/);
+    assert.match(inspectorController, /if \(assignmentChangeRequested\) \{[\s\S]*?await notifyDriversOfRouteAssignmentChange\(/);
+    const directAssignmentBlock = inspectorController.slice(
+        inspectorController.indexOf("async function updateRouteAssignment("),
+        inspectorController.indexOf("async function removeRouteAssignment(")
+    );
+    assert.match(directAssignmentBlock, /if \(assignmentChanged\) \{[\s\S]*?await notifyDriversOfRouteAssignmentChange\(/);
+    const createRouteBlock = inspectorController.slice(
+        inspectorController.indexOf("async function createRoute("),
+        inspectorController.indexOf("async function updateRoute(")
+    );
+    assert.match(createRouteBlock, /await notifyDriversOfRouteAssignmentChange\(/);
+    assert.match(driverRoutes, /router\.get\("\/notifications", getMyNotifications\)/);
+    assert.match(driverRoutes, /router\.post\("\/notifications\/read", requireDriverMutationSecurity, markMyNotificationsRead\)/);
+    assert.match(driverController, /async function getMyNotifications\(req, res\)/);
+    assert.match(driverController, /n\.recipient_user_id = \?/);
+    assert.match(driverController, /async function markMyNotificationsRead\(req, res\)/);
+    assert.match(page, /id="driverNotifications"/);
+    assert.match(page, /id="driverNotificationNavCount"/);
+    assert.match(client, /async function refreshDriverNotifications\(/);
+    assert.match(client, /\/api\/driver\/notifications/);
+    assert.match(client, /DRIVER_NOTIFICATION_POLL_MS = 15000/);
+    assert.match(client, /function markDriverNotificationsRead\(/);
+    assert.match(css, /\.driver-notification-card\.is-unread/);
+    assert.match(css, /prefers-reduced-motion: reduce/);
+});
+
+
+test("Route detail and collection-stop changes notify the currently assigned Driver, with truck-full context and duplicate suppression", () => {
+    const inspectorController = read("server/controllers/inspectorController.js");
+    const driverCss = read("client/driverDash/driverDash.css");
+
+    assert.match(inspectorController, /async function notifyAssignedDriverOfRoutePlanChange\(/);
+    assert.match(inspectorController, /Your assigned route .* has changed because/);
+    assert.match(inspectorController, /This change supports remaining collection after a truck-full report/);
+    assert.match(inspectorController, /INTERVAL 2 MINUTE/);
+
+    const routeUpdateBlock = inspectorController.slice(
+        inspectorController.indexOf("async function updateRoute("),
+        inspectorController.indexOf("async function getRouteStopsForInspector(")
+    );
+    assert.match(routeUpdateBlock, /updates\.length && !assignmentChangeRequested && currentAssignment[\s\S]*?notifyAssignedDriverOfRoutePlanChange/);
+
+    const createStopBlock = inspectorController.slice(
+        inspectorController.indexOf("async function createRouteStop("),
+        inspectorController.indexOf("async function updateRouteStop(")
+    );
+    assert.match(createStopBlock, /notifyAssignedDriverOfRoutePlanChange/);
+
+    const updateStopBlock = inspectorController.slice(
+        inspectorController.indexOf("async function updateRouteStop("),
+        inspectorController.indexOf("async function deleteRouteStop(")
+    );
+    assert.match(updateStopBlock, /notifyAssignedDriverOfRoutePlanChange/);
+
+    const deleteStopBlock = inspectorController.slice(
+        inspectorController.indexOf("async function deleteRouteStop("),
+        inspectorController.indexOf("async function createVehicle(")
+    );
+    assert.match(deleteStopBlock, /notifyAssignedDriverOfRoutePlanChange/);
+
+    assert.match(driverCss, /driver-notifications-panel::before/);
+    assert.match(driverCss, /driver-notification-card\.is-unread/);
+    assert.match(driverCss, /driver-notification-accent/);
+    assert.match(driverCss, /prefers-reduced-motion: reduce/);
 });
 
 console.log(`\\nDriver Navigation: ${passed} passed, ${failed} failed`);
