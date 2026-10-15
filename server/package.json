@@ -17,7 +17,8 @@
     "test:driver": "node tests/driver-regression.test.js",
     "test:staff-account": "node tests/staff-account-provisioning.test.js",
     "test:static": "node tests/notification-ui-regression.test.js && node tests/ward-creation-regression.test.js && node tests/profile-routing-regression.test.js && node tests/staff-account-provisioning.test.js && node tests/driver-regression.test.js && node tests/deputy-commissioner.test.js",
-    "test:staff-recovery": "node tests/staff-password-recovery.test.js"
+    "test:staff-recovery": "node tests/staff-password-recovery.test.js",
+    "test:pre-demo": "npm run test:static && npm run test:account-security && npm run test:citizen && npm run test:deployment"
   },
   "dependencies": {
     "bcryptjs": "^3.0.0",

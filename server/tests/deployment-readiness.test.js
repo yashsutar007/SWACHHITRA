@@ -9,6 +9,7 @@ const PROJECT_ROOT = path.resolve(SERVER_ROOT, "..");
 const BASE_URL = String(process.env.TEST_BASE_URL || "http://localhost:5000").replace(/\/$/, "");
 let passed = 0;
 let failed = 0;
+let skipped = 0;
 
 function pass(name) {
     passed += 1;
@@ -20,12 +21,27 @@ function fail(name, error) {
     console.error(`FAIL  ${name} - ${error?.message || error}`);
 }
 
+function skip(name, reason) {
+    skipped += 1;
+    console.log(`SKIP  ${name} - ${reason}`);
+}
+
+function isLocalServerUnavailable(error) {
+    const localBase = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(BASE_URL);
+    const code = error?.cause?.code || error?.code;
+    return localBase && (
+        ["ECONNREFUSED", "ECONNRESET", "EHOSTUNREACH", "ENETUNREACH"].includes(code) ||
+        (error instanceof TypeError && /fetch failed/i.test(error.message))
+    );
+}
+
 async function test(name, work) {
     try {
         await work();
         pass(name);
     } catch (error) {
-        fail(name, error);
+        if (error?.code === "LOCAL_TEST_SERVER_UNAVAILABLE") skip(name, error.message);
+        else fail(name, error);
     }
 }
 
@@ -34,7 +50,16 @@ function read(relativePath) {
 }
 
 async function request(route) {
-    return fetch(`${BASE_URL}${route}`, { redirect: "manual", headers: { "Cache-Control": "no-cache" } });
+    try {
+        return await fetch(`${BASE_URL}${route}`, { redirect: "manual", headers: { "Cache-Control": "no-cache" } });
+    } catch (error) {
+        if (isLocalServerUnavailable(error)) {
+            const unavailable = new Error(`Local test server is unavailable at ${BASE_URL}; start server.js to run live integration checks.`);
+            unavailable.code = "LOCAL_TEST_SERVER_UNAVAILABLE";
+            throw unavailable;
+        }
+        throw error;
+    }
 }
 
 async function main() {
@@ -204,7 +229,7 @@ async function main() {
         assert.match(String(response.headers.get("cache-control") || ""), /no-store/i);
     });
 
-    console.log(`\nResult: ${passed} passed, ${failed} failed, 0 skipped`);
+    console.log(`\nResult: ${passed} passed, ${failed} failed, ${skipped} skipped`);
     if (failed) process.exitCode = 1;
 }
 

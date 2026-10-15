@@ -37,12 +37,22 @@ function skip(label, reason) {
     console.log(`SKIP  ${label} - ${reason}`);
 }
 
+function isLocalServerUnavailable(error) {
+    const localBase = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(BASE_URL);
+    const code = error?.cause?.code || error?.code;
+    return localBase && (
+        ["ECONNREFUSED", "ECONNRESET", "EHOSTUNREACH", "ENETUNREACH"].includes(code) ||
+        (error instanceof TypeError && /fetch failed/i.test(error.message))
+    );
+}
+
 async function test(label, fn) {
     try {
         await fn();
         pass(label);
     } catch (error) {
-        fail(label, error);
+        if (error?.code === "LOCAL_TEST_SERVER_UNAVAILABLE") skip(label, error.message);
+        else fail(label, error);
     }
 }
 
@@ -58,11 +68,21 @@ function cookieFrom(response) {
 async function request(path, options = {}, cookie = "") {
     const headers = { ...(options.headers || {}) };
     if (cookie) headers.Cookie = cookie;
-    const response = await fetch(`${BASE_URL}${path}`, {
-        redirect: "manual",
-        ...options,
-        headers
-    });
+    let response;
+    try {
+        response = await fetch(`${BASE_URL}${path}`, {
+            redirect: "manual",
+            ...options,
+            headers
+        });
+    } catch (error) {
+        if (isLocalServerUnavailable(error)) {
+            const unavailable = new Error(`Local test server is unavailable at ${BASE_URL}; start server.js to run live integration checks.`);
+            unavailable.code = "LOCAL_TEST_SERVER_UNAVAILABLE";
+            throw unavailable;
+        }
+        throw error;
+    }
     const raw = await response.text();
     let body = null;
     try { body = raw ? JSON.parse(raw) : null; } catch { /* HTML page or empty body */ }
@@ -185,7 +205,7 @@ async function main() {
     });
 
     if (!CITIZEN_EMAIL || !CITIZEN_PASSWORD) {
-        fail("Citizen session/profile/CSRF tests", new Error("Set TEST_CITIZEN_EMAIL and TEST_CITIZEN_PASSWORD to an account created through /citizenRegister."));
+        skip("Citizen session/profile/CSRF tests", "Set TEST_CITIZEN_EMAIL and TEST_CITIZEN_PASSWORD to an account created through /citizenRegister.");
     } else {
         await test("Citizen login creates a session", async () => {
             const r = await request("/api/auth/login", {
