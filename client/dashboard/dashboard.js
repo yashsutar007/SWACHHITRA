@@ -40,7 +40,22 @@ document.addEventListener("DOMContentLoaded", () => {
             status: "Collecting",
             fill: 68,
             eta: "14 min",
-            position: [16.7050, 74.2433]
+            position: [16.7050, 74.2433],
+            // Public-demo waypoints are approximate and are snapped to real roads by OSRM.
+            routeStops: [
+                [16.7050, 74.2433],
+                [16.7084, 74.2446],
+                [16.7103, 74.2481],
+                [16.7073, 74.2510],
+                [16.7031, 74.2505],
+                [16.7017, 74.2464],
+                [16.7032, 74.2428],
+                [16.7050, 74.2433]
+            ],
+            routeGeometry: [],
+            routeStopPoints: [],
+            routeProgressIndex: 0,
+            routeDirection: 1
         },
         {
             id: "TRK-031",
@@ -50,7 +65,20 @@ document.addEventListener("DOMContentLoaded", () => {
             status: "En route",
             fill: 42,
             eta: "09 min",
-            position: [16.7135, 74.2352]
+            position: [16.7135, 74.2352],
+            routeStops: [
+                [16.7135, 74.2352],
+                [16.7168, 74.2364],
+                [16.7185, 74.2408],
+                [16.7156, 74.2440],
+                [16.7116, 74.2413],
+                [16.7102, 74.2377],
+                [16.7135, 74.2352]
+            ],
+            routeGeometry: [],
+            routeStopPoints: [],
+            routeProgressIndex: 0,
+            routeDirection: 1
         },
         {
             id: "TRK-045",
@@ -60,7 +88,20 @@ document.addEventListener("DOMContentLoaded", () => {
             status: "Collecting",
             fill: 81,
             eta: "06 min",
-            position: [16.6969, 74.2515]
+            position: [16.6969, 74.2515],
+            routeStops: [
+                [16.6969, 74.2515],
+                [16.6948, 74.2561],
+                [16.6915, 74.2567],
+                [16.6898, 74.2524],
+                [16.6925, 74.2481],
+                [16.6960, 74.2473],
+                [16.6969, 74.2515]
+            ],
+            routeGeometry: [],
+            routeStopPoints: [],
+            routeProgressIndex: 0,
+            routeDirection: 1
         }
     ];
 
@@ -69,7 +110,6 @@ document.addEventListener("DOMContentLoaded", () => {
     let simulationTimer = null;
 
     const truckMarkers = new Map();
-
     /*
      * -------------------------------------------------------------
      * HELPERS
@@ -346,24 +386,28 @@ document.addEventListener("DOMContentLoaded", () => {
      * -------------------------------------------------------------
      */
 
-    function truckIcon(status) {
+    function truckIcon(truck) {
+        const markerLabel = `${truck.id}, simulated public demonstration vehicle`;
+        const statusClass = truck.status === "En route" ? "enroute" : "collecting";
+
         return L.divIcon({
             className: "",
             html: `
-                <div
-                    class="custom-truck-marker ${
-                        status === "En route"
-                            ? "enroute"
-                            : ""
-                    }"
-                    title="${escapeHTML(status)}"
-                >
-                    <span>▣</span>
+                <div class="custom-truck-marker gps-live ${statusClass}"
+                     role="img"
+                     aria-label="${escapeHTML(markerLabel)}"
+                     title="${escapeHTML(truck.id)} · demo movement">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M3 6.5h11v9H3z"></path>
+                        <path d="M14 10h4l3 3v2.5h-7z"></path>
+                        <circle cx="7" cy="18" r="2"></circle>
+                        <circle cx="18" cy="18" r="2"></circle>
+                    </svg>
                 </div>
             `,
-            iconSize: [34, 34],
-            iconAnchor: [17, 17],
-            popupAnchor: [0, -17]
+            iconSize: [28, 28],
+            iconAnchor: [14, 14],
+            popupAnchor: [0, -14]
         });
     }
 
@@ -425,9 +469,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const marker = L.marker(
                 truck.position,
                 {
-                    icon: truckIcon(
-                        truck.status
-                    ),
+                    icon: truckIcon(truck),
                     title: truck.id,
                     riseOnHover: true
                 }
@@ -452,56 +494,189 @@ document.addEventListener("DOMContentLoaded", () => {
                 truck.id,
                 marker
             );
+            updateTruckHeading(truck, marker);
         });
     }
 
+    function validDemoRoutePoints(points) {
+        return Array.isArray(points) && points.length >= 2 && points.every(point =>
+            Array.isArray(point) && point.length >= 2 &&
+            Number.isFinite(Number(point[0])) && Number(point[0]) >= -90 && Number(point[0]) <= 90 &&
+            Number.isFinite(Number(point[1])) && Number(point[1]) >= -180 && Number(point[1]) <= 180
+        );
+    }
+
+    async function fetchDemoRoadGeometry(truck) {
+        if (!validDemoRoutePoints(truck.routeStops)) {
+            return null;
+        }
+
+        const coordinates = truck.routeStops
+            .map(([latitude, longitude]) => `${Number(longitude)},${Number(latitude)}`)
+            .join(";");
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), 8500);
+
+        try {
+            const response = await fetch(
+                `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=false`,
+                {
+                    method: "GET",
+                    headers: { Accept: "application/json" },
+                    credentials: "omit",
+                    signal: controller.signal
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(`OSRM returned HTTP ${response.status}.`);
+            }
+
+            const payload = await response.json();
+            const geometry = payload?.routes?.[0]?.geometry?.coordinates;
+
+            if (payload?.code !== "Ok" || !Array.isArray(geometry) || geometry.length < 2) {
+                throw new Error(payload?.message || "OSRM returned no usable road geometry.");
+            }
+
+            const points = geometry
+                .map(coordinate => [Number(coordinate[1]), Number(coordinate[0])])
+                .filter(point => Number.isFinite(point[0]) && Number.isFinite(point[1]));
+
+            if (points.length < 2) {
+                throw new Error("OSRM road geometry contained too few valid points.");
+            }
+
+            const snappedStops = Array.isArray(payload?.waypoints)
+                ? payload.waypoints
+                    .map(waypoint => waypoint?.location)
+                    .filter(location => Array.isArray(location) && location.length >= 2)
+                    .map(([longitude, latitude]) => [Number(latitude), Number(longitude)])
+                    .filter(point => Number.isFinite(point[0]) && Number.isFinite(point[1]))
+                : [];
+
+            return { points, snappedStops };
+        } catch (error) {
+            console.warn(
+                `Public demo road route unavailable for ${truck.id}; no straight-line substitute will be drawn.`,
+                error?.name === "AbortError" ? "Routing request timed out." : (error?.message || error)
+            );
+            return null;
+        } finally {
+            window.clearTimeout(timeoutId);
+        }
+    }
+
+    async function loadDemoRoadRoutes() {
+        await Promise.all(trucks.map(async truck => {
+            const result = await fetchDemoRoadGeometry(truck);
+            if (!result) {
+                truck.routeGeometry = [];
+                truck.routeStopPoints = [];
+                return;
+            }
+
+            truck.routeGeometry = result.points;
+            truck.routeStopPoints = result.snappedStops;
+            truck.routeProgressIndex = 0;
+            truck.routeDirection = 1;
+            // Begin exactly on the road-routed geometry returned by OSRM.
+            truck.position = [...result.points[0]];
+        }));
+    }
+
+    function routeColor(truck) {
+        return truck.status === "En route" ? "#b18728" : "#2f8f43";
+    }
+
     function drawDemoRoutes() {
-        if (!activeMap || trucks.length < 2) {
+        if (!activeMap) {
             return;
         }
 
-        /*
-         * Demonstration route lines only.
-         * They do not represent municipal database routes.
-         */
-        trucks.forEach((truck, index) => {
-            const next =
-                trucks[
-                    (index + 1) % trucks.length
-                ];
+        trucks.forEach(truck => {
+            const points = truck.routeGeometry;
+            if (!Array.isArray(points) || points.length < 2) {
+                return;
+            }
 
-            L.polyline(
-                [
-                    truck.position,
-                    [
-                        (
-                            truck.position[0] +
-                            next.position[0]
-                        ) / 2 + 0.006,
+            const color = routeColor(truck);
+            const casing = L.polyline(points, {
+                color: "#ffffff",
+                weight: 9,
+                opacity: 0.94,
+                lineCap: "round",
+                lineJoin: "round",
+                interactive: false
+            }).addTo(activeMap);
 
-                        (
-                            truck.position[1] +
-                            next.position[1]
-                        ) / 2 - 0.004
-                    ],
-                    next.position
-                ],
-                {
-                    color:
-                        index === 1
-                            ? "#9a7928"
-                            : "#547f36",
-                    weight: 4,
-                    opacity: 0.62,
-                    dashArray:
-                        index === 1
-                            ? "8 8"
-                            : "2 0",
-                    lineCap: "round",
-                    lineJoin: "round"
-                }
-            ).addTo(activeMap);
+            const route = L.polyline(points, {
+                color,
+                weight: 4.5,
+                opacity: 0.94,
+                dashArray: truck.status === "En route" ? "8 7" : null,
+                lineCap: "round",
+                lineJoin: "round"
+            }).addTo(activeMap);
+
+            route.bindPopup(`
+                <div class="truck-map-popup">
+                    <strong>${escapeHTML(truck.route)} · ${escapeHTML(truck.id)}</strong>
+                    <span>${escapeHTML(truck.zone)} · ${escapeHTML(truck.status)}</span>
+                    <span>Illustrative route snapped to the road network for this public demo.</span>
+                </div>
+            `);
+            route.on("click", () => focusTruck(truck));
+
+            const stopMarkers = [];
+            const stopPoints = truck.routeStopPoints || [];
+            stopPoints.slice(1, -1).forEach((point, index) => {
+                const stop = L.circleMarker(point, {
+                    radius: 3.5,
+                    color,
+                    weight: 2,
+                    fillColor: "#ffffff",
+                    fillOpacity: 1
+                }).addTo(activeMap);
+                stop.bindTooltip(`${escapeHTML(truck.route)} · Demo stop ${index + 1}`);
+                stopMarkers.push(stop);
+            });
+
         });
+    }
+
+    function getDemoMapBounds() {
+        const points = trucks.flatMap(truck =>
+            Array.isArray(truck.routeGeometry) && truck.routeGeometry.length >= 2
+                ? truck.routeGeometry
+                : [truck.position]
+        );
+        return L.latLngBounds(points);
+    }
+
+    function updateTruckHeading(truck, marker) {
+        const path = truck.routeGeometry;
+        if (!Array.isArray(path) || path.length < 2) {
+            return;
+        }
+
+        const currentIndex = Math.max(0, Math.min(path.length - 1, truck.routeProgressIndex));
+        const nextIndex = Math.max(0, Math.min(path.length - 1, currentIndex + truck.routeDirection));
+        const start = path[currentIndex];
+        const end = path[nextIndex];
+        const averageLatitude = ((start[0] + end[0]) / 2) * Math.PI / 180;
+        const screenDeltaX = (end[1] - start[1]) * Math.cos(averageLatitude);
+        const screenDeltaY = -(end[0] - start[0]);
+        if (Math.abs(screenDeltaX) + Math.abs(screenDeltaY) < 1e-10) {
+            return;
+        }
+
+        const heading = Math.atan2(screenDeltaY, screenDeltaX) * 180 / Math.PI;
+        const svg = marker.getElement()?.querySelector(".custom-truck-marker svg");
+        if (svg) {
+            svg.style.transformOrigin = "50% 50%";
+            svg.style.transform = `rotate(${heading}deg)`;
+        }
     }
 
     function focusTruck(truck) {
@@ -580,7 +755,7 @@ document.addEventListener("DOMContentLoaded", () => {
         );
     }
 
-    function initMap() {
+    async function initMap() {
         const mapElement =
             document.getElementById(
                 "trackingMap"
@@ -622,20 +797,26 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             ).addTo(activeMap);
 
-            addTruckMarkers();
+            await loadDemoRoadRoutes();
             drawDemoRoutes();
+            addTruckMarkers();
 
-            const bounds =
-                L.latLngBounds(
-                    trucks.map(
-                        (truck) =>
-                            truck.position
-                    )
+            const bounds = getDemoMapBounds();
+
+            const failedRoutes = trucks.filter(
+                truck => !Array.isArray(truck.routeGeometry) || truck.routeGeometry.length < 2
+            ).length;
+            if (failedRoutes > 0) {
+                showToast(
+                    failedRoutes === trucks.length
+                        ? "Road route preview is temporarily unavailable. Demo trucks remain visible."
+                        : `${failedRoutes} demo road route(s) could not be loaded.`
                 );
+            }
 
             if (trucks.length) {
                 activeMap.fitBounds(
-                    bounds.pad(0.35),
+                    bounds.pad(0.12),
                     {
                         padding: [
                             20,
@@ -684,47 +865,30 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        const offsets = [
-            [0.00075, 0.00050],
-            [-0.00048, 0.00082],
-            [0.00055, -0.00066]
-        ];
-
-        trucks.forEach(
-            (truck, index) => {
-                const marker =
-                    truckMarkers.get(
-                        truck.id
-                    );
-
-                if (!marker) {
-                    return;
-                }
-
-                const current =
-                    marker.getLatLng();
-
-                const nextLat =
-                    current.lat +
-                    offsets[index][0];
-
-                const nextLng =
-                    current.lng +
-                    offsets[index][1];
-
-                const nextPosition = [
-                    nextLat,
-                    nextLng
-                ];
-
-                marker.setLatLng(
-                    nextPosition
-                );
-
-                truck.position =
-                    nextPosition;
+        trucks.forEach(truck => {
+            const path = truck.routeGeometry;
+            const marker = truckMarkers.get(truck.id);
+            if (!marker || !Array.isArray(path) || path.length < 2) {
+                return;
             }
-        );
+
+            const step = Math.max(1, Math.ceil((path.length - 1) / 50));
+            let nextIndex = truck.routeProgressIndex + (truck.routeDirection * step);
+
+            if (nextIndex >= path.length - 1) {
+                nextIndex = path.length - 1;
+                truck.routeDirection = -1;
+            } else if (nextIndex <= 0) {
+                nextIndex = 0;
+                truck.routeDirection = 1;
+            }
+
+            truck.routeProgressIndex = nextIndex;
+            const nextPosition = path[nextIndex];
+            marker.setLatLng(nextPosition);
+            truck.position = [...nextPosition];
+            updateTruckHeading(truck, marker);
+        });
     }
 
     /*
@@ -742,16 +906,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 activeMap &&
                 trucks.length
             ) {
-                const bounds =
-                    L.latLngBounds(
-                        trucks.map(
-                            (truck) =>
-                                truck.position
-                        )
-                    );
+                const bounds = getDemoMapBounds();
 
                 activeMap.flyToBounds(
-                    bounds.pad(0.4),
+                    bounds.pad(0.12),
                     {
                         duration: 0.8,
                         maxZoom: 14

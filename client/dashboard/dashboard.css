@@ -1335,35 +1335,98 @@ button {
     box-shadow: var(--shadow-sm) !important;
 }
 
+/* Public-demo truck markers use the same SVG truck and fresh-location glow as the real modules. */
 .custom-truck-marker {
-    width: 34px;
-    height: 34px;
+    position: relative;
+    isolation: isolate;
+    overflow: visible;
+    width: 28px;
+    height: 28px;
     display: grid;
     place-items: center;
-    border: 3px solid #fff;
+    border: 2px solid #ffffff;
     border-radius: 50%;
-    color: #fff;
-    background: var(--olive-700);
-    box-shadow: 0 7px 18px rgba(26,54,18,.27);
-    position: relative;
+    color: #ffffff;
+    background: #416d27;
+    box-shadow: 0 4px 12px rgba(18, 43, 12, 0.24);
+    transition: transform 0.18s ease;
 }
 
-.custom-truck-marker::after {
-    content: "";
-    position: absolute;
-    inset: 3px;
-    border: 1px solid rgba(255,255,255,.38);
-    border-radius: inherit;
-}
-
-.custom-truck-marker.enroute {
-    background: #a07d25;
-}
-
-.custom-truck-marker span {
+.custom-truck-marker svg {
+    display: block;
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
     position: relative;
     z-index: 1;
-    font-size: 16px;
+}
+
+.custom-truck-marker.gps-live,
+.custom-truck-marker.gps-delayed,
+.custom-truck-marker.gps-stale,
+.custom-truck-marker.gps-unknown,
+.custom-truck-marker.collecting,
+.custom-truck-marker.enroute {
+    background: #416d27;
+    color: #ffffff;
+}
+
+.custom-truck-marker.gps-live {
+    z-index: 2;
+    box-shadow:
+        0 0 0 3px #ffffff,
+        0 0 0 5px #35b653,
+        0 0 0 8px rgba(42, 172, 70, 0.34),
+        0 4px 12px rgba(18, 43, 12, 0.28);
+}
+
+.custom-truck-marker.gps-live::before,
+.custom-truck-marker.gps-live::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: -5px;
+    border: 2px solid rgba(20, 139, 53, 0.90);
+    border-radius: 50%;
+    background: rgba(52, 211, 85, 0.48);
+    box-shadow: 0 0 0 3px rgba(52, 211, 85, 0.24);
+    opacity: 0;
+    pointer-events: none;
+    will-change: transform, opacity;
+    animation: public-demo-truck-live-pulse 2s cubic-bezier(0.16, 0.75, 0.28, 1) infinite;
+}
+
+.custom-truck-marker.gps-live::after {
+    animation-delay: 1s;
+    background: rgba(38, 198, 75, 0.40);
+    border-color: rgba(24, 129, 49, 0.82);
+}
+
+.custom-truck-marker:hover {
+    transform: scale(1.06);
+}
+
+@keyframes public-demo-truck-live-pulse {
+    0% { transform: scale(0.78); opacity: 0.82; background: rgba(52, 211, 85, 0.52); }
+    52% { opacity: 0.58; background: rgba(52, 211, 85, 0.42); }
+    100% { transform: scale(1.9); opacity: 0; background: rgba(52, 211, 85, 0.18); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .custom-truck-marker.gps-live::before,
+    .custom-truck-marker.gps-live::after {
+        animation: none !important;
+        opacity: 0.3;
+    }
+    .custom-truck-marker,
+    .custom-truck-marker:hover {
+        transition: none;
+        transform: none;
+    }
 }
 
 .truck-map-popup {
