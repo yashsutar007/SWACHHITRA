@@ -15,6 +15,11 @@ const {
     createCitizenComplaint,
     cancelCitizenComplaint
 } = require("../controllers/citizenController");
+const {
+    getCitizenPushConfig,
+    saveCitizenPushSubscription,
+    removeCitizenPushSubscription
+} = require("../controllers/citizenPushController");
 
 const router = express.Router();
 
@@ -26,6 +31,9 @@ router.get("/ward-areas", getCitizenWardAreas);
 router.get("/live-tracking", getCitizenLiveTracking);
 router.get("/notifications", getCitizenNotifications);
 router.put("/notifications/read", protectCitizenMutation, markCitizenNotificationsRead);
+router.get("/push/config", getCitizenPushConfig);
+router.post("/push/subscription", protectCitizenMutation, saveCitizenPushSubscription);
+router.delete("/push/subscription", protectCitizenMutation, removeCitizenPushSubscription);
 router.post("/profile", protectCitizenMutation, saveCitizenProfile);
 
 // Citizen complaint APIs. The controller derives the complaint Ward from

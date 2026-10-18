@@ -1,6 +1,7 @@
 "use strict";
 
 const db = require("../config/db");
+const { sendCitizenPush } = require("../services/citizenWebPush");
 
 function asNumber(value) {
     if (value === null || value === undefined || value === "") {
@@ -424,7 +425,7 @@ const GPS_ANNOUNCEMENT_DEDUPE_SECONDS = 20;
  * start/resume session with announceStart=true. Simulated positions never call
  * this path. No Citizen address or coordinates are inserted into notifications.
  */
-async function notifyNearbyCitizensOnGpsResume(connection, assignment, driver, gps) {
+async function notifyNearbyCitizensOnGpsResume(connection, assignment, driver, gps, pushQueue = []) {
     const wardId = Number(assignment?.ward_id);
     const zoneId = Number(assignment?.zone_id);
     const divisionId = Number(assignment?.division_id ?? assignment?.ward_division_id);
@@ -565,17 +566,22 @@ async function notifyNearbyCitizensOnGpsResume(connection, assignment, driver, g
             `The truck is estimated to reach the collection point serving your nearby area in approximately ${etaMinutes} minutes. ` +
             `This is a GPS-distance estimate; road layout and traffic may change the actual arrival time.`;
 
-        await connection.execute(
+        const title = `Collection truck approaching your area — ${wardLabel}`;
+        const [insertResult] = await connection.execute(
             `INSERT INTO notifications
                 (recipient_user_id, title, message, notification_type, priority, related_route_id)
              VALUES (?, ?, ?, 'route_start_eta', 'medium', ?)`,
-            [
-                userId,
-                `Collection truck approaching your area — ${wardLabel}`,
-                message,
-                routeId
-            ]
+            [userId, title, message, routeId]
         );
+        pushQueue.push({
+            userId,
+            notification: {
+                id: Number(insertResult.insertId),
+                title,
+                message,
+                type: "route_start_eta"
+            }
+        });
         recentlyNotified.add(userId);
         notificationsCreated += 1;
     }
@@ -1188,16 +1194,26 @@ async function updateMyLocation(req, res) {
         );
 
         let citizenNotificationsCreated = 0;
+        const citizenPushQueue = [];
         if (announceStart) {
             citizenNotificationsCreated = await notifyNearbyCitizensOnGpsResume(
                 connection,
                 assignment,
                 driver,
-                { latitude, longitude }
+                { latitude, longitude },
+                citizenPushQueue
             );
         }
 
         await connection.commit();
+        // Push delivery must happen after commit: never alert a Citizen about a
+        // notification that could still be rolled back. Push errors must not
+        // cause a valid GPS upload to fail.
+        for (const queued of citizenPushQueue) {
+            void sendCitizenPush(queued.userId, queued.notification).catch(error => {
+                console.warn("Citizen Web Push dispatch failed:", error?.code || "push_error");
+            });
+        }
         res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
         return res.json({
             success: true,

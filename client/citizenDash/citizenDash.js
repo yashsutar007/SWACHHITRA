@@ -632,6 +632,185 @@
     let citizenNotificationsInitialized = false;
     const knownCitizenNotificationIds = new Set();
 
+    let citizenPushConfig = null;
+    let citizenPushRegistration = null;
+    let citizenAudioContext = null;
+    let citizenPushActionInFlight = false;
+    const CITIZEN_SOUND_PREFERENCE_KEY = "swachhitraCitizenCustomSoundEnabled";
+
+    function setCitizenPushStatus(message, kind = "") {
+        const element = $("citizenPushStatus");
+        if (!element) return;
+        element.textContent = String(message || "");
+        element.className = `citizen-push-status ${kind}`.trim();
+    }
+
+    function citizenSoundPreferenceEnabled() {
+        try { return window.localStorage.getItem(CITIZEN_SOUND_PREFERENCE_KEY) === "true"; }
+        catch { return false; }
+    }
+
+    function unlockCitizenAudio() {
+        const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextConstructor) return Promise.resolve(false);
+        try {
+            if (!citizenAudioContext) citizenAudioContext = new AudioContextConstructor();
+            return citizenAudioContext.state === "suspended"
+                ? citizenAudioContext.resume().then(() => true).catch(() => false)
+                : Promise.resolve(citizenAudioContext.state === "running");
+        } catch {
+            return Promise.resolve(false);
+        }
+    }
+
+    // A short SWACHHITRA-specific three-note chime generated locally with Web Audio.
+    // This is foreground-only; closed-site Web Push sound is browser/OS-controlled.
+    function playCitizenNotificationSound() {
+        if (!citizenSoundPreferenceEnabled() || !citizenAudioContext || citizenAudioContext.state !== "running") return;
+        const ctx = citizenAudioContext;
+        const now = ctx.currentTime + 0.02;
+        const notes = [784, 988, 1174];
+        notes.forEach((frequency, index) => {
+            const start = now + index * 0.105;
+            const oscillator = ctx.createOscillator();
+            const gain = ctx.createGain();
+            oscillator.type = "sine";
+            oscillator.frequency.setValueAtTime(frequency, start);
+            gain.gain.setValueAtTime(0.0001, start);
+            gain.gain.exponentialRampToValueAtTime(0.13, start + 0.025);
+            gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.28);
+            oscillator.connect(gain);
+            gain.connect(ctx.destination);
+            oscillator.start(start);
+            oscillator.stop(start + 0.30);
+        });
+    }
+
+    function base64UrlToUint8Array(value) {
+        const normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
+        const padded = normalized + "=".repeat((4 - normalized.length % 4) % 4);
+        const binary = window.atob(padded);
+        const output = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) output[i] = binary.charCodeAt(i);
+        return output;
+    }
+
+    function pushBrowserSupported() {
+        return window.isSecureContext && "serviceWorker" in navigator &&
+            "PushManager" in window && "Notification" in window;
+    }
+
+    async function loadCitizenPushConfig() {
+        const button = $("enableCitizenPushButton");
+        if (button) button.disabled = true;
+        if (!pushBrowserSupported()) {
+            setCitizenPushStatus("This browser or connection does not support background notifications. Use the HTTPS site in a supported browser.", "error");
+            if (button) button.disabled = true;
+            return;
+        }
+        try {
+            citizenPushConfig = await api("/api/citizen/push/config");
+            if (!citizenPushConfig.enabled || !citizenPushConfig.publicKey) {
+                setCitizenPushStatus("Background notifications are not configured on the server yet.", "error");
+                if (button) button.disabled = true;
+                return;
+            }
+            citizenPushRegistration = await navigator.serviceWorker.register("/citizen-push-sw.js", { scope: "/" });
+            const existing = await citizenPushRegistration.pushManager.getSubscription();
+            if (existing) {
+                // Re-sync a saved browser subscription to this signed-in Citizen.
+                await mutate("/api/citizen/push/subscription", "POST", { subscription: existing.toJSON() });
+                if (button) button.textContent = "Turn off background notifications";
+                setCitizenPushStatus("Background notifications are enabled on this browser.", "enabled");
+            } else if (Notification.permission === "denied") {
+                if (button) button.disabled = true;
+                setCitizenPushStatus("Notifications are blocked by your browser. Change this site's notification permission in browser settings.", "error");
+            } else {
+                if (button) button.textContent = "Enable background notifications";
+                setCitizenPushStatus("Allow SWACHHITRA notifications to receive Ward alerts when the site is closed.", "");
+            }
+            if (button) button.disabled = false;
+        } catch (error) {
+            setCitizenPushStatus(error.message || "Unable to prepare background notifications. Try refreshing the page.", "error");
+            if (button) button.disabled = true;
+        }
+    }
+
+    async function toggleCitizenPushNotifications() {
+        const button = $("enableCitizenPushButton");
+        if (!button || citizenPushActionInFlight || !citizenPushConfig?.enabled) return;
+        citizenPushActionInFlight = true;
+        button.disabled = true;
+        const audioReady = unlockCitizenAudio();
+        // Request permission synchronously from the user gesture before any
+        // awaited subscription/network work can consume the browser activation.
+        const isEnabling = button.textContent.toLowerCase().includes("enable");
+        const permissionPromise = isEnabling && Notification.permission === "default"
+            ? Notification.requestPermission()
+            : Promise.resolve(Notification.permission);
+        try {
+            if (!citizenPushRegistration) {
+                citizenPushRegistration = await navigator.serviceWorker.register("/citizen-push-sw.js", { scope: "/" });
+            }
+            let subscription = await citizenPushRegistration.pushManager.getSubscription();
+            if (subscription) {
+                await mutate("/api/citizen/push/subscription", "DELETE", { endpoint: subscription.endpoint });
+                await subscription.unsubscribe();
+                try { window.localStorage.removeItem(CITIZEN_SOUND_PREFERENCE_KEY); } catch { /* optional preference */ }
+                setCitizenPushStatus("Background notifications and the custom in-page chime are disabled on this browser.", "");
+                button.textContent = "Enable background notifications";
+                return;
+            }
+
+            const permission = await permissionPromise;
+            if (permission !== "granted") {
+                setCitizenPushStatus(permission === "denied"
+                    ? "Notifications are blocked. Allow them in your browser's site settings, then try again."
+                    : "Notification permission was not granted.", "error");
+                return;
+            }
+
+            const applicationServerKey = base64UrlToUint8Array(citizenPushConfig.publicKey);
+            subscription = await citizenPushRegistration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey
+            });
+            await mutate("/api/citizen/push/subscription", "POST", { subscription: subscription.toJSON() });
+            try { window.localStorage.setItem(CITIZEN_SOUND_PREFERENCE_KEY, "true"); } catch { /* optional preference */ }
+            await audioReady;
+            setCitizenPushStatus("Enabled. You can receive Ward notifications when SWACHHITRA is closed; the custom chime plays while the dashboard is open.", "enabled");
+            button.textContent = "Turn off background notifications";
+            window.SwachhitraUI?.toast({ title: "Citizen alerts enabled", message: "Background Ward alerts are active on this browser.", kind: "success" });
+        } catch (error) {
+            setCitizenPushStatus(error.message || "Unable to enable background notifications. Check browser permission and try again.", "error");
+            const subscription = citizenPushRegistration ? await citizenPushRegistration.pushManager.getSubscription().catch(() => null) : null;
+            if (subscription) button.textContent = "Turn off background notifications";
+            else button.textContent = "Enable background notifications";
+        } finally {
+            citizenPushActionInFlight = false;
+            button.disabled = false;
+        }
+    }
+
+    $("enableCitizenPushButton")?.addEventListener("click", () => {
+        void toggleCitizenPushNotifications();
+    });
+
+    navigator.serviceWorker?.addEventListener("message", event => {
+        if (event.data?.type === "SWACHHITRA_CITIZEN_PUSH") {
+            void loadCitizenNotifications(false);
+        }
+    });
+
+    // If audio is suspended after a page load, the Citizen's next direct
+    // interaction unlocks it without prompting or playing sound unsolicited.
+    document.addEventListener("pointerdown", () => {
+        if (citizenSoundPreferenceEnabled()) void unlockCitizenAudio();
+    }, { passive: true });
+    document.addEventListener("keydown", () => {
+        if (citizenSoundPreferenceEnabled()) void unlockCitizenAudio();
+    });
+
     function setCitizenNotificationsStatus(message, kind = "") {
         const element = $("citizenNotificationsStatus");
         if (!element) return;
@@ -698,6 +877,7 @@
             renderCitizenNotifications();
 
             if (newlyArrived.length) {
+                playCitizenNotificationSound();
                 newlyArrived.slice(0, 2).forEach(item => window.SwachhitraUI?.showIncomingNotification(item, "Citizen service update"));
                 if (newlyArrived.length > 2) {
                     window.SwachhitraUI?.toast({
@@ -843,6 +1023,7 @@
             await loadCsrfToken();
             await loadComplaints(false);
             startCitizenNotificationsPolling();
+            void loadCitizenPushConfig();
         } catch (error) {
             console.error("Citizen dashboard initialization failed:", error);
             setNotice(error.message || "Unable to load the Citizen dashboard.", "error");

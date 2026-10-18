@@ -1,11 +1,12 @@
 .env
 .env.local
 .env.*.local
-
+.env.*
 !.env.example
-
+*.key
 node_modules/
 *.log
 npm-debug.log*
 .DS_Store
 Thumbs.db
+*.pem

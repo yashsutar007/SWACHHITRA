@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="SWACHHITRA Citizen Portal for Ward-based sanitation complaints and tracking">
+    <meta name="theme-color" content="#244a24">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="SWACHHITRA">
+    <link rel="manifest" href="/citizen.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/logo.png">
     <title>SWACHHITRA | Citizen Portal</title>
     <link rel="stylesheet" href="/shared/swachhitra-ui.css">
     <link rel="stylesheet" href="/citizenDash/citizenDash.css">
@@ -178,6 +183,17 @@
                 </div>
                 <div id="citizenNotificationsList" class="citizen-notifications-list" aria-live="polite">
                     <div class="loading-state"><span class="loading-spinner" aria-hidden="true"></span><p>Loading service notifications…</p></div>
+                </div>
+                <div class="citizen-push-optin" id="citizenPushOptInPanel" aria-labelledby="citizenPushOptInHeading">
+                    <div class="citizen-push-optin-copy">
+                        <span class="citizen-push-optin-icon" aria-hidden="true">♧</span>
+                        <div>
+                            <strong id="citizenPushOptInHeading">Get collection alerts when SWACHHITRA is closed</strong>
+                            <p id="citizenPushStatus" role="status" aria-live="polite">Enable browser notifications to receive Ward updates in the background.</p>
+                            <small>Custom SWACHHITRA chime plays while the dashboard is open. When it is closed, sound is controlled by your device/browser settings. Enable on your personal device because alerts may appear on its lock screen.</small>
+                        </div>
+                    </div>
+                    <button id="enableCitizenPushButton" class="secondary-button citizen-push-enable-button" type="button">Enable background notifications</button>
                 </div>
             </section>
 

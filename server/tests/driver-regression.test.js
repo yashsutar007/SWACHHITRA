@@ -484,7 +484,7 @@ test("Starting or resuming real GPS sharing sends approximate ETA notices only t
     const client = read("client/driverDash/driverDash.js");
     assert.match(controller, /function gpsDistanceMeters\(lat1, lon1, lat2, lon2\)/);
     assert.match(controller, /CITIZEN_ROUTE_STOP_RADIUS_METERS = 750/);
-    assert.match(controller, /async function notifyNearbyCitizensOnGpsResume\(connection, assignment, driver, gps\)/);
+    assert.match(controller, /async function notifyNearbyCitizensOnGpsResume\(connection, assignment, driver, gps, pushQueue = \[\]\)/);
     assert.match(controller, /req\.body\?\.announceStart === true/);
     assert.match(controller, /status IN \('pending', 'in_progress'\)/);
     assert.match(controller, /citizen_profile\.ward_id = \?/);

@@ -806,6 +806,18 @@ const REQUIRED_RUNTIME_TABLES = [
     "sessions"
 ];
 
+// The Citizen Web Push table is required only when the operator enables
+// background notifications. This lets the existing site keep working while
+// push remains unconfigured, while readiness catches a missing migration.
+const hasCitizenWebPushConfig = [
+    "WEB_PUSH_VAPID_PUBLIC_KEY",
+    "WEB_PUSH_VAPID_PRIVATE_KEY",
+    "WEB_PUSH_VAPID_SUBJECT"
+].every(name => String(process.env[name] || "").trim());
+if (hasCitizenWebPushConfig) {
+    REQUIRED_RUNTIME_TABLES.push("citizen_push_subscriptions");
+}
+
 app.get("/api/ready", async (req, res) => {
     try {
         await db.execute("SELECT 1");
